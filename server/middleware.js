@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { isBizAdmin } from './roles.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'atm-cleaning-dev-secret';
 
@@ -29,9 +30,17 @@ export function authMiddleware(req, res, next) {
 
 export function requireRole(...roles) {
   return (req, res, next) => {
+    if (isBizAdmin(req.user)) return next();
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({ error: 'Недостаточно прав' });
     }
     next();
   };
+}
+
+export function requireBizAdmin(req, res, next) {
+  if (!isBizAdmin(req.user)) {
+    return res.status(403).json({ error: 'Доступ только для бизнес-администратора' });
+  }
+  next();
 }

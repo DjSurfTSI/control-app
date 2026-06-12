@@ -74,11 +74,13 @@ atm-cleaning-control/
 │       │   └── AuthContext.jsx # Глобальное состояние авторизации
 │       ├── components/         # Переиспользуемые UI-блоки
 │       ├── pages/              # Экраны (маршруты)
+│       │   ├── Settings.jsx    # Настройки CV (только bizadmin)
 │       ├── hooks/              # Бизнес-логика UI (уведомления)
 │       └── utils.js            # Константы, форматирование
 │
 ├── server/                     # Backend
 │   ├── db.js                   # Схема БД, сиды, миграции
+│   ├── roles.js                # Роли: bizadmin, isManager, hasRoleAccess
 │   ├── middleware.js           # JWT, проверка ролей
 │   ├── push.js                 # Push-уведомления (web-push)
 │   ├── index.js                # Точка входа Express
@@ -87,14 +89,20 @@ atm-cleaning-control/
 │   │   ├── schemas.js          # Форматы ответов для v1 API
 │   │   └── webhooks.js         # Исходящие webhook-события
 │   ├── cv/                     # CV-проверка фотоотчётов
-│   │   ├── atmDetector.js      # CLIP zero-shot: банкомат на фото
+│   │   ├── atmDetector.js      # CLIP zero-shot: банкомат Сбербанка на фото
+│   │   ├── settings.js         # Настройки CV (cv_settings в БД)
 │   │   └── validatePhotos.js   # Проверка ракурсов и сохранение результата
+│   ├── utils/
+│   │   └── optimizePhoto.js    # Сжатие и ресайз фото (sharp)
+│   ├── middleware/
+│   │   └── errorHandler.js     # Обработка ошибок API
 │   ├── routes/
 │   │   ├── auth.js
 │   │   ├── users.js
 │   │   ├── atms.js
 │   │   ├── tasks.js
 │   │   ├── photos.js
+│   │   ├── settings.js         # GET/PATCH /api/settings/cv (bizadmin)
 │   │   ├── notifications.js
 │   │   └── integration.js      # v1 API + admin endpoints
 │   └── uploads/                # Фотоотчёты (файловое хранилище)
@@ -113,11 +121,11 @@ atm-cleaning-control/
 | API | Express 4 | REST без лишней сложности |
 | БД | SQLite (`node:sqlite`) | Файл `atm-cleaning.db`, без отдельного сервера СУБД |
 | Авторизация | JWT + bcryptjs | Stateless-сессии |
-| Файлы | Multer | Загрузка фото на диск |
+| Файлы | Multer + **sharp** | Загрузка, сжатие и ресайз фото на диск |
 | Отчёты | SheetJS (`xlsx`) | Импорт и экспорт Excel |
 | Push | web-push + Service Worker | Фоновые уведомления |
 | PWA | manifest.json + sw.js | Установка на мобильный экран |
-| CV | CLIP (`@xenova/transformers`) | Проверка наличия банкомата на фото |
+| CV | CLIP (`@xenova/transformers`) | Банкомат Сбербанка (зелёный/серый) на фото |
 | Интеграция | API Key + Webhooks | Обмен данными с ERP/CRM/1С |
 
 ---
@@ -139,7 +147,7 @@ erDiagram
         string email UK
         string password_hash
         string full_name
-        string role "admin | supervisor | cleaner"
+        string role "bizadmin | admin | supervisor | cleaner"
         string phone
         int active
         datetime created_at
@@ -209,6 +217,15 @@ erDiagram
         int status_code
         datetime created_at
     }
+
+    cv_settings {
+        int id PK "singleton id=1"
+        int enabled
+        real threshold
+        real margin
+        datetime updated_at
+        int updated_by FK
+    }
 ```
 
 ### Универсальные аналоги для других проектов
@@ -221,6 +238,7 @@ erDiagram
 | `task_photos` | Доказательства выполнения |
 | `push_subscriptions` | Подписки на события |
 | `api_clients` | Внешние системы с API-ключами |
+| `cv_settings` | Параметры CV (вкл/выкл, порог, запас) — управление через bizadmin |
 | `external_id` | Связь записей между АС |
 
 ---
@@ -288,6 +306,13 @@ X-API-Key: atk_dev_integration_key_2026
 
 ## 5. Роли и доступ к Internal API
 
+Роли определены в `server/roles.js`. Роль **`bizadmin`** (бизнес-администратор) автоматически проходит любую проверку `requireRole(...)` и объединяет права **admin** и **supervisor**. Дополнительно доступны только ей:
+
+- UI: `/settings` — включение CV, порог (`threshold`) и запас (`margin`)
+- API: `GET/PATCH /api/settings/cv`
+
+Администратор (`admin`) не может создавать, редактировать или удалять учётные записи `bizadmin`.
+
 ```mermaid
 flowchart LR
     Request[HTTP запрос] --> Auth{JWT валиден?}
@@ -298,25 +323,28 @@ flowchart LR
     Handler --> DB[(SQLite)]
 ```
 
-| Маршрут | admin | supervisor | cleaner | Описание |
-|---------|:-----:|:----------:|:-------:|----------|
-| `POST /api/auth/login` | ✓ | ✓ | ✓ | Вход |
-| `GET /api/auth/me` | ✓ | ✓ | ✓ | Текущий пользователь |
-| `GET /api/tasks` | все | все | только свои | Список заявок |
-| `POST /api/tasks` | ✓ | ✓ | — | Создание заявки |
-| `POST /api/tasks/import` | ✓ | ✓ | — | Импорт из Excel |
-| `GET /api/tasks/export` | ✓ | ✓ | — | Экспорт в Excel |
-| `PATCH /api/tasks/:id` | ✓ | ✓ | свои | Изменение / завершение |
-| `GET /api/atms` | ✓ | ✓ | ✓ | Список банкоматов |
-| `POST /api/atms` | ✓ | ✓ | — | Добавление банкомата |
-| `GET /api/users` | все | только cleaner | — | Список пользователей |
-| `POST /api/users` | все роли | только cleaner | — | Создание учётной записи |
-| `DELETE /api/users/:id` | ✓ | cleaner | — | Удаление / деактивация |
-| `POST /api/photos/:taskId` | ✓ | ✓ | свои | Загрузка фото + CV-проверка |
-| `GET /api/photos/:taskId` | ✓ | ✓ | свои* | Список фото (`cv_detected`, `cv_confidence`) |
-| `POST /api/notifications/subscribe` | ✓ | ✓ | ✓ | Подписка на push |
+| Маршрут | bizadmin | admin | supervisor | cleaner | Описание |
+|---------|:--------:|:-----:|:----------:|:-------:|----------|
+| `POST /api/auth/login` | ✓ | ✓ | ✓ | ✓ | Вход |
+| `GET /api/auth/me` | ✓ | ✓ | ✓ | ✓ | Текущий пользователь |
+| `GET /api/tasks` | все | все | все | только свои | Список заявок |
+| `POST /api/tasks` | ✓ | ✓ | ✓ | — | Создание заявки |
+| `POST /api/tasks/import` | ✓ | ✓ | ✓ | — | Импорт из Excel |
+| `GET /api/tasks/export` | ✓ | ✓ | ✓ | — | Экспорт в Excel |
+| `PATCH /api/tasks/:id` | ✓ | ✓ | ✓ | свои | Изменение / завершение |
+| `GET /api/atms` | ✓ | ✓ | ✓ | ✓ | Список банкоматов |
+| `POST /api/atms` | ✓ | ✓ | ✓ | — | Добавление банкомата |
+| `GET /api/users` | все | все | только cleaner | — | Список пользователей |
+| `POST /api/users` | все роли | admin/supervisor/cleaner | только cleaner | — | Создание учётной записи |
+| `DELETE /api/users/:id` | ✓ | ✓* | cleaner | — | Удаление / деактивация |
+| `POST /api/photos/:taskId` | ✓ | ✓ | ✓ | свои | Загрузка → сжатие → CV в фоне |
+| `GET /api/photos/:taskId` | ✓ | ✓ | ✓ | свои* | Список фото (`cv_detected`, `cv_confidence`) |
+| `GET/PATCH /api/settings/cv` | ✓ | — | — | — | Настройки CV-модели |
+| `POST /api/notifications/subscribe` | ✓ | ✓ | ✓ | ✓ | Подписка на push |
 
-Проверка ролей реализована в `server/middleware.js` через `requireRole(...)`.
+\* admin не управляет учётными записями `bizadmin`
+
+Проверка ролей: `server/middleware.js` (`requireRole`, `requireBizAdmin`).
 
 ---
 
@@ -350,33 +378,47 @@ stateDiagram-v2
 | `right` | Справа |
 | `front` | Спереди |
 
-### 6.2.1 CV-проверка банкомата на фото
+### 6.2.1 Сжатие и оптимизация разрешения
 
-Модуль `server/cv/` использует **CLIP zero-shot** (`Xenova/clip-vit-base-patch32`) для определения, есть ли на снимке банкомат.
+Модуль `server/utils/optimizePhoto.js` (**sharp**) обрабатывает каждое загруженное фото **до** сохранения и CV-проверки:
+
+| Параметр | По умолчанию | Описание |
+|----------|--------------|----------|
+| `PHOTO_MAX_EDGE` | `1280` | Макс. длинная сторона в пикселях |
+| `PHOTO_JPEG_QUALITY` | `82` | Качество JPEG (1–100) |
+| `PHOTO_UPLOAD_MAX_MB` | `12` | Лимит исходника с телефона (до сжатия) |
+
+Пайплайн: поворот по EXIF → ресайз `fit: inside` → JPEG → типичный размер **150–500 КБ** вместо 3–8 МБ с камеры.
+
+### 6.2.2 CV-проверка банкомата на фото
+
+Модуль `server/cv/` использует **CLIP zero-shot** (`Xenova/clip-vit-base-patch32`) для определения банкомата **Сбербанка** (зелёный или серый корпус). Отдельные метки отсекают пол, стены и прочие ложные срабатывания.
 
 | Этап | Действие |
 |------|----------|
-| Загрузка фото | `POST /api/photos/:taskId` → CV анализ → поля `cv_detected`, `cv_confidence`, `cv_checked_at` |
-| Завершение заявки | `PATCH /api/tasks/:id` со `status=completed` → повторная проверка всех ракурсов |
+| Загрузка фото | `POST /api/photos/:taskId` → сжатие → CV **в фоне** → `cv_detected`, `cv_confidence`, `cv_checked_at` |
+| Завершение заявки | `PATCH /api/tasks/:id` со `status=completed` → повторная синхронная проверка всех ракурсов |
 | CV не прошёл | Статус остаётся `in_progress`, push уборщику, ошибка `cv_rejected` |
 
 Проверка **обязательна только для роли `cleaner`**. Админ и супервайзер могут завершить заявку без CV.
 
-Переменные: `CV_ENABLED` (по умолчанию `true`), `CV_ATM_THRESHOLD` (порог уверенности, по умолчанию `0.18`).
+Переменные окружения задают **начальные** значения CV. Бизнес-администратор может изменить `enabled`, `threshold` и `margin` через UI — они сохраняются в `cv_settings` и применяются без перезапуска (приоритет у БД).
 
 ```mermaid
 sequenceDiagram
     participant C as Уборщик
     participant API as /api/photos
+    participant IMG as optimizePhoto.js
     participant CV as atmDetector.js
     participant FS as uploads/
     participant DB as SQLite
 
     C->>API: POST фото + photo_type
-    API->>FS: Сохранить файл на диск
-    API->>CV: detectAtmInPhoto()
-    CV-->>API: detected, confidence
-    API->>DB: INSERT task_photos + cv_detected
+    API->>IMG: resize + JPEG
+    IMG->>FS: Сохранить ~1280px
+    API-->>C: 201 OK (cv_pending)
+    API->>CV: detectAtmInPhoto() в фоне
+    CV->>DB: cv_detected, cv_confidence
 
     C->>API: PATCH /tasks/:id status=completed
     API->>CV: validateTaskPhotos() — все ракурсы
@@ -446,6 +488,7 @@ flowchart TB
     Layout --> Tasks[Tasks.jsx]
     Layout --> Atms[Atms.jsx]
     Layout --> Users[Users.jsx]
+    Layout --> Settings[Settings.jsx — bizadmin]
 
     Tasks --> PhotoUpload
     Tasks --> ImportTasksModal
@@ -461,6 +504,7 @@ flowchart TB
 | `src/utils.js` | Статусы, роли, типы фото | Вынести в `domain.config.js` |
 | `src/context/AuthContext.jsx` | JWT, текущий пользователь | Обычно не меняется |
 | `src/App.jsx` | Маршруты + `PrivateRoute` | Добавить страницы, роли |
+| `src/pages/Settings.jsx` | Вкл/выкл CV, порог и запас | Только роль `bizadmin` |
 | `src/components/PhotoUpload.jsx` | Слоты фото + бейджи CV | Изменить `PHOTO_TYPES`, стили проверки |
 | `src/components/ImportTasksModal.jsx` | UI импорта Excel | Обновить описание столбцов |
 | `src/index.css` | Тема, анимации | Брендинг через CSS-переменные |
@@ -506,7 +550,7 @@ npm run start --prefix server   # Express отдаёт API + статику с :
 |------|------------|
 | `deploy/setup-server.sh` | Автонастройка: сборка, pm2, nginx |
 | `deploy/ecosystem.config.cjs` | Конфиг pm2 для `control-app` |
-| `deploy/nginx-control-app.conf` | Nginx reverse proxy на `127.0.0.1:3001` |
+| `deploy/nginx-control-app.conf` | Nginx reverse proxy на `127.0.0.1:3001`, `client_max_body_size 12M` |
 | `server/.env.example` | Шаблон переменных окружения |
 
 ```bash
@@ -558,6 +602,7 @@ flowchart LR
 
 | Email | Роль | Пароль |
 |-------|------|--------|
+| bizadmin@bank.ru | Бизнес-администратор | admin123 |
 | admin@bank.ru | Администратор | admin123 |
 | supervisor@bank.ru | Супервайзер | admin123 |
 | cleaner1@bank.ru | Уборщик | admin123 |
@@ -574,7 +619,8 @@ flowchart LR
 | 2 | Роли пользователей | `db.js` CHECK, `middleware.js`, `utils.js` |
 | 3 | Статусы заявок | `db.js`, `utils.js`, `routes/tasks.js` |
 | 4 | Обязательные фото | `REQUIRED_PHOTO_TYPES` в `db.js`, `PHOTO_TYPES` в `utils.js` |
-| 4a | CV-модель и порог | `server/cv/atmDetector.js`, `CV_ATM_THRESHOLD` |
+| 4a | Сжатие фото | `server/utils/optimizePhoto.js`, `PHOTO_MAX_EDGE`, `PHOTO_JPEG_QUALITY` |
+| 4b | CV-модель, порог и margin | `server/cv/atmDetector.js`, `CV_ATM_THRESHOLD`, `CV_ATM_MARGIN` |
 | 5 | Excel-шаблон | `routes/tasks.js` → `/import-template` и `/import` |
 | 6 | Тексты push | `server/push.js` |
 | 7 | Брендинг | `manifest.json`, `index.html`, CSS-переменные в `index.css` |
@@ -632,8 +678,13 @@ flowchart LR
 | `JWT_SECRET` | dev-секрет | Ключ подписи JWT |
 | `VAPID_PUBLIC` | встроенный | Публичный ключ web-push |
 | `VAPID_PRIVATE` | встроенный | Приватный ключ web-push |
-| `CV_ENABLED` | `true` | Включить CV-проверку фото (`false` — пропускать) |
-| `CV_ATM_THRESHOLD` | `0.18` | Порог уверенности CLIP (0–1) |
+| `CV_ENABLED` | `true` | Начальное значение «CV включена» (далее — `cv_settings`) |
+| `CV_ATM_THRESHOLD` | `0.30` | Начальный порог уверенности «банкомат Сбербанк» (0–1) |
+| `CV_ATM_MARGIN` | `0.12` | Начальный запас над метками «пол/стена» |
+| `CV_TIMEOUT_MS` | `45000` | Таймаут одной CV-проверки (мс) |
+| `PHOTO_MAX_EDGE` | `1280` | Макс. длинная сторона фото после сжатия (px) |
+| `PHOTO_JPEG_QUALITY` | `82` | Качество JPEG при сохранении |
+| `PHOTO_UPLOAD_MAX_MB` | `12` | Лимит исходника до сжатия (МБ) |
 
 Шаблон для production: `server/.env.example` → скопировать в `server/.env`.
 
@@ -650,9 +701,10 @@ npx web-push generate-vapid-keys
 Приложение — **шаблон системы полевого контроля с Integration Layer**:
 
 1. **Менеджер** планирует заявки (UI, Excel, внешние АС через API).
-2. **Исполнитель** выполняет на объекте (статусы + фото + CV-подтверждение банкомата).
+2. **Исполнитель** выполняет на объекте (статусы + сжатые фото + CV-подтверждение банкомата Сбербанка).
 3. **Система** отслеживает просрочки, шлёт push и webhook-события.
 4. **Внешние АС** (ERP, 1С, CRM) синхронизируют данные через Integration API v1.
+5. **Бизнес-администратор** управляет параметрами CV без перезапуска сервера.
 
 ### Документация
 
@@ -662,3 +714,12 @@ npx web-push generate-vapid-keys
 | [INTEGRATION_API.md](./INTEGRATION_API.md) | Контракт API, webhooks, примеры кода |
 
 Архитектура модульная: доменная логика в `routes/`, интеграция изолирована в `integration/`, UI в `client/src/pages/`.
+
+---
+
+## 12. История версий
+
+| Версия | Дата | Изменения |
+|--------|------|-----------|
+| v1.1.0 | 2026-06-12 | Роль `bizadmin`, настройки CV в UI (`/settings`, `cv_settings`), сжатие фото (sharp), улучшенная CLIP-проверка Сбербанка |
+| v1.0.0 | 2026-06-10 | Первый релиз: заявки, банкоматы, Excel, push, Integration API v1 |

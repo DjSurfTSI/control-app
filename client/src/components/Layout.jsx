@@ -1,13 +1,14 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ROLE_LABELS } from '../utils';
+import { ROLE_LABELS, isManager, isAdmin, isBizAdmin } from '../utils';
 import { useNotifications } from '../hooks/useNotifications';
 import { useState } from 'react';
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const isManager = user.role === 'admin' || user.role === 'supervisor';
+  const manager = isManager(user);
+  const admin = isAdmin(user);
   const { alerts, pushEnabled, pushLoading, enablePush, disablePush } = useNotifications(true);
   const [notifError, setNotifError] = useState('');
 
@@ -29,8 +30,9 @@ export default function Layout() {
   const navItems = [
     { to: '/', label: 'Дашборд', icon: '📊', end: true },
     { to: '/tasks', label: 'Заявки', icon: '📋' },
-    ...(isManager ? [{ to: '/atms', label: 'Банкоматы', icon: '🏧' }] : []),
-    ...(isManager ? [{ to: '/users', label: user.role === 'admin' ? 'Люди' : 'Уборщики', icon: '👥' }] : []),
+    ...(manager ? [{ to: '/atms', label: 'Банкоматы', icon: '🏧' }] : []),
+    ...(manager ? [{ to: '/users', label: admin ? 'Люди' : 'Уборщики', icon: '👥' }] : []),
+    ...(isBizAdmin(user) ? [{ to: '/settings', label: 'Настройки', icon: '⚙️' }] : []),
   ];
 
   return (

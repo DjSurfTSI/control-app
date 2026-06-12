@@ -13,10 +13,29 @@ export const PRIORITY_LABELS = {
 };
 
 export const ROLE_LABELS = {
+  bizadmin: 'Бизнес-администратор',
   admin: 'Администратор',
   supervisor: 'Супервайзер',
   cleaner: 'Уборщик',
 };
+
+export function isBizAdmin(user) {
+  return user?.role === 'bizadmin';
+}
+
+export function isManager(user) {
+  return isBizAdmin(user) || user?.role === 'admin' || user?.role === 'supervisor';
+}
+
+export function isAdmin(user) {
+  return isBizAdmin(user) || user?.role === 'admin';
+}
+
+export function hasRouteAccess(user, roles) {
+  if (!roles) return true;
+  if (isBizAdmin(user)) return true;
+  return roles.includes(user?.role);
+}
 
 export const PHOTO_TYPES = ['left', 'right', 'front'];
 

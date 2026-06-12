@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
-import { ROLE_LABELS } from '../utils';
+import { ROLE_LABELS, isAdmin, isBizAdmin } from '../utils';
 
-function UserModal({ user, onClose, onSave, isAdmin }) {
+function UserModal({ user, onClose, onSave, canEditRoles, assignableRoles }) {
   const isNew = !user?.id;
   const [form, setForm] = useState({
     email: user?.email || '',
@@ -34,10 +34,12 @@ function UserModal({ user, onClose, onSave, isAdmin }) {
     }
   };
 
+  const roleOptions = Object.entries(ROLE_LABELS).filter(([k]) => assignableRoles.includes(k));
+
   return (
     <div className="modal-overlay animate-fade-in" onClick={onClose}>
       <div className="modal animate-slide-up" onClick={(e) => e.stopPropagation()}>
-        <h2>{isNew ? 'Новый уборщик' : 'Редактировать уборщика'}</h2>
+        <h2>{isNew ? 'Новый пользователь' : 'Редактировать пользователя'}</h2>
         {error && <div className="error-msg">{error}</div>}
         <div className="form-group">
           <label>ФИО *</label>
@@ -47,11 +49,11 @@ function UserModal({ user, onClose, onSave, isAdmin }) {
           <label>Email *</label>
           <input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} disabled={!isNew} />
         </div>
-        {isAdmin && !isNew && (
+        {canEditRoles && (
           <div className="form-group">
             <label>Роль</label>
             <select value={form.role} onChange={(e) => set('role', e.target.value)}>
-              {Object.entries(ROLE_LABELS).map(([k, v]) => (
+              {roleOptions.map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
               ))}
             </select>
@@ -91,7 +93,15 @@ function UserModal({ user, onClose, onSave, isAdmin }) {
 
 export default function Users() {
   const { user } = useAuth();
-  const isAdmin = user.role === 'admin';
+  const admin = isAdmin(user);
+  const bizadmin = isBizAdmin(user);
+  const canEditRoles = admin;
+  const assignableRoles = bizadmin
+    ? ['bizadmin', 'admin', 'supervisor', 'cleaner']
+    : admin
+      ? ['admin', 'supervisor', 'cleaner']
+      : ['cleaner'];
+
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
@@ -99,7 +109,7 @@ export default function Users() {
   const load = async () => {
     setLoading(true);
     try {
-      setUsers(await api.getUsers(isAdmin ? undefined : 'cleaner'));
+      setUsers(await api.getUsers(admin ? undefined : 'cleaner'));
     } finally {
       setLoading(false);
     }
@@ -109,15 +119,20 @@ export default function Users() {
 
   const handleSave = async (action, form) => {
     if (action === 'create') {
-      await api.createUser({ ...form, role: isAdmin ? form.role : 'cleaner' });
+      await api.createUser({
+        ...form,
+        role: canEditRoles ? form.role : 'cleaner',
+      });
     } else {
       const data = { full_name: form.full_name, phone: form.phone, active: form.active };
-      if (isAdmin) data.role = form.role;
+      if (canEditRoles) data.role = form.role;
       if (form.password) data.password = form.password;
       await api.updateUser(modal.id, data);
     }
     load();
   };
+
+  const canManage = (u) => admin || u.role === 'cleaner';
 
   const handleDelete = async (u) => {
     if (!confirm(`Удалить учётную запись «${u.full_name}»?`)) return;
@@ -130,8 +145,8 @@ export default function Users() {
     }
   };
 
-  const title = isAdmin ? 'Пользователи' : 'Уборщики';
-  const subtitle = isAdmin ? 'Управление всеми сотрудниками' : 'Создание и управление уборщиками';
+  const title = admin ? 'Пользователи' : 'Уборщики';
+  const subtitle = admin ? 'Управление всеми сотрудниками' : 'Создание и управление уборщиками';
 
   return (
     <div className="page-enter">
@@ -155,7 +170,7 @@ export default function Users() {
                 <tr>
                   <th>ФИО</th>
                   <th>Email</th>
-                  {isAdmin && <th>Роль</th>}
+                  {admin && <th>Роль</th>}
                   <th>Телефон</th>
                   <th>Статус</th>
                   <th>Действия</th>
@@ -166,7 +181,7 @@ export default function Users() {
                   <tr key={u.id} className="animate-fade-in" style={{ animationDelay: `${i * 0.05}s` }}>
                     <td><strong>{u.full_name}</strong></td>
                     <td>{u.email}</td>
-                    {isAdmin && <td>{ROLE_LABELS[u.role]}</td>}
+                    {admin && <td>{ROLE_LABELS[u.role]}</td>}
                     <td>{u.phone || '—'}</td>
                     <td>
                       <span className={`badge ${u.active ? 'badge-completed' : 'badge-cancelled'}`}>
@@ -174,7 +189,7 @@ export default function Users() {
                       </span>
                     </td>
                     <td className="actions">
-                      {(isAdmin || u.role === 'cleaner') && (
+                      {canManage(u) && (
                         <>
                           <button className="btn-secondary btn-sm" onClick={() => setModal(u)}>Изменить</button>
                           <button className="btn-danger btn-sm" onClick={() => handleDelete(u)}>Удалить</button>
@@ -192,7 +207,8 @@ export default function Users() {
       {modal && (
         <UserModal
           user={modal.id ? modal : null}
-          isAdmin={isAdmin}
+          canEditRoles={canEditRoles}
+          assignableRoles={assignableRoles}
           onClose={() => setModal(null)}
           onSave={handleSave}
         />

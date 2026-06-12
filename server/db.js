@@ -16,7 +16,7 @@ db.exec(`
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     full_name TEXT NOT NULL,
-    role TEXT NOT NULL CHECK(role IN ('admin', 'supervisor', 'cleaner')),
+    role TEXT NOT NULL CHECK(role IN ('bizadmin', 'admin', 'supervisor', 'cleaner')),
     phone TEXT,
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -103,6 +103,15 @@ db.exec(`
     payload TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS cv_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    enabled INTEGER NOT NULL DEFAULT 1,
+    threshold REAL NOT NULL DEFAULT 0.30,
+    margin REAL NOT NULL DEFAULT 0.12,
+    updated_at TEXT,
+    updated_by INTEGER REFERENCES users(id)
+  );
 `);
 
 const migrations = [
@@ -125,6 +134,55 @@ for (const m of migrations) {
 const photoCols = db.prepare('PRAGMA table_info(task_photos)').all();
 if (!photoCols.some((c) => c.name === 'photo_type')) {
   db.exec("ALTER TABLE task_photos ADD COLUMN photo_type TEXT CHECK(photo_type IN ('left', 'right', 'front'))");
+}
+
+function migrateUsersForBizadmin() {
+  const usersTableSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").get()?.sql || '';
+  const usersMigExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='users_mig'").get();
+  if (usersTableSql.includes('bizadmin') && !usersMigExists) return;
+
+  db.exec('PRAGMA foreign_keys = OFF');
+  try {
+    if (usersMigExists) {
+      db.exec('DROP TABLE IF EXISTS users');
+      db.exec('ALTER TABLE users_mig RENAME TO users');
+      return;
+    }
+    if (!usersTableSql.includes('bizadmin')) {
+      db.exec(`
+        CREATE TABLE users_mig (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          email TEXT UNIQUE NOT NULL,
+          password_hash TEXT NOT NULL,
+          full_name TEXT NOT NULL,
+          role TEXT NOT NULL CHECK(role IN ('bizadmin', 'admin', 'supervisor', 'cleaner')),
+          phone TEXT,
+          active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        INSERT INTO users_mig SELECT * FROM users;
+        DROP TABLE users;
+        ALTER TABLE users_mig RENAME TO users;
+      `);
+    }
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON');
+  }
+}
+
+migrateUsersForBizadmin();
+
+db.exec(`
+  INSERT OR IGNORE INTO cv_settings (id, enabled, threshold, margin)
+  VALUES (1, 1, 0.30, 0.12)
+`);
+
+const bizadminExists = db.prepare("SELECT id FROM users WHERE email = 'bizadmin@bank.ru'").get();
+if (!bizadminExists) {
+  const hash = bcrypt.hashSync('admin123', 10);
+  db.prepare(
+    'INSERT INTO users (email, password_hash, full_name, role, phone) VALUES (?, ?, ?, ?, ?)'
+  ).run('bizadmin@bank.ru', hash, 'Бизнес-администратор', 'bizadmin', '+7 900 000-00-03');
 }
 
 export const REQUIRED_PHOTO_TYPES = ['left', 'right', 'front'];
@@ -155,6 +213,7 @@ if (userCount === 0) {
   );
 
   insertUser.run('admin@bank.ru', hash, 'Администратор', 'admin', '+7 900 000-00-01');
+  insertUser.run('bizadmin@bank.ru', hash, 'Бизнес-администратор', 'bizadmin', '+7 900 000-00-03');
   insertUser.run('supervisor@bank.ru', hash, 'Иван Петров', 'supervisor', '+7 900 000-00-02');
   insertUser.run('cleaner1@bank.ru', hash, 'Мария Сидорова', 'cleaner', '+7 900 111-11-11');
   insertUser.run('cleaner2@bank.ru', hash, 'Алексей Козлов', 'cleaner', '+7 900 222-22-22');

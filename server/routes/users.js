@@ -2,9 +2,11 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import db from '../db.js';
 import { authMiddleware, requireRole } from '../middleware.js';
+import { isBizAdmin, ROLES } from '../roles.js';
 
 const router = Router();
-const MANAGERS = ['admin', 'supervisor'];
+const MANAGERS = [ROLES.ADMIN, ROLES.SUPERVISOR];
+const VALID_ROLES = [ROLES.BIZADMIN, ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.CLEANER];
 
 router.use(authMiddleware);
 
@@ -12,9 +14,16 @@ function getTargetUser(id) {
   return db.prepare('SELECT id, email, full_name, role, phone, active, created_at FROM users WHERE id = ?').get(id);
 }
 
+function assignableRoles(actor) {
+  if (isBizAdmin(actor)) return VALID_ROLES;
+  if (actor.role === ROLES.ADMIN) return [ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.CLEANER];
+  return [ROLES.CLEANER];
+}
+
 function canManageUser(actor, target) {
-  if (actor.role === 'admin') return true;
-  if (actor.role === 'supervisor' && target?.role === 'cleaner') return true;
+  if (isBizAdmin(actor)) return true;
+  if (actor.role === ROLES.ADMIN) return target?.role !== ROLES.BIZADMIN;
+  if (actor.role === ROLES.SUPERVISOR && target?.role === ROLES.CLEANER) return true;
   return false;
 }
 
@@ -23,7 +32,7 @@ router.get('/', requireRole(...MANAGERS), (req, res) => {
   let sql = 'SELECT id, email, full_name, role, phone, active, created_at FROM users WHERE 1=1';
   const params = [];
 
-  if (req.user.role === 'supervisor') {
+  if (req.user.role === ROLES.SUPERVISOR) {
     sql += " AND role = 'cleaner'";
   } else if (role) {
     sql += ' AND role = ?';
@@ -40,12 +49,10 @@ router.post('/', requireRole(...MANAGERS), (req, res) => {
     return res.status(400).json({ error: 'Заполните обязательные поля' });
   }
 
-  const userRole = req.user.role === 'supervisor' ? 'cleaner' : (role || 'cleaner');
-  if (!['admin', 'supervisor', 'cleaner'].includes(userRole)) {
-    return res.status(400).json({ error: 'Недопустимая роль' });
-  }
-  if (req.user.role === 'supervisor' && userRole !== 'cleaner') {
-    return res.status(403).json({ error: 'Супервайзер может создавать только уборщиков' });
+  const allowed = assignableRoles(req.user);
+  const userRole = req.user.role === ROLES.SUPERVISOR ? ROLES.CLEANER : (role || ROLES.CLEANER);
+  if (!allowed.includes(userRole)) {
+    return res.status(403).json({ error: 'Недостаточно прав для назначения этой роли' });
   }
 
   try {
@@ -79,8 +86,11 @@ router.patch('/:id', requireRole(...MANAGERS), (req, res) => {
   if (password) { updates.push('password_hash = ?'); params.push(bcrypt.hashSync(password, 10)); }
 
   if (role !== undefined) {
-    if (req.user.role === 'supervisor') {
+    if (req.user.role === ROLES.SUPERVISOR) {
       return res.status(403).json({ error: 'Супервайзер не может менять роль' });
+    }
+    if (!assignableRoles(req.user).includes(role)) {
+      return res.status(403).json({ error: 'Недостаточно прав для назначения этой роли' });
     }
     updates.push('role = ?');
     params.push(role);

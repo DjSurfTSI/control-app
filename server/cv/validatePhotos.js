@@ -13,11 +13,15 @@ export const PHOTO_TYPE_LABELS = {
 };
 
 export function saveCvResult(photoId, result) {
-  db.prepare(`
-    UPDATE task_photos
-    SET cv_detected = ?, cv_confidence = ?, cv_checked_at = datetime('now')
-    WHERE id = ?
-  `).run(result.detected ? 1 : 0, result.confidence ?? 0, photoId);
+  try {
+    db.prepare(`
+      UPDATE task_photos
+      SET cv_detected = ?, cv_confidence = ?, cv_checked_at = datetime('now')
+      WHERE id = ?
+    `).run(result.detected ? 1 : 0, result.confidence ?? 0, photoId);
+  } catch (err) {
+    console.error('saveCvResult error:', err.message);
+  }
 }
 
 export async function validatePhoto(filePath, photoId) {

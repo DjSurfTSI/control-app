@@ -1,6 +1,6 @@
 # Integration API — контракт для внешних систем
 
-Версия: **v1**  
+Версия: **v1.1.0** (Integration API **v1**)
 Базовый URL (dev): `http://localhost:3001/api/integration/v1`  
 Базовый URL (production): `https://<ваш-домен>/api/integration/v1`
 
@@ -16,8 +16,9 @@
 |-------------|----------|------------|
 | **Inbound** (входящие) | REST + API Key | Внешняя система читает/создаёт данные |
 | **Outbound** (исходящие) | Webhooks + HMAC | Приложение уведомляет внешнюю систему о событиях |
-| **Управление** | REST + JWT (admin) | Создание API-ключей и webhook-эндпоинтов |
-| **CV-проверка фото** | CLIP (только UI) | Не затрагивает Integration API |
+| **Управление** | REST + JWT (`admin`, `bizadmin`) | Создание API-ключей и webhook-эндпоинтов |
+| **CV-проверка фото** | CLIP (только UI, Сбербанк) | Не затрагивает Integration API; параметры CV — в Internal API (`/api/settings/cv`, роль `bizadmin`) |
+| **Сжатие фото** | sharp при загрузке | Уменьшение до 1280px JPEG |
 
 ```mermaid
 sequenceDiagram
@@ -556,7 +557,8 @@ GET /api/integration/logs?limit=50
 | Max list size | 500 записей |
 | Webhook timeout | 10 секунд |
 | Webhook retry | Не реализован (добавить очередь в production) |
-| CV-проверка | Только веб-UI уборщика; Integration API завершает заявки без CV |
+| CV-проверка | Только веб-UI уборщика; Integration API завершает заявки без CV; вкл/выкл и точность — `bizadmin` в Internal API |
+| Фото на диске | JPEG до 1280px, ~150–500 КБ; исходник до 12 МБ принимается до сжатия |
 | Версионирование | URL-prefix `/v1/` |
 
 ---
@@ -565,4 +567,5 @@ GET /api/integration/logs?limit=50
 
 | Версия | Дата | Изменения |
 |--------|------|-----------|
+| v1.1.0 | 2026-06-12 | Роль `bizadmin`, настройки CV (Internal API), сжатие фото; контракт Integration API без изменений |
 | v1.0.0 | 2026-06-10 | Первый релиз: tasks, atms, stats, webhooks, admin API |

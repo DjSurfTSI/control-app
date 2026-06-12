@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
-import { STATUS_LABELS, PRIORITY_LABELS, formatDate, todayISO } from '../utils';
+import { STATUS_LABELS, PRIORITY_LABELS, formatDate, todayISO, isManager } from '../utils';
 import PhotoUpload from '../components/PhotoUpload';
 import TaskCard from '../components/TaskCard';
 import ImportTasksModal from '../components/ImportTasksModal';
@@ -151,7 +151,7 @@ function TaskModal({ task, atms, cleaners, onClose, onSave, isManager }) {
                 <p className="report-text">{task.report}</p>
               </div>
             )}
-            {isManager && (
+            {manager && (
               <div className="form-row">
                 <div className="form-group">
                   <label>Дата</label>
@@ -187,7 +187,7 @@ function TaskModal({ task, atms, cleaners, onClose, onSave, isManager }) {
 
 export default function Tasks() {
   const { user } = useAuth();
-  const isManager = user.role === 'admin' || user.role === 'supervisor';
+  const manager = isManager(user);
   const [searchParams, setSearchParams] = useSearchParams();
   const [tasks, setTasks] = useState([]);
   const [atms, setAtms] = useState([]);
@@ -215,7 +215,7 @@ export default function Tasks() {
       if (filterDate) params.date = filterDate;
 
       const promises = [api.getTasks(params)];
-      if (isManager) promises.push(api.getAtms(), api.getUsers('cleaner'));
+      if (manager) promises.push(api.getAtms(), api.getUsers('cleaner'));
       const [tasksData, atmsData, cleanersData] = await Promise.all(promises);
       setTasks(tasksData);
       if (atmsData) setAtms(atmsData);
@@ -299,7 +299,7 @@ export default function Tasks() {
           <p className="page-subtitle">Планирование и контроль исполнения</p>
         </div>
         <div className="header-actions">
-          {isManager && (
+          {manager && (
             <>
               <button className="btn-secondary" onClick={() => setImportModal(true)}>📥 Импорт</button>
               <button className="btn-secondary" onClick={handleExport} disabled={exporting}>
@@ -347,7 +347,7 @@ export default function Tasks() {
               <TaskCard
                 key={t.id}
                 task={t}
-                isManager={isManager}
+                isManager={manager}
                 onStart={(task) => updateStatus(task, 'in_progress')}
                 onComplete={(task) => setCompleteModal(task)}
                 onEdit={setModal}
@@ -383,13 +383,13 @@ export default function Tasks() {
                     <td>{t.photo_count > 0 ? `📷 ${t.photo_count}` : '—'}</td>
                     <td className="actions">
                       <button className="btn-secondary btn-sm" onClick={() => setModal(t)}>Открыть</button>
-                      {!isManager && t.status === 'pending' && (
+                      {!manager && t.status === 'pending' && (
                         <button className="btn-primary btn-sm" onClick={() => updateStatus(t, 'in_progress')}>Начать</button>
                       )}
-                      {!isManager && t.status === 'in_progress' && (
+                      {!manager && t.status === 'in_progress' && (
                         <button className="btn-success btn-sm" onClick={() => setCompleteModal(t)}>Завершить</button>
                       )}
-                      {isManager && t.status !== 'cancelled' && t.status !== 'completed' && (
+                      {manager && t.status !== 'cancelled' && t.status !== 'completed' && (
                         <button className="btn-danger btn-sm" onClick={() => handleCancel(t.id)}>Отмена</button>
                       )}
                     </td>
@@ -406,7 +406,7 @@ export default function Tasks() {
           task={modal.id ? modal : null}
           atms={atms}
           cleaners={cleaners}
-          isManager={isManager}
+          isManager={manager}
           onClose={() => setModal(null)}
           onSave={handleSave}
         />

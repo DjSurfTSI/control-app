@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
-import { STATUS_LABELS, formatDate, todayISO } from '../utils';
+import { STATUS_LABELS, formatDate, todayISO, isManager } from '../utils';
 
 function StatCard({ label, value, color, link, delay = 0 }) {
   const content = (
@@ -16,7 +16,7 @@ function StatCard({ label, value, color, link, delay = 0 }) {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const isManager = user.role === 'admin' || user.role === 'supervisor';
+  const manager = isManager(user);
   const [stats, setStats] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +26,7 @@ export default function Dashboard() {
       try {
         const [tasksData, statsData] = await Promise.all([
           api.getTasks({ date: todayISO() }),
-          isManager ? api.getStats() : Promise.resolve(null),
+          manager ? api.getStats() : Promise.resolve(null),
         ]);
         setTasks(tasksData);
         setStats(statsData);
@@ -35,18 +35,18 @@ export default function Dashboard() {
       }
     };
     load();
-  }, [isManager]);
+  }, [manager]);
 
   if (loading) return <p className="empty-state">Загрузка...</p>;
 
   return (
     <div className="page-enter">
       <h2 className="page-title animate-slide-down">
-        {isManager ? 'Панель контроля' : 'Мои заявки на сегодня'}
+        {manager ? 'Панель контроля' : 'Мои заявки на сегодня'}
       </h2>
       <p className="page-subtitle">{formatDate(todayISO())}</p>
 
-      {isManager && stats && (
+      {manager && stats && (
         <>
           <div className="stats-grid">
             <StatCard label="Ожидают сегодня" value={stats.today_pending} color="#94a3b8" link="/tasks?status=pending" delay={0} />
@@ -101,7 +101,7 @@ export default function Dashboard() {
                 <div>
                   <strong>{t.serial_number}</strong> — {t.bank_name}
                   <p className="task-address">{t.address}</p>
-                  {isManager && t.assignee_name && (
+                  {manager && t.assignee_name && (
                     <p className="task-assignee">👤 {t.assignee_name}</p>
                   )}
                 </div>

@@ -24,7 +24,10 @@ async function request(path, options = {}) {
   }
 
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Ошибка запроса');
+  if (!res.ok) {
+    const msg = data.error || data.message || `Ошибка сервера (${res.status})`;
+    throw new Error(msg);
+  }
   return data;
 }
 
@@ -82,6 +85,9 @@ export const api = {
   subscribePush: (data) => request('/notifications/subscribe', { method: 'POST', body: JSON.stringify(data) }),
   unsubscribePush: (data) => request('/notifications/subscribe', { method: 'DELETE', body: JSON.stringify(data) }),
   getPendingAlerts: () => request('/notifications/pending'),
+
+  getCvSettings: () => request('/settings/cv'),
+  updateCvSettings: (data) => request('/settings/cv', { method: 'PATCH', body: JSON.stringify(data) }),
 };
 
 function downloadBlob(blob, filename) {

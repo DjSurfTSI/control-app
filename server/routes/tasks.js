@@ -7,6 +7,7 @@ import { notifyTaskAssigned, notifyTaskCompleted, notifyOverdue, notifyCvRejecte
 import { validateTaskPhotos, PHOTO_TYPE_LABELS } from '../cv/validatePhotos.js';
 import { dispatchWebhooks } from '../integration/webhooks.js';
 import { formatTask, TASK_SELECT_INTEGRATION } from '../integration/schemas.js';
+import { asyncHandler } from '../middleware/errorHandler.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -59,7 +60,7 @@ function findCleaner(val) {
 }
 
 function getManagerIds() {
-  return db.prepare("SELECT id FROM users WHERE role IN ('admin','supervisor') AND active = 1")
+  return db.prepare("SELECT id FROM users WHERE role IN ('bizadmin','admin','supervisor') AND active = 1")
     .all().map((u) => u.id);
 }
 
@@ -310,7 +311,7 @@ router.post('/', requireRole('admin', 'supervisor'), (req, res) => {
   res.status(201).json(task);
 });
 
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', asyncHandler(async (req, res) => {
   const task = db.prepare('SELECT * FROM cleaning_tasks WHERE id = ?').get(req.params.id);
   if (!task) return res.status(404).json({ error: 'Заявка не найдена' });
 
@@ -394,7 +395,7 @@ router.patch('/:id', async (req, res) => {
   dispatchWebhooks(event, formatTask(full));
 
   res.json(updated);
-});
+}));
 
 router.delete('/:id', requireRole('admin', 'supervisor'), (req, res) => {
   const task = db.prepare('SELECT id FROM cleaning_tasks WHERE id = ?').get(req.params.id);

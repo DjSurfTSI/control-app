@@ -9,7 +9,9 @@ import taskRoutes from './routes/tasks.js';
 import photoRoutes from './routes/photos.js';
 import notificationRoutes from './routes/notifications.js';
 import integrationRoutes from './routes/integration.js';
+import settingsRoutes from './routes/settings.js';
 import { warmupCvModel, isCvEnabled } from './cv/atmDetector.js';
+import { errorHandler } from './middleware/errorHandler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -25,6 +27,14 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/photos', photoRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/integration', integrationRoutes);
+app.use('/api/settings', settingsRoutes);
+
+app.use((err, req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    return errorHandler(err, req, res, next);
+  }
+  next(err);
+});
 
 const clientDist = path.join(__dirname, '../client/dist');
 app.use(express.static(clientDist));
@@ -43,6 +53,6 @@ app.listen(PORT, () => {
     warmupCvModel().then(() => console.log('CV-модель готова к проверке фото'))
       .catch((err) => console.warn('CV warmup:', err.message));
   } else {
-    console.log('CV-проверка отключена (CV_ENABLED=false)');
+    console.log('CV-проверка отключена в настройках');
   }
 });
