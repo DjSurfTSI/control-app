@@ -43,7 +43,7 @@ function createTaskRecord(data, source = 'integration') {
 
   if (data.external_id) {
     const dup = db.prepare('SELECT id FROM cleaning_tasks WHERE external_id = ?').get(data.external_id);
-    if (dup) throw new Error(`Задание с external_id «${data.external_id}» уже существует`);
+    if (dup) throw new Error(`Заявка с external_id «${data.external_id}» уже существует`);
   }
 
   const cleaner = findCleanerByRef(data);
@@ -181,7 +181,7 @@ v1.get('/tasks', requireScope('tasks:read'), (req, res) => {
 
 v1.get('/tasks/:id', requireScope('tasks:read'), (req, res) => {
   const row = db.prepare(TASK_SELECT_INTEGRATION + ' WHERE t.id = ?').get(req.params.id);
-  if (!row) return res.status(404).json({ error: 'not_found', message: 'Задание не найдено' });
+  if (!row) return res.status(404).json({ error: 'not_found', message: 'Заявка не найдена' });
   res.json({ data: formatTask(row) });
 });
 
@@ -220,7 +220,7 @@ v1.post('/tasks/batch', requireScope('tasks:write'), (req, res) => {
 
 v1.patch('/tasks/:id', requireScope('tasks:write'), (req, res) => {
   const task = db.prepare('SELECT * FROM cleaning_tasks WHERE id = ?').get(req.params.id);
-  if (!task) return res.status(404).json({ error: 'not_found', message: 'Задание не найдено' });
+  if (!task) return res.status(404).json({ error: 'not_found', message: 'Заявка не найдена' });
 
   const { status, scheduled_date, priority, notes, assignee_id, assignee_email } = req.body;
   const updates = [];

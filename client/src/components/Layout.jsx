@@ -28,7 +28,7 @@ export default function Layout() {
 
   const navItems = [
     { to: '/', label: 'Дашборд', icon: '📊', end: true },
-    { to: '/tasks', label: 'Задания', icon: '📋' },
+    { to: '/tasks', label: 'Заявки', icon: '📋' },
     ...(isManager ? [{ to: '/atms', label: 'Банкоматы', icon: '🏧' }] : []),
     ...(isManager ? [{ to: '/users', label: user.role === 'admin' ? 'Люди' : 'Уборщики', icon: '👥' }] : []),
   ];

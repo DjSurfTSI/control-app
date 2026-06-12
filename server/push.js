@@ -35,7 +35,7 @@ export async function sendPushToUser(userId, payload) {
 export function notifyTaskAssigned(task, assigneeId) {
   if (!assigneeId) return;
   sendPushToUser(assigneeId, {
-    title: 'Новое задание',
+    title: 'Новая заявка',
     body: `Уборка ${task.serial_number} — ${task.address}`,
     url: '/tasks',
   });
@@ -54,8 +54,8 @@ export function notifyTaskCompleted(task, supervisorIds) {
 export function notifyOverdue(count, managerIds) {
   for (const uid of managerIds) {
     sendPushToUser(uid, {
-      title: 'Просроченные задания',
-      body: `${count} заданий требуют внимания`,
+      title: 'Просроченные заявки',
+      body: `${count} заявок требуют внимания`,
       url: '/tasks?status=overdue',
     });
   }

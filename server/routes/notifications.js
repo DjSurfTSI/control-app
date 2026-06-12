@@ -45,7 +45,7 @@ router.get('/pending', authMiddleware, (req, res) => {
     `).get(req.user.id, today).c;
 
     if (pending > 0) {
-      alerts.push({ type: 'info', message: `У вас ${pending} заданий на сегодня` });
+      alerts.push({ type: 'info', message: `У вас ${pending} заявок на сегодня` });
     }
 
     const overdue = db.prepare(`
@@ -54,7 +54,7 @@ router.get('/pending', authMiddleware, (req, res) => {
     `).get(req.user.id).c;
 
     if (overdue > 0) {
-      alerts.push({ type: 'warning', message: `${overdue} просроченных заданий` });
+      alerts.push({ type: 'warning', message: `${overdue} просроченных заявок` });
     }
   } else {
     const overdue = db.prepare(`
@@ -62,7 +62,7 @@ router.get('/pending', authMiddleware, (req, res) => {
     `).get().c;
 
     if (overdue > 0) {
-      alerts.push({ type: 'warning', message: `${overdue} просроченных заданий` });
+      alerts.push({ type: 'warning', message: `${overdue} просроченных заявок` });
     }
   }
 

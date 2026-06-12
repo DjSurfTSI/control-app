@@ -50,7 +50,7 @@ function photoUrl(req, taskId, filename) {
 
 router.get('/:taskId', (req, res) => {
   const task = db.prepare('SELECT * FROM cleaning_tasks WHERE id = ?').get(req.params.taskId);
-  if (!task) return res.status(404).json({ error: 'Задание не найдено' });
+  if (!task) return res.status(404).json({ error: 'Заявка не найдена' });
   if (!canAccessTask(task, req.user)) return res.status(403).json({ error: 'Нет доступа' });
 
   const photos = db.prepare(
@@ -65,7 +65,7 @@ router.get('/:taskId', (req, res) => {
 
 router.post('/:taskId', upload.single('photo'), (req, res) => {
   const task = db.prepare('SELECT * FROM cleaning_tasks WHERE id = ?').get(req.params.taskId);
-  if (!task) return res.status(404).json({ error: 'Задание не найдено' });
+  if (!task) return res.status(404).json({ error: 'Заявка не найдена' });
   if (!canAccessTask(task, req.user)) return res.status(403).json({ error: 'Нет доступа' });
   if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
 
@@ -98,7 +98,7 @@ router.post('/:taskId', upload.single('photo'), (req, res) => {
 
 router.get('/:taskId/file/:filename', (req, res) => {
   const task = db.prepare('SELECT * FROM cleaning_tasks WHERE id = ?').get(req.params.taskId);
-  if (!task) return res.status(404).json({ error: 'Задание не найдено' });
+  if (!task) return res.status(404).json({ error: 'Заявка не найдена' });
   if (!canAccessTask(task, req.user)) return res.status(403).json({ error: 'Нет доступа' });
 
   const photo = db.prepare(
@@ -111,7 +111,7 @@ router.get('/:taskId/file/:filename', (req, res) => {
 
 router.delete('/:taskId/:photoId', (req, res) => {
   const task = db.prepare('SELECT * FROM cleaning_tasks WHERE id = ?').get(req.params.taskId);
-  if (!task) return res.status(404).json({ error: 'Задание не найдено' });
+  if (!task) return res.status(404).json({ error: 'Заявка не найдена' });
 
   const photo = db.prepare('SELECT * FROM task_photos WHERE id = ? AND task_id = ?')
     .get(req.params.photoId, req.params.taskId);

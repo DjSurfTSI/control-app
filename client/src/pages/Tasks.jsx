@@ -82,7 +82,7 @@ function TaskModal({ task, atms, cleaners, onClose, onSave, isManager }) {
   return (
     <div className="modal-overlay animate-fade-in" onClick={onClose}>
       <div className="modal modal-wide animate-slide-up" onClick={(e) => e.stopPropagation()}>
-        <h2>{isNew ? 'Новое задание' : `Задание #${task.id}`}</h2>
+        <h2>{isNew ? 'Новая заявка' : `Заявка #${task.id}`}</h2>
         {error && <div className="error-msg">{error}</div>}
 
         {isNew ? (
@@ -269,7 +269,7 @@ export default function Tasks() {
   };
 
   const handleCancel = async (id) => {
-    if (!confirm('Отменить задание?')) return;
+    if (!confirm('Отменить заявку?')) return;
     await api.cancelTask(id);
     load();
   };
@@ -278,7 +278,7 @@ export default function Tasks() {
     <div className="page-enter">
       <div className="page-header">
         <div>
-          <h2 className="page-title">Задания на уборку</h2>
+          <h2 className="page-title">Заявки на уборку</h2>
           <p className="page-subtitle">Планирование и контроль исполнения</p>
         </div>
         <div className="header-actions">
@@ -323,7 +323,7 @@ export default function Tasks() {
         {loading ? (
           <p className="empty-state">Загрузка...</p>
         ) : tasks.length === 0 ? (
-          <p className="empty-state">Заданий не найдено</p>
+          <p className="empty-state">Заявок не найдено</p>
         ) : isMobile ? (
           <div className="mobile-tasks">
             {tasks.map((t) => (

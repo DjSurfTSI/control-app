@@ -36,7 +36,7 @@ export default function ImportTasksModal({ onClose, onDone }) {
   return (
     <div className="modal-overlay animate-fade-in" onClick={onClose}>
       <div className="modal animate-slide-up" onClick={(e) => e.stopPropagation()}>
-        <h2>Импорт заданий из Excel</h2>
+        <h2>Импорт заявок из Excel</h2>
         <p className="import-desc">
           Загрузите файл .xlsx со столбцами: <strong>Банкомат</strong>, <strong>Дата</strong>,
           Email уборщика, Приоритет, Примечание.

@@ -156,7 +156,7 @@ router.get('/export', requireRole('admin', 'supervisor'), (req, res) => {
   const rows = db.prepare(sql).all(...params);
 
   const data = rows.map((r) => ({
-    '№ задания': r.id,
+    '№ заявки': r.id,
     'Банкомат': r.serial_number,
     'Банк': r.bank_name,
     'Адрес': r.address,
@@ -174,7 +174,7 @@ router.get('/export', requireRole('admin', 'supervisor'), (req, res) => {
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(data);
-  XLSX.utils.book_append_sheet(wb, ws, 'Задания');
+  XLSX.utils.book_append_sheet(wb, ws, 'Заявки');
   const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -201,7 +201,7 @@ router.get('/import-template', requireRole('admin', 'supervisor'), (_req, res) =
   ];
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(data);
-  XLSX.utils.book_append_sheet(wb, ws, 'Задания');
+  XLSX.utils.book_append_sheet(wb, ws, 'Заявки');
   const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', 'attachment; filename="shablon-zadaniy.xlsx"');
@@ -311,11 +311,11 @@ router.post('/', requireRole('admin', 'supervisor'), (req, res) => {
 
 router.patch('/:id', (req, res) => {
   const task = db.prepare('SELECT * FROM cleaning_tasks WHERE id = ?').get(req.params.id);
-  if (!task) return res.status(404).json({ error: 'Задание не найдено' });
+  if (!task) return res.status(404).json({ error: 'Заявка не найдена' });
 
   const isCleaner = req.user.role === 'cleaner';
   if (isCleaner && task.assigned_to !== req.user.id) {
-    return res.status(403).json({ error: 'Задание назначено другому сотруднику' });
+    return res.status(403).json({ error: 'Заявка назначена другому сотруднику' });
   }
 
   const { status, report, notes, assigned_to, scheduled_date, priority } = req.body;
@@ -375,7 +375,7 @@ router.patch('/:id', (req, res) => {
 
 router.delete('/:id', requireRole('admin', 'supervisor'), (req, res) => {
   const task = db.prepare('SELECT id FROM cleaning_tasks WHERE id = ?').get(req.params.id);
-  if (!task) return res.status(404).json({ error: 'Задание не найдено' });
+  if (!task) return res.status(404).json({ error: 'Заявка не найдена' });
 
   db.prepare("UPDATE cleaning_tasks SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?").run(req.params.id);
   const full = db.prepare(TASK_SELECT_INTEGRATION + ' WHERE t.id = ?').get(req.params.id);

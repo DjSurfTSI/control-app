@@ -36,7 +36,7 @@ export default function Login() {
         <div className="login-header">
           <span className="login-logo">🏧</span>
           <h1>Контроль уборки банкоматов</h1>
-          <p>Войдите для управления заданиями</p>
+          <p>Войдите для управления заявками</p>
         </div>
 
         {error && <div className="error-msg">{error}</div>}

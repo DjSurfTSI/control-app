@@ -42,7 +42,7 @@ export default function Dashboard() {
   return (
     <div className="page-enter">
       <h2 className="page-title animate-slide-down">
-        {isManager ? 'Панель контроля' : 'Мои задания на сегодня'}
+        {isManager ? 'Панель контроля' : 'Мои заявки на сегодня'}
       </h2>
       <p className="page-subtitle">{formatDate(todayISO())}</p>
 
@@ -89,11 +89,11 @@ export default function Dashboard() {
 
       <div className="card section">
         <div className="section-header">
-          <h3>Задания на сегодня ({tasks.length})</h3>
-          <Link to="/tasks" className="btn-secondary btn-sm">Все задания</Link>
+          <h3>Заявки на сегодня ({tasks.length})</h3>
+          <Link to="/tasks" className="btn-secondary btn-sm">Все заявки</Link>
         </div>
         {tasks.length === 0 ? (
-          <p className="empty-state">Нет заданий на сегодня</p>
+          <p className="empty-state">Нет заявок на сегодня</p>
         ) : (
           <div className="task-list">
             {tasks.map((t) => (

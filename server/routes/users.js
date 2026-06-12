@@ -111,7 +111,7 @@ router.delete('/:id', requireRole(...MANAGERS), (req, res) => {
 
   if (activeTasks > 0) {
     db.prepare('UPDATE users SET active = 0 WHERE id = ?').run(target.id);
-    return res.json({ ok: true, deactivated: true, message: 'Учётная запись деактивирована (есть активные задания)' });
+    return res.json({ ok: true, deactivated: true, message: 'Учётная запись деактивирована (есть активные заявки)' });
   }
 
   db.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').run(target.id);
