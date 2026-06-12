@@ -31,7 +31,7 @@ npm install --prefix server
 npm install --prefix client
 
 echo "==> Сборка фронтенда..."
-npm run build --prefix client
+bash "$APP_DIR/deploy/build-client.sh"
 
 if [ ! -f "$APP_DIR/client/dist/index.html" ]; then
   echo "Ошибка: client/dist/index.html не найден"

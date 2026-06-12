@@ -84,9 +84,33 @@ PHOTO_JPEG_QUALITY=82
 ```bash
 git pull
 npm install --prefix server
-npm run build --prefix client
+bash deploy/build-client.sh
 pm2 restart control-app
 ```
+
+### Сборка падает с «Killed»
+
+Сообщение `Killed` при `vite build` — **нехватка RAM** на VPS (OOM killer). Уязвимости `npm audit` в `concurrently` на это не влияют (это dev-зависимость корня репозитория, не production).
+
+**Вариант 1 — включить swap на сервере (рекомендуется):**
+
+```bash
+sudo bash deploy/ensure-swap.sh
+bash deploy/build-client.sh
+pm2 restart control-app
+```
+
+**Вариант 2 — собрать на своём ПК и залить только `dist`:**
+
+```bash
+# на локальной машине
+npm run build --prefix client
+scp -r client/dist root@IP_СЕРВЕРА:~/control-app/client/
+# на сервере
+pm2 restart control-app
+```
+
+Проверка памяти: `free -h`
 
 Подробнее: [ARCHITECTURE.md](./ARCHITECTURE.md) → раздел «Запуск и деплой».
 
