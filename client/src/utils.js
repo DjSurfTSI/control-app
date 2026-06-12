@@ -32,6 +32,15 @@ export function checkRequiredPhotos(photos) {
   return { complete: missing.length === 0, missing };
 }
 
+export function checkPhotoCv(photos) {
+  const required = PHOTO_TYPES.map((t) => photos.find((p) => p.photo_type === t)).filter(Boolean);
+  const missing = PHOTO_TYPES.filter((t) => !photos.some((p) => p.photo_type === t));
+  const failed = required.filter((p) => p.cv_detected === 0).map((p) => p.photo_type);
+  const pending = required.filter((p) => p.cv_detected == null).map((p) => p.photo_type);
+  const passed = missing.length === 0 && failed.length === 0 && pending.length === 0;
+  return { passed, failed, pending, missing };
+}
+
 export function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }

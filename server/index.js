@@ -9,6 +9,7 @@ import taskRoutes from './routes/tasks.js';
 import photoRoutes from './routes/photos.js';
 import notificationRoutes from './routes/notifications.js';
 import integrationRoutes from './routes/integration.js';
+import { warmupCvModel, isCvEnabled } from './cv/atmDetector.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -38,4 +39,10 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Сервер запущен: http://localhost:${PORT}`);
+  if (isCvEnabled()) {
+    warmupCvModel().then(() => console.log('CV-модель готова к проверке фото'))
+      .catch((err) => console.warn('CV warmup:', err.message));
+  } else {
+    console.log('CV-проверка отключена (CV_ENABLED=false)');
+  }
 });

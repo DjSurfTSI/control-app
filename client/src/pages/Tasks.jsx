@@ -10,13 +10,23 @@ import { PHOTO_TYPE_LABELS } from '../utils';
 
 function CompleteModal({ task, onClose, onComplete }) {
   const [report, setReport] = useState('');
-  const [photoStatus, setPhotoStatus] = useState({ complete: false, missing: ['left', 'right', 'front'] });
+  const [photoStatus, setPhotoStatus] = useState({
+    complete: false,
+    missing: ['left', 'right', 'front'],
+    cvPassed: false,
+    cvFailed: [],
+  });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   const handleComplete = async () => {
     if (!photoStatus.complete) {
       setError(`Прикрепите фото: ${photoStatus.missing.map((t) => PHOTO_TYPE_LABELS[t]).join(', ')}`);
+      return;
+    }
+    if (!photoStatus.cvPassed) {
+      const failed = photoStatus.cvFailed?.map((t) => PHOTO_TYPE_LABELS[t]).join(', ') || 'не все ракурсы';
+      setError(`Банкомат не обнаружен на фото: ${failed}. Переснимите перед завершением.`);
       return;
     }
     setSaving(true);
@@ -43,8 +53,12 @@ function CompleteModal({ task, onClose, onComplete }) {
         <PhotoUpload taskId={task.id} onChange={setPhotoStatus} />
         <div className="modal-actions">
           <button className="btn-secondary" onClick={onClose}>Отмена</button>
-          <button className="btn-success" onClick={handleComplete} disabled={saving}>
-            {saving ? 'Сохранение...' : 'Завершить'}
+          <button
+            className="btn-success"
+            onClick={handleComplete}
+            disabled={saving || !photoStatus.complete || !photoStatus.cvPassed}
+          >
+            {saving ? 'Проверка CV...' : 'Завершить'}
           </button>
         </div>
       </div>
@@ -228,8 +242,11 @@ export default function Tasks() {
   };
 
   const handleComplete = async (taskId, report) => {
-    await api.updateTask(taskId, { status: 'completed', report: report || 'Уборка выполнена' });
-    load();
+    try {
+      await api.updateTask(taskId, { status: 'completed', report: report || 'Уборка выполнена' });
+    } finally {
+      load();
+    }
   };
 
   const handleSave = async (action, form) => {

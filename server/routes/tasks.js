@@ -3,7 +3,8 @@ import multer from 'multer';
 import * as XLSX from 'xlsx';
 import db, { hasAllRequiredPhotos } from '../db.js';
 import { authMiddleware, requireRole } from '../middleware.js';
-import { notifyTaskAssigned, notifyTaskCompleted, notifyOverdue } from '../push.js';
+import { notifyTaskAssigned, notifyTaskCompleted, notifyOverdue, notifyCvRejected } from '../push.js';
+import { validateTaskPhotos, PHOTO_TYPE_LABELS } from '../cv/validatePhotos.js';
 import { dispatchWebhooks } from '../integration/webhooks.js';
 import { formatTask, TASK_SELECT_INTEGRATION } from '../integration/schemas.js';
 
@@ -309,7 +310,7 @@ router.post('/', requireRole('admin', 'supervisor'), (req, res) => {
   res.status(201).json(task);
 });
 
-router.patch('/:id', (req, res) => {
+router.patch('/:id', async (req, res) => {
   const task = db.prepare('SELECT * FROM cleaning_tasks WHERE id = ?').get(req.params.id);
   if (!task) return res.status(404).json({ error: 'Заявка не найдена' });
 
@@ -335,6 +336,28 @@ router.patch('/:id', (req, res) => {
         error: 'Прикрепите обязательные фото: Слева, Справа и Спереди',
       });
     }
+
+    if (status === 'completed' && isCleaner) {
+      const cv = await validateTaskPhotos(req.params.id);
+      if (!cv.ok) {
+        db.prepare(`
+          UPDATE cleaning_tasks
+          SET status = 'in_progress', completed_at = NULL, updated_at = datetime('now')
+          WHERE id = ?
+        `).run(req.params.id);
+
+        const labels = cv.failed.map((f) => f.label || PHOTO_TYPE_LABELS[f.photo_type]).join(', ');
+        notifyCvRejected(task, req.user.id, labels);
+
+        return res.status(400).json({
+          error: `Банкомат не обнаружен на фото: ${labels}. Заявка возвращена в работу — переснимите фото.`,
+          code: 'cv_rejected',
+          failed_photos: cv.failed,
+          status: 'in_progress',
+        });
+      }
+    }
+
     updates.push('status = ?');
     params.push(status);
     if (status === 'in_progress') {

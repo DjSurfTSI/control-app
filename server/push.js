@@ -51,6 +51,15 @@ export function notifyTaskCompleted(task, supervisorIds) {
   }
 }
 
+export function notifyCvRejected(task, assigneeId, failedLabels) {
+  if (!assigneeId) return;
+  sendPushToUser(assigneeId, {
+    title: 'Фото не прошло проверку',
+    body: `Заявка ${task.id}: банкомат не обнаружен (${failedLabels}). Переснимите фото.`,
+    url: '/tasks',
+  });
+}
+
 export function notifyOverdue(count, managerIds) {
   for (const uid of managerIds) {
     sendPushToUser(uid, {

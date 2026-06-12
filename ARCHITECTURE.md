@@ -86,6 +86,9 @@ atm-cleaning-control/
 │   │   ├── middleware.js       # API Key, scopes, логирование
 │   │   ├── schemas.js          # Форматы ответов для v1 API
 │   │   └── webhooks.js         # Исходящие webhook-события
+│   ├── cv/                     # CV-проверка фотоотчётов
+│   │   ├── atmDetector.js      # CLIP zero-shot: банкомат на фото
+│   │   └── validatePhotos.js   # Проверка ракурсов и сохранение результата
 │   ├── routes/
 │   │   ├── auth.js
 │   │   ├── users.js
@@ -114,6 +117,7 @@ atm-cleaning-control/
 | Отчёты | SheetJS (`xlsx`) | Импорт и экспорт Excel |
 | Push | web-push + Service Worker | Фоновые уведомления |
 | PWA | manifest.json + sw.js | Установка на мобильный экран |
+| CV | CLIP (`@xenova/transformers`) | Проверка наличия банкомата на фото |
 | Интеграция | API Key + Webhooks | Обмен данными с ERP/CRM/1С |
 
 ---
@@ -170,6 +174,9 @@ erDiagram
         int task_id FK
         string filename
         string photo_type "left | right | front"
+        int cv_detected "0 | 1"
+        float cv_confidence
+        datetime cv_checked_at
         int uploaded_by FK
         datetime created_at
     }
@@ -305,7 +312,8 @@ flowchart LR
 | `GET /api/users` | все | только cleaner | — | Список пользователей |
 | `POST /api/users` | все роли | только cleaner | — | Создание учётной записи |
 | `DELETE /api/users/:id` | ✓ | cleaner | — | Удаление / деактивация |
-| `POST /api/photos/:taskId` | ✓ | ✓ | свои | Загрузка фото |
+| `POST /api/photos/:taskId` | ✓ | ✓ | свои | Загрузка фото + CV-проверка |
+| `GET /api/photos/:taskId` | ✓ | ✓ | свои* | Список фото (`cv_detected`, `cv_confidence`) |
 | `POST /api/notifications/subscribe` | ✓ | ✓ | ✓ | Подписка на push |
 
 Проверка ролей реализована в `server/middleware.js` через `requireRole(...)`.
@@ -320,7 +328,8 @@ flowchart LR
 stateDiagram-v2
     [*] --> pending: UI / Excel / Integration API
     pending --> in_progress: Уборщик нажимает «Начать»
-    in_progress --> completed: 3 фото + отчёт
+    in_progress --> completed: 3 фото + CV OK + отчёт
+    in_progress --> in_progress: CV отклонил фото
     pending --> overdue: Дата прошла
     in_progress --> overdue: Дата прошла
     pending --> cancelled: Отмена менеджером
@@ -341,24 +350,42 @@ stateDiagram-v2
 | `right` | Справа |
 | `front` | Спереди |
 
+### 6.2.1 CV-проверка банкомата на фото
+
+Модуль `server/cv/` использует **CLIP zero-shot** (`Xenova/clip-vit-base-patch32`) для определения, есть ли на снимке банкомат.
+
+| Этап | Действие |
+|------|----------|
+| Загрузка фото | `POST /api/photos/:taskId` → CV анализ → поля `cv_detected`, `cv_confidence`, `cv_checked_at` |
+| Завершение заявки | `PATCH /api/tasks/:id` со `status=completed` → повторная проверка всех ракурсов |
+| CV не прошёл | Статус остаётся `in_progress`, push уборщику, ошибка `cv_rejected` |
+
+Проверка **обязательна только для роли `cleaner`**. Админ и супервайзер могут завершить заявку без CV.
+
+Переменные: `CV_ENABLED` (по умолчанию `true`), `CV_ATM_THRESHOLD` (порог уверенности, по умолчанию `0.18`).
+
 ```mermaid
 sequenceDiagram
     participant C as Уборщик
     participant API as /api/photos
+    participant CV as atmDetector.js
     participant FS as uploads/
     participant DB as SQLite
 
     C->>API: POST фото + photo_type
     API->>FS: Сохранить файл на диск
-    API->>DB: INSERT task_photos
-    Note over API,DB: Повторная загрузка того же типа заменяет старое фото
+    API->>CV: detectAtmInPhoto()
+    CV-->>API: detected, confidence
+    API->>DB: INSERT task_photos + cv_detected
 
     C->>API: PATCH /tasks/:id status=completed
-    API->>DB: Проверить наличие left, right, front
-    alt Все 3 фото загружены
+    API->>CV: validateTaskPhotos() — все ракурсы
+    alt Банкомат на всех фото
+        API->>DB: status=completed
         API-->>C: 200 OK
-    else Не хватает ракурсов
-        API-->>C: 400 Ошибка
+    else Банкомат не обнаружен
+        API->>DB: status=in_progress
+        API-->>C: 400 cv_rejected
     end
 ```
 
@@ -398,6 +425,7 @@ sequenceDiagram
 | Событие | Кому | Триггер |
 |---------|------|---------|
 | Новая заявка | Уборщик | Создание / назначение |
+| CV отклонил фото | Уборщик | Банкомат не обнаружен при завершении |
 | Просрочка | admin, supervisor | Автоматически при запросе stats/tasks |
 | Уборка выполнена | admin, supervisor | status → completed |
 
@@ -433,7 +461,7 @@ flowchart TB
 | `src/utils.js` | Статусы, роли, типы фото | Вынести в `domain.config.js` |
 | `src/context/AuthContext.jsx` | JWT, текущий пользователь | Обычно не меняется |
 | `src/App.jsx` | Маршруты + `PrivateRoute` | Добавить страницы, роли |
-| `src/components/PhotoUpload.jsx` | Слоты обязательных фото | Изменить `PHOTO_TYPES` |
+| `src/components/PhotoUpload.jsx` | Слоты фото + бейджи CV | Изменить `PHOTO_TYPES`, стили проверки |
 | `src/components/ImportTasksModal.jsx` | UI импорта Excel | Обновить описание столбцов |
 | `src/index.css` | Тема, анимации | Брендинг через CSS-переменные |
 
@@ -508,6 +536,8 @@ pm2 logs control-app
 
 > Не запускайте второй экземпляр через `npm start`, если pm2 уже держит порт 3001 (`EADDRINUSE`).
 
+При включённой CV-проверке (`CV_ENABLED=true`) при первом запуске скачивается модель CLIP в `.cache/transformers` (~150 MB). Рекомендуется **≥1 GB RAM**.
+
 ```mermaid
 flowchart LR
     subgraph Dev["Разработка"]
@@ -544,6 +574,7 @@ flowchart LR
 | 2 | Роли пользователей | `db.js` CHECK, `middleware.js`, `utils.js` |
 | 3 | Статусы заявок | `db.js`, `utils.js`, `routes/tasks.js` |
 | 4 | Обязательные фото | `REQUIRED_PHOTO_TYPES` в `db.js`, `PHOTO_TYPES` в `utils.js` |
+| 4a | CV-модель и порог | `server/cv/atmDetector.js`, `CV_ATM_THRESHOLD` |
 | 5 | Excel-шаблон | `routes/tasks.js` → `/import-template` и `/import` |
 | 6 | Тексты push | `server/push.js` |
 | 7 | Брендинг | `manifest.json`, `index.html`, CSS-переменные в `index.css` |
@@ -585,7 +616,8 @@ flowchart LR
 | Компонент | Сейчас | Возможная замена |
 |-----------|--------|------------------|
 | БД | SQLite (`node:sqlite`) | PostgreSQL — тот же SQL, другой драйвер |
-| Файлы | `server/uploads/` | S3 / MinIO — меняется только `routes/photos.js` |
+| Файлы | `server/uploads/` | S3 / MinIO — меняется `routes/photos.js` и `cv/` |
+| CV | CLIP on-node | Отдельный GPU-сервис / облачный Vision API |
 | Push | web-push (VAPID) | FCM, OneSignal — меняется `push.js` |
 | Auth | JWT в localStorage | OAuth2, Keycloak — меняется `middleware.js` |
 | Очереди | Синхронно в HTTP | BullMQ / Redis для импорта и уведомлений |
@@ -600,6 +632,8 @@ flowchart LR
 | `JWT_SECRET` | dev-секрет | Ключ подписи JWT |
 | `VAPID_PUBLIC` | встроенный | Публичный ключ web-push |
 | `VAPID_PRIVATE` | встроенный | Приватный ключ web-push |
+| `CV_ENABLED` | `true` | Включить CV-проверку фото (`false` — пропускать) |
+| `CV_ATM_THRESHOLD` | `0.18` | Порог уверенности CLIP (0–1) |
 
 Шаблон для production: `server/.env.example` → скопировать в `server/.env`.
 
@@ -616,7 +650,7 @@ npx web-push generate-vapid-keys
 Приложение — **шаблон системы полевого контроля с Integration Layer**:
 
 1. **Менеджер** планирует заявки (UI, Excel, внешние АС через API).
-2. **Исполнитель** выполняет на объекте (статусы + обязательные фото).
+2. **Исполнитель** выполняет на объекте (статусы + фото + CV-подтверждение банкомата).
 3. **Система** отслеживает просрочки, шлёт push и webhook-события.
 4. **Внешние АС** (ERP, 1С, CRM) синхронизируют данные через Integration API v1.
 

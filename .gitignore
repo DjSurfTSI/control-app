@@ -3,5 +3,6 @@ dist/
 *.db
 uploads/
 .env
+.cache/
 .DS_Store
 .gigaide/

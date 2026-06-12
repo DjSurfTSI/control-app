@@ -6,6 +6,7 @@
 
 - Роли: администратор, супервайзер, уборщик
 - Заявки на уборку с фотоотчётом (слева, справа, спереди)
+- **CV-проверка фото** — модель CLIP определяет наличие банкомата; без подтверждения заявка не завершается
 - Импорт/экспорт Excel
 - Push-уведомления и PWA
 - Integration API для ERP/CRM/1С
@@ -47,7 +48,11 @@ PORT=3001
 JWT_SECRET=длинный-случайный-секрет
 VAPID_PUBLIC=...
 VAPID_PRIVATE=...
+CV_ENABLED=true
+CV_ATM_THRESHOLD=0.18
 ```
+
+> При `CV_ENABLED=true` при первом запуске скачивается модель CLIP (~150 MB) в `.cache/transformers`. Рекомендуется **≥1 GB RAM** на сервере.
 
 Обновление на сервере:
 
@@ -67,4 +72,4 @@ pm2 restart control-app
 
 ## Стек
 
-React + Vite · Express · SQLite (`node:sqlite`) · JWT · web-push
+React + Vite · Express · SQLite (`node:sqlite`) · JWT · web-push · CLIP (`@xenova/transformers`)

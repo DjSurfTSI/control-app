@@ -110,6 +110,9 @@ const migrations = [
   { table: 'cleaning_tasks', column: 'external_id', sql: 'ALTER TABLE cleaning_tasks ADD COLUMN external_id TEXT UNIQUE' },
   { table: 'cleaning_tasks', column: 'source_system', sql: 'ALTER TABLE cleaning_tasks ADD COLUMN source_system TEXT' },
   { table: 'cleaning_tasks', column: 'updated_at', sql: "ALTER TABLE cleaning_tasks ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime('now'))" },
+  { table: 'task_photos', column: 'cv_detected', sql: 'ALTER TABLE task_photos ADD COLUMN cv_detected INTEGER' },
+  { table: 'task_photos', column: 'cv_confidence', sql: 'ALTER TABLE task_photos ADD COLUMN cv_confidence REAL' },
+  { table: 'task_photos', column: 'cv_checked_at', sql: 'ALTER TABLE task_photos ADD COLUMN cv_checked_at TEXT' },
 ];
 
 for (const m of migrations) {
@@ -131,6 +134,16 @@ export function hasAllRequiredPhotos(taskId) {
     'SELECT DISTINCT photo_type FROM task_photos WHERE task_id = ? AND photo_type IS NOT NULL'
   ).all(taskId).map((r) => r.photo_type);
   return REQUIRED_PHOTO_TYPES.every((t) => types.includes(t));
+}
+
+export function hasAllPhotosCvPassed(taskId) {
+  for (const type of REQUIRED_PHOTO_TYPES) {
+    const row = db.prepare(
+      'SELECT cv_detected FROM task_photos WHERE task_id = ? AND photo_type = ?'
+    ).get(taskId, type);
+    if (!row || row.cv_detected !== 1) return false;
+  }
+  return true;
 }
 
 const userCount = db.prepare('SELECT COUNT(*) as c FROM users').get().c;

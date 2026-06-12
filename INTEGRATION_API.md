@@ -17,6 +17,7 @@
 | **Inbound** (входящие) | REST + API Key | Внешняя система читает/создаёт данные |
 | **Outbound** (исходящие) | Webhooks + HMAC | Приложение уведомляет внешнюю систему о событиях |
 | **Управление** | REST + JWT (admin) | Создание API-ключей и webhook-эндпоинтов |
+| **CV-проверка фото** | CLIP (только UI) | Не затрагивает Integration API |
 
 ```mermaid
 sequenceDiagram
@@ -277,6 +278,8 @@ Content-Type: application/json
 | `status` | `pending`, `in_progress`, `completed`, `cancelled` |
 | `scheduled_date` | Новая дата |
 | `priority` | `low`, `normal`, `high` |
+
+> **CV-проверка фото** применяется только при завершении через веб-интерфейс (роль `cleaner`). Integration API (`PATCH /v1/tasks/:id` со `status=completed`) **не запускает** CV — внешние системы управляют статусом напрямую.
 | `assignee_id` / `assignee_email` | Переназначение |
 
 **Scope:** `tasks:write`
@@ -553,6 +556,7 @@ GET /api/integration/logs?limit=50
 | Max list size | 500 записей |
 | Webhook timeout | 10 секунд |
 | Webhook retry | Не реализован (добавить очередь в production) |
+| CV-проверка | Только веб-UI уборщика; Integration API завершает заявки без CV |
 | Версионирование | URL-prefix `/v1/` |
 
 ---
