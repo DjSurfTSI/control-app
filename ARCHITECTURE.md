@@ -209,7 +209,7 @@ erDiagram
 | Сущность сейчас | Универсальный аналог |
 |-----------------|----------------------|
 | `atms` | Объекты: офисы, магазины, оборудование |
-| `cleaning_tasks` | Задания, наряды, тикеты |
+| `cleaning_tasks` | Заявки, наряды, тикеты |
 | `users` (cleaner) | Исполнители, техники, курьеры |
 | `task_photos` | Доказательства выполнения |
 | `push_subscriptions` | Подписки на события |
@@ -240,8 +240,8 @@ flowchart LR
 | Endpoint | Scope | Описание |
 |----------|-------|----------|
 | `GET /v1/health` | любой ключ | Проверка доступности |
-| `GET /v1/tasks` | `tasks:read` | Список заданий |
-| `POST /v1/tasks` | `tasks:write` | Создание задания |
+| `GET /v1/tasks` | `tasks:read` | Список заявок |
+| `POST /v1/tasks` | `tasks:write` | Создание заявки |
 | `POST /v1/tasks/batch` | `tasks:write` | Массовое создание |
 | `PATCH /v1/tasks/:id` | `tasks:write` | Обновление статуса |
 | `GET /v1/atms` | `atms:read` | Список банкоматов |
@@ -250,11 +250,11 @@ flowchart LR
 
 ### 4.3 Webhooks (исходящий)
 
-При любом изменении задания (UI, Excel, Integration API) вызывается `dispatchWebhooks()`:
+При любом изменении заявки (UI, Excel, Integration API) вызывается `dispatchWebhooks()`:
 
 | Событие | Триггер |
 |---------|---------|
-| `task.created` | Создание задания |
+| `task.created` | Создание заявки |
 | `task.updated` | Изменение полей |
 | `task.completed` | status → completed |
 | `task.cancelled` | Отмена |
@@ -295,8 +295,8 @@ flowchart LR
 |---------|:-----:|:----------:|:-------:|----------|
 | `POST /api/auth/login` | ✓ | ✓ | ✓ | Вход |
 | `GET /api/auth/me` | ✓ | ✓ | ✓ | Текущий пользователь |
-| `GET /api/tasks` | все | все | только свои | Список заданий |
-| `POST /api/tasks` | ✓ | ✓ | — | Создание задания |
+| `GET /api/tasks` | все | все | только свои | Список заявок |
+| `POST /api/tasks` | ✓ | ✓ | — | Создание заявки |
 | `POST /api/tasks/import` | ✓ | ✓ | — | Импорт из Excel |
 | `GET /api/tasks/export` | ✓ | ✓ | — | Экспорт в Excel |
 | `PATCH /api/tasks/:id` | ✓ | ✓ | свои | Изменение / завершение |
@@ -314,7 +314,7 @@ flowchart LR
 
 ## 6. Бизнес-процессы
 
-### 6.1 Жизненный цикл задания
+### 6.1 Жизненный цикл заявки
 
 ```mermaid
 stateDiagram-v2
@@ -333,7 +333,7 @@ stateDiagram-v2
 
 ### 6.2 Фотоотчёт (обязательные ракурсы)
 
-Перед завершением задания уборщик обязан загрузить три фото:
+Перед завершением заявки уборщик обязан загрузить три фото:
 
 | `photo_type` | Подпись в UI |
 |--------------|--------------|
@@ -362,7 +362,7 @@ sequenceDiagram
     end
 ```
 
-### 6.3 Импорт заданий из Excel
+### 6.3 Импорт заявок из Excel
 
 **Шаблон** (`GET /api/tasks/import-template`) содержит столбцы:
 
@@ -397,7 +397,7 @@ sequenceDiagram
 
 | Событие | Кому | Триггер |
 |---------|------|---------|
-| Новое задание | Уборщик | Создание / назначение |
+| Новая заявка | Уборщик | Создание / назначение |
 | Просрочка | admin, supervisor | Автоматически при запросе stats/tasks |
 | Уборка выполнена | admin, supervisor | status → completed |
 
@@ -439,8 +439,8 @@ flowchart TB
 
 ### Мобильная версия и PWA
 
-- Нижняя навигация на экранах < 768px (`Layout.jsx`)
-- Карточки заданий вместо таблицы (`TaskCard.jsx`)
+- Пункт «Заявки» в нижней навигации на экранах < 768px (`Layout.jsx`)
+- Карточки заявок вместо таблицы (`TaskCard.jsx`)
 - `manifest.json` — установка на домашний экран
 - `sw.js` — обработка push-событий
 
@@ -463,12 +463,50 @@ cd server && npm run dev    # http://localhost:3001
 cd client && npm run dev    # http://localhost:5173 (proxy /api → 3001)
 ```
 
-### Production
+### Production (локально)
 
 ```bash
 npm run build --prefix client   # → client/dist/
 npm run start --prefix server   # Express отдаёт API + статику с :3001
 ```
+
+### Production (VPS / Reg.ru)
+
+В репозитории есть готовые конфиги в `deploy/`:
+
+| Файл | Назначение |
+|------|------------|
+| `deploy/setup-server.sh` | Автонастройка: сборка, pm2, nginx |
+| `deploy/ecosystem.config.cjs` | Конфиг pm2 для `control-app` |
+| `deploy/nginx-control-app.conf` | Nginx reverse proxy на `127.0.0.1:3001` |
+| `server/.env.example` | Шаблон переменных окружения |
+
+```bash
+sudo bash deploy/setup-server.sh
+```
+
+Схема на сервере:
+
+```mermaid
+flowchart LR
+    Browser["Браузер / IP / домен"] --> Nginx["Nginx :80"]
+    Nginx --> PM2["pm2: control-app"]
+    PM2 --> Express["Express :3001"]
+    Express --> Static["client/dist/"]
+    Express --> API["/api/*"]
+    Express --> DB[(atm-cleaning.db)]
+    Express --> Uploads[uploads/]
+```
+
+Управление процессом:
+
+```bash
+pm2 status
+pm2 restart control-app
+pm2 logs control-app
+```
+
+> Не запускайте второй экземпляр через `npm start`, если pm2 уже держит порт 3001 (`EADDRINUSE`).
 
 ```mermaid
 flowchart LR
@@ -477,11 +515,12 @@ flowchart LR
     end
 
     subgraph Prod["Production"]
-        Browser --> Express2["Express :3001"]
-        Express2 --> Static["client/dist/"]
-        Express2 --> API["/api/*"]
-        Express2 --> DB[(atm-cleaning.db)]
-        Express2 --> Uploads[uploads/]
+        Browser2["Браузер"] --> Nginx2["Nginx"]
+        Nginx2 --> Express2["Express :3001"]
+        Express2 --> Static2["client/dist/"]
+        Express2 --> API2["/api/*"]
+        Express2 --> DB2[(atm-cleaning.db)]
+        Express2 --> Uploads2[uploads/]
     end
 ```
 
@@ -503,7 +542,7 @@ flowchart LR
 |---|------------|-----|
 | 1 | Название сущности «объект» | `atms` → `locations`, `server/routes/atms.js`, `pages/Atms.jsx` |
 | 2 | Роли пользователей | `db.js` CHECK, `middleware.js`, `utils.js` |
-| 3 | Статусы заданий | `db.js`, `utils.js`, `routes/tasks.js` |
+| 3 | Статусы заявок | `db.js`, `utils.js`, `routes/tasks.js` |
 | 4 | Обязательные фото | `REQUIRED_PHOTO_TYPES` в `db.js`, `PHOTO_TYPES` в `utils.js` |
 | 5 | Excel-шаблон | `routes/tasks.js` → `/import-template` и `/import` |
 | 6 | Тексты push | `server/push.js` |
@@ -557,10 +596,12 @@ flowchart LR
 
 | Переменная | По умолчанию | Описание |
 |------------|--------------|----------|
-| `PORT` | `3001` | Порт сервера |
+| `PORT` | `3001` | Порт сервера (pm2 / `server/.env`) |
 | `JWT_SECRET` | dev-секрет | Ключ подписи JWT |
 | `VAPID_PUBLIC` | встроенный | Публичный ключ web-push |
 | `VAPID_PRIVATE` | встроенный | Приватный ключ web-push |
+
+Шаблон для production: `server/.env.example` → скопировать в `server/.env`.
 
 Для production задайте собственные `JWT_SECRET` и VAPID-ключи:
 
@@ -574,7 +615,7 @@ npx web-push generate-vapid-keys
 
 Приложение — **шаблон системы полевого контроля с Integration Layer**:
 
-1. **Менеджер** планирует задания (UI, Excel, внешние АС через API).
+1. **Менеджер** планирует заявки (UI, Excel, внешние АС через API).
 2. **Исполнитель** выполняет на объекте (статусы + обязательные фото).
 3. **Система** отслеживает просрочки, шлёт push и webhook-события.
 4. **Внешние АС** (ERP, 1С, CRM) синхронизируют данные через Integration API v1.

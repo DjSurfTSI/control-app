@@ -1,7 +1,10 @@
 # Integration API — контракт для внешних систем
 
 Версия: **v1**  
-Базовый URL: `http://<host>:3001/api/integration/v1`
+Базовый URL (dev): `http://localhost:3001/api/integration/v1`  
+Базовый URL (production): `https://<ваш-домен>/api/integration/v1`
+
+> В UI сущность называется **«Заявки»**; в API и коде по-прежнему используются пути `/tasks` и таблица `cleaning_tasks`.
 
 Документ описывает REST API для интеграции с ERP, CRM, Service Desk, системами планирования и другими АСУ.
 
@@ -58,8 +61,8 @@ Authorization: ApiKey atk_your_secret_key_here
 
 | Scope | Доступ |
 |-------|--------|
-| `tasks:read` | Чтение заданий и статистики |
-| `tasks:write` | Создание и изменение заданий |
+| `tasks:read` | Чтение заявок и статистики |
+| `tasks:write` | Создание и изменение заявок |
 | `atms:read` | Чтение банкоматов |
 | `atms:write` | Создание / обновление банкоматов |
 | `*` | Полный доступ |
@@ -125,9 +128,9 @@ GET /v1/health
 
 ---
 
-### 4.2 Задания
+### 4.2 Заявки (`/v1/tasks`)
 
-#### Список заданий
+#### Список заявок
 
 ```http
 GET /v1/tasks?status=pending&date=2026-06-10&external_id=ERP-1001
@@ -137,8 +140,8 @@ GET /v1/tasks?status=pending&date=2026-06-10&external_id=ERP-1001
 |----------|-----|----------|
 | `status` | string | `pending`, `in_progress`, `completed`, `overdue`, `cancelled` |
 | `date` | string | Дата планирования `ГГГГ-ММ-ДД` |
-| `external_id` | string | Внешний ID задания |
-| `updated_since` | string | ISO datetime, задания созданные после |
+| `external_id` | string | Внешний ID заявки |
+| `updated_since` | string | ISO datetime, заявки созданные после |
 
 **Scope:** `tasks:read`
 
@@ -179,7 +182,7 @@ GET /v1/tasks?status=pending&date=2026-06-10&external_id=ERP-1001
 }
 ```
 
-#### Получить задание
+#### Получить заявку
 
 ```http
 GET /v1/tasks/:id
@@ -187,7 +190,7 @@ GET /v1/tasks/:id
 
 **Scope:** `tasks:read`
 
-#### Создать задание
+#### Создать заявку
 
 ```http
 POST /v1/tasks
@@ -253,7 +256,7 @@ Content-Type: application/json
 }
 ```
 
-#### Обновить задание
+#### Обновить заявку
 
 ```http
 PATCH /v1/tasks/:id
@@ -356,11 +359,11 @@ GET /v1/stats
 
 | Событие | Когда |
 |---------|-------|
-| `task.created` | Задание создано (UI, Excel, API) |
+| `task.created` | Заявка создана (UI, Excel, API) |
 | `task.updated` | Статус или поля изменены |
 | `task.completed` | Уборка завершена |
-| `task.cancelled` | Задание отменено |
-| `task.overdue` | Задание просрочено |
+| `task.cancelled` | Заявка отменена |
+| `task.overdue` | Заявка просрочена |
 | `atm.created` | Банкомат добавлен через API |
 | `atm.updated` | Банкомат обновлён через API |
 
@@ -417,7 +420,7 @@ function verifyWebhook(body, signature, secret) {
 
 ## 6. Примеры интеграции
 
-### 6.1 cURL — создать задание из ERP
+### 6.1 cURL — создать заявку из ERP
 
 ```bash
 curl -X POST http://localhost:3001/api/integration/v1/tasks \
@@ -464,7 +467,7 @@ POST /v1/atms
 
 | Поле | Таблица | Назначение |
 |------|---------|------------|
-| `external_id` | `cleaning_tasks` | Уникальный ID задания во внешней АС |
+| `external_id` | `cleaning_tasks` | Уникальный ID заявки во внешней АС |
 | `external_id` | `atms` | Уникальный ID объекта во внешней АС |
 | `source_system` | `cleaning_tasks` | Код системы-источника (`SAP-PM`, `1C`, `Jira`) |
 
@@ -546,7 +549,7 @@ GET /api/integration/logs?limit=50
 | Параметр | Значение |
 |----------|----------|
 | Rate limit | Не реализован (добавить в production) |
-| Max batch size | 500 заданий за запрос |
+| Max batch size | 500 заявок за запрос |
 | Max list size | 500 записей |
 | Webhook timeout | 10 секунд |
 | Webhook retry | Не реализован (добавить очередь в production) |
