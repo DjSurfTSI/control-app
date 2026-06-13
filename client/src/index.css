@@ -622,6 +622,101 @@ label {
   gap: 0.25rem;
 }
 
+/* ——— Исполнитель: вкладки статусов внизу (над mobile-nav) ——— */
+.executor-mobile-dock {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .executor-mobile-dock {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(3.1rem + env(safe-area-inset-bottom, 0px));
+    z-index: 49;
+    background: rgba(21, 29, 43, 0.96);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
+    padding: 0.35rem max(0.35rem, env(safe-area-inset-left, 0px))
+      0.35rem max(0.35rem, env(safe-area-inset-right, 0px));
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
+  }
+
+  .executor-mobile-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, auto);
+    gap: 0.3rem;
+  }
+
+  .executor-mobile-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem;
+    min-height: 2.75rem;
+    padding: 0.25rem 0.15rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-muted);
+    font-size: 0.62rem;
+    font-weight: 600;
+    line-height: 1.15;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  .executor-mobile-tab.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+  }
+
+  .executor-mobile-tab-label {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .executor-mobile-tab-count {
+    min-width: 1.1rem;
+    height: 1.1rem;
+    padding: 0 0.25rem;
+    border-radius: 999px;
+    background: var(--surface-hover);
+    color: var(--text-muted);
+    font-size: 0.6rem;
+    font-weight: 700;
+    line-height: 1.1rem;
+    text-align: center;
+  }
+
+  .executor-mobile-tab.active .executor-mobile-tab-count {
+    background: rgba(255, 255, 255, 0.25);
+    color: white;
+  }
+
+  .executor-mobile-tab-count.has-items {
+    background: rgba(59, 130, 246, 0.2);
+    color: var(--primary);
+  }
+
+  .executor-mobile-tab.active .executor-mobile-tab-count.has-items {
+    background: rgba(255, 255, 255, 0.3);
+    color: white;
+  }
+
+  .tasks-executor-mobile {
+    padding-bottom: 5.75rem;
+  }
+}
+
 /* ——— Tables ——— */
 .table-wrap {
   overflow-x: auto;
