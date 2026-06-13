@@ -699,12 +699,18 @@ label {
   gap: 0.5rem;
 }
 
+.task-card-device-id,
 .task-card-bank {
   display: block;
   font-size: 0.8rem;
   color: var(--text-muted);
   font-weight: 400;
   margin-top: 0.15rem;
+}
+
+.task-card-device-id {
+  font-weight: 600;
+  color: var(--text);
 }
 
 .task-card-address {

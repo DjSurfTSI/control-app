@@ -85,6 +85,7 @@ function getManagerIds() {
 function applyTaskFilters(query, sql, params, user) {
   const q = query;
   if (q.task_id) { sql += ' AND t.id = ?'; params.push(q.task_id); }
+  if (q.serial_number) { sql += ' AND a.serial_number LIKE ?'; params.push(`%${q.serial_number}%`); }
   if (q.status) { sql += ' AND t.status = ?'; params.push(normalizeStatus(q.status) || q.status); }
   if (q.accessibility_type) { sql += ' AND a.accessibility_type = ?'; params.push(q.accessibility_type); }
   if (q.territorial_bank) { sql += ' AND COALESCE(a.territorial_bank, a.bank_name) = ?'; params.push(q.territorial_bank); }
@@ -173,6 +174,7 @@ router.get('/export', requireRole('admin', 'supervisor'), (req, res) => {
   const built = applyTaskFilters(req.query, `
     SELECT t.id, t.status, t.scheduled_date, t.deadline_date, t.started_at, t.completed_at,
       t.service_contract, t.closed_device, t.closed_os, t.closed_latitude, t.closed_longitude,
+      a.serial_number,
       a.accessibility_type,
       COALESCE(a.territorial_bank, a.bank_name) as territorial_bank,
       COALESCE(a.gosb, a.zone) as gosb,
@@ -188,6 +190,7 @@ router.get('/export', requireRole('admin', 'supervisor'), (req, res) => {
 
   const data = rows.map((r) => ({
     '№ заявки': r.id,
+    'ID УС': r.serial_number || '',
     'Статус': STATUS_LABELS[r.status] || r.status,
     'Вид доступности': r.accessibility_type || '',
     'Территориальный Банк': r.territorial_bank || '',

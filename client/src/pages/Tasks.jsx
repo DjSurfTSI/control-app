@@ -16,7 +16,7 @@ import DateInput from '../components/DateInput';
 import DateRangeInput from '../components/DateRangeInput';
 
 const EMPTY_FILTERS = {
-  task_id: '', status: '', accessibility_type: '', territorial_bank: '', gosb: '',
+  task_id: '', serial_number: '', status: '', accessibility_type: '', territorial_bank: '', gosb: '',
   address: '', installation_name: '',
   scheduled_from: '', scheduled_to: '',
   deadline_from: '', deadline_to: '',
@@ -58,7 +58,7 @@ function CompleteModal({ task, onClose, onComplete }) {
     <div className="modal-overlay animate-fade-in" onClick={onClose}>
       <div className="modal animate-slide-up" onClick={(e) => e.stopPropagation()}>
         <h2>Завершить заявку</h2>
-        <p><strong>№{task.id}</strong> — {task.installation_name || task.serial_number}</p>
+        <p><strong>№{task.id}</strong> — ID УС: {task.serial_number || '—'}{task.installation_name ? ` — ${task.installation_name}` : ''}</p>
         <p className="modal-sub">{task.address}</p>
         <p className="modal-sub">При закрытии будут сохранены данные устройства и геолокация (если разрешена).</p>
         {error && <div className="error-msg">{error}</div>}
@@ -181,6 +181,7 @@ function TaskModal({
           <>
             <div className="task-detail-grid">
               <div><span>Статус</span><strong>{STATUS_LABELS[task.status]}</strong></div>
+              <div><span>ID УС</span><strong>{task.serial_number || '—'}</strong></div>
               <div><span>Доступность</span><strong>{task.accessibility_type || '—'}</strong></div>
               <div><span>Терр. Банк</span><strong>{task.territorial_bank || task.bank_name}</strong></div>
               <div><span>ГОСБ</span><strong>{task.gosb || task.zone || '—'}</strong></div>
@@ -540,6 +541,10 @@ export default function Tasks() {
           <label>№ заявки</label>
           <input value={filters.task_id} onChange={(e) => setFilter('task_id', e.target.value)} placeholder="ID" />
         </div>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label>ID УС</label>
+          <input value={filters.serial_number} onChange={(e) => setFilter('serial_number', e.target.value)} placeholder="ID устройства" />
+        </div>
         {!showExecutorMobileTabs && (
         <div className="form-group" style={{ margin: 0 }}>
           <label>Статус</label>
@@ -670,7 +675,7 @@ export default function Tasks() {
                       />
                     </th>
                   )}
-                  <th>№</th><th>Статус</th><th>Доступность</th><th>Терр. Банк</th><th>ГОСБ</th>
+                  <th>№</th><th>ID УС</th><th>Статус</th><th>Доступность</th><th>Терр. Банк</th><th>ГОСБ</th>
                   <th>Адрес</th><th>Место</th><th>План</th><th>Контроль</th><th>Начало</th><th>Завершение</th>
                   <th>Услуга</th><th>Исполнитель</th><th>Действия</th>
                 </tr>
@@ -692,6 +697,7 @@ export default function Tasks() {
                       </td>
                     )}
                     <td><strong>{t.id}</strong></td>
+                    <td><strong>{t.serial_number || '—'}</strong></td>
                     <td><span className={`badge badge-${t.status}`}>{STATUS_LABELS[t.status]}</span></td>
                     <td>{t.accessibility_type || '—'}</td>
                     <td>{t.territorial_bank || t.bank_name}</td>
@@ -744,7 +750,7 @@ export default function Tasks() {
 
       <style>{`
         .table-scroll { overflow-x: auto; }
-        .table-scroll table { min-width: 1200px; font-size: 0.85rem; }
+        .table-scroll table { min-width: 1280px; font-size: 0.85rem; }
       `}</style>
     </div>
   );

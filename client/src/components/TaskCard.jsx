@@ -12,7 +12,10 @@ export default function TaskCard({
       <div className="task-card-top">
         <div>
           <strong>№{task.id}</strong>
-          <span className="task-card-bank">{task.installation_name || task.serial_number}</span>
+          <span className="task-card-device-id">ID УС: {task.serial_number || '—'}</span>
+          {task.installation_name && (
+            <span className="task-card-bank">{task.installation_name}</span>
+          )}
         </div>
         <span className={`badge badge-${task.status}`}>{STATUS_LABELS[task.status]}</span>
       </div>
