@@ -20,27 +20,34 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
+    if (!user) return;
     const load = async () => {
+      setLoading(true);
+      setLoadError('');
       try {
-        const [tasksData, statsData] = await Promise.all([
-          api.getTasks({ date: todayISO() }),
-          manager ? api.getStats() : Promise.resolve(null),
-        ]);
+        const tasksData = await api.getTasks({ date: todayISO() });
         setTasks(tasksData);
-        setStats(statsData);
+        if (manager) {
+          const statsResult = await Promise.allSettled([api.getStats()]);
+          if (statsResult[0].status === 'fulfilled') setStats(statsResult[0].value);
+        }
+      } catch (e) {
+        setLoadError(e.message || 'Не удалось загрузить заявки');
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, [manager]);
+  }, [user, manager]);
 
   if (loading) return <p className="empty-state">Загрузка...</p>;
 
   return (
     <div className="page-enter">
+      {loadError && <div className="error-msg">{loadError}</div>}
       <h2 className="page-title animate-slide-down">
         {manager ? 'Панель контроля' : 'Мои заявки на сегодня'}
       </h2>

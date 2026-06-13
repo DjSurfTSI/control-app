@@ -1,6 +1,6 @@
 # Integration API — контракт для внешних систем
 
-Версия: **v1.2.0** (Integration API **v1**)
+Версия: **v1.3.1** (Integration API **v1** — контракт без изменений)
 Базовый URL (dev): `http://localhost:3001/api/integration/v1`  
 Базовый URL (production): `https://<ваш-домен>/api/integration/v1`
 
@@ -567,6 +567,8 @@ GET /api/integration/logs?limit=50
 
 | Версия | Дата | Изменения |
 |--------|------|-----------|
+| v1.3.1 | 2026-06-06 | Устойчивая загрузка UI (таймауты, офлайн-кэш); контракт Integration API без изменений |
+| v1.3.0 | 2026-06-13 | Офлайн-режим веб-UI; контракт Integration API без изменений |
 | v1.2.0 | 2026-06-13 | Сжатие фото в браузере, оптимизация VPS; контракт Integration API без изменений |
 | v1.1.0 | 2026-06-12 | Роль `bizadmin`, настройки CV (Internal API); контракт Integration API без изменений |
 | v1.0.0 | 2026-06-10 | Первый релиз: tasks, atms, stats, webhooks, admin API |

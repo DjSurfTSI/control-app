@@ -196,6 +196,7 @@ export default function Tasks() {
   const [atms, setAtms] = useState([]);
   const [cleaners, setCleaners] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [modal, setModal] = useState(null);
   const [completeModal, setCompleteModal] = useState(null);
   const [importModal, setImportModal] = useState(false);
@@ -211,24 +212,33 @@ export default function Tasks() {
   }, []);
 
   const load = async () => {
+    if (!user) return;
     setLoading(true);
+    setLoadError('');
     try {
       const params = {};
       if (filterStatus) params.status = filterStatus;
       if (filterDate) params.date = filterDate;
 
-      const promises = [api.getTasks(params)];
-      if (manager) promises.push(api.getAtms(), api.getUsers('cleaner'));
-      const [tasksData, atmsData, cleanersData] = await Promise.all(promises);
+      const tasksData = await api.getTasks(params);
       setTasks(tasksData);
-      if (atmsData) setAtms(atmsData);
-      if (cleanersData) setCleaners(cleanersData);
+    } catch (e) {
+      setLoadError(e.message || 'Не удалось загрузить заявки');
     } finally {
       setLoading(false);
     }
+
+    if (manager) {
+      const [atmsResult, cleanersResult] = await Promise.allSettled([
+        api.getAtms(),
+        api.getUsers('cleaner'),
+      ]);
+      if (atmsResult.status === 'fulfilled') setAtms(atmsResult.value);
+      if (cleanersResult.status === 'fulfilled') setCleaners(cleanersResult.value);
+    }
   };
 
-  useEffect(() => { load(); }, [filterStatus, filterDate]);
+  useEffect(() => { load(); }, [user, filterStatus, filterDate, manager]);
 
   useEffect(() => {
     const onSynced = () => load();
@@ -349,6 +359,7 @@ export default function Tasks() {
       </div>
 
       <div className="card animate-slide-up" style={{ animationDelay: '0.1s' }}>
+        {loadError && <div className="error-msg">{loadError}</div>}
         {loading ? (
           <p className="empty-state">Загрузка...</p>
         ) : tasks.length === 0 ? (

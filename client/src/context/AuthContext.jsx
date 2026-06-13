@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { api } from '../api';
+import { api, isNetworkError } from '../api';
 
 const AuthContext = createContext(null);
 
@@ -15,9 +15,9 @@ export function AuthProvider({ children }) {
     }
     api.me()
       .then(setUser)
-      .catch(() => {
+      .catch((err) => {
         const cached = localStorage.getItem('offline_user');
-        if (cached && !navigator.onLine) {
+        if (cached && (!navigator.onLine || isNetworkError(err))) {
           setUser(JSON.parse(cached));
         } else {
           localStorage.removeItem('token');

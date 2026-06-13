@@ -1,8 +1,21 @@
 const DB_NAME = 'atm-offline';
 const DB_VERSION = 1;
+const IDB_TIMEOUT_MS = 5000;
+
+function withTimeout(promise, ms = IDB_TIMEOUT_MS) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('IndexedDB timeout')), ms);
+    }),
+  ]);
+}
 
 function openDb() {
-  return new Promise((resolve, reject) => {
+  if (typeof indexedDB === 'undefined') {
+    return Promise.reject(new Error('IndexedDB unavailable'));
+  }
+  return withTimeout(new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onerror = () => reject(req.error);
     req.onsuccess = () => resolve(req.result);
@@ -15,7 +28,7 @@ function openDb() {
         db.createObjectStore('queue', { keyPath: 'id', autoIncrement: true });
       }
     };
-  });
+  }));
 }
 
 function idbRequest(req) {

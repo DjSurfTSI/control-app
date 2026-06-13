@@ -11,6 +11,7 @@ import {
 } from './offline/store.js';
 
 const API = '/api';
+const REQUEST_TIMEOUT_MS = 20000;
 
 function getToken() {
   return localStorage.getItem('token');
@@ -18,10 +19,13 @@ function getToken() {
 
 export function isNetworkError(err) {
   return err instanceof TypeError
+    || err?.name === 'AbortError'
     || err?.message?.includes('Failed to fetch')
     || err?.message?.includes('NetworkError')
+    || err?.message?.includes('Превышено время ожидания')
     || err?.message?.includes('Ошибка сервера (502)')
-    || err?.message?.includes('Ошибка сервера (503)');
+    || err?.message?.includes('Ошибка сервера (503)')
+    || err?.message?.includes('Ошибка сервера (504)');
 }
 
 async function request(path, options = {}) {
@@ -32,7 +36,23 @@ async function request(path, options = {}) {
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${API}${path}`, { ...options, headers });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(`${API}${path}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      throw new Error('Превышено время ожидания ответа сервера');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const ct = res.headers.get('content-type') || '';
   if (ct.includes('spreadsheet') || ct.includes('octet-stream')) {
@@ -113,11 +133,15 @@ export const api = {
     const cacheKey = q || '_all';
     try {
       const data = await request(`/tasks${q ? `?${q}` : ''}`);
-      await cacheTasks(cacheKey, data);
+      void cacheTasks(cacheKey, data).catch(() => {});
       return data;
     } catch (err) {
-      const cached = await getCachedTasks(cacheKey);
-      if (cached) return cached;
+      try {
+        const cached = await getCachedTasks(cacheKey);
+        if (cached) return cached;
+      } catch {
+        /* ignore IDB errors */
+      }
       throw err;
     }
   },
@@ -171,11 +195,15 @@ export const api = {
   getPhotos: async (taskId) => {
     try {
       const data = await request(`/photos/${taskId}`);
-      await cachePhotos(taskId, data);
+      void cachePhotos(taskId, data).catch(() => {});
       return data;
     } catch (err) {
-      const cached = await getCachedPhotos(taskId);
-      if (cached) return cached;
+      try {
+        const cached = await getCachedPhotos(taskId);
+        if (cached) return cached;
+      } catch {
+        /* ignore IDB errors */
+      }
       throw err;
     }
   },

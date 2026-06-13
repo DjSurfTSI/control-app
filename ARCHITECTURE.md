@@ -75,8 +75,13 @@ atm-cleaning-control/
 │       ├── components/         # Переиспользуемые UI-блоки
 │       ├── pages/              # Экраны (маршруты)
 │       │   ├── Settings.jsx    # Настройки CV (только bizadmin)
+│       ├── offline/
+│       │   ├── store.js            # IndexedDB: кэш заявок/фото, очередь
+│       │   ├── sync.js             # Синхронизация очереди при online
+│       │   └── registerSw.js       # Регистрация Service Worker
 │       ├── hooks/
 │       │   ├── useCvStatus.js      # Статус CV (enabled) для UI
+│       │   ├── useOffline.js       # Статус сети и очереди
 │       │   └── useNotifications.js
 │       ├── utils/
 │       │   └── compressImage.js    # Сжатие фото в браузере
@@ -536,7 +541,37 @@ flowchart TB
 - Пункт «Заявки» в нижней навигации на экранах < 768px (`Layout.jsx`)
 - Карточки заявок вместо таблицы (`TaskCard.jsx`)
 - `manifest.json` — установка на домашний экран
-- `sw.js` — обработка push-событий
+- `public/sw.js` — кэш app shell и статики, push-события
+
+### Офлайн-режим и устойчивая загрузка (v1.3.0+)
+
+```mermaid
+flowchart LR
+    UI[Tasks / Dashboard] --> API[api.js]
+    API -->|online| REST["/api/*"]
+    API -->|cache read| IDB[(IndexedDB)]
+    API -->|cache write| IDB
+    API -->|offline ops| Queue[очередь sync]
+    Queue -->|online| REST
+    SW[Service Worker] -->|shell| UI
+```
+
+| Компонент | Назначение |
+|-----------|------------|
+| `offline/store.js` | Кэш заявок и фото, очередь PATCH/upload |
+| `offline/sync.js` | Сброс очереди при `online`, событие `offline-synced` |
+| `api.js` | Офлайн-fallback: при ошибке сети — данные из IndexedDB |
+| `AuthContext.jsx` | Кэш `offline_user` в localStorage при сетевых сбоях |
+
+**v1.3.1 — защита от зависания UI:**
+
+| Механизм | Значение | Эффект |
+|----------|----------|--------|
+| Таймаут HTTP | 20 с (`REQUEST_TIMEOUT_MS`) | Зависший сервер не блокирует экран навсегда |
+| Запись в IndexedDB | в фоне (`void cacheTasks(...)`) | Успешный ответ API сразу отображается в UI |
+| Таймаут IndexedDB | 5 с | Повреждённая БД не подвешивает загрузку |
+| `Tasks.jsx` | заявки отдельно от `getAtms`/`getUsers` | Список заявок виден даже при сбое справочников |
+| Ошибки загрузки | `loadError` в UI | Вместо пустого списка и «Загрузка...» — текст ошибки |
 
 ---
 
@@ -747,6 +782,8 @@ npx web-push generate-vapid-keys
 
 | Версия | Дата | Изменения |
 |--------|------|-----------|
+| v1.3.1 | 2026-06-06 | Таймаут API 20 с, неблокирующий IndexedDB, раздельная загрузка заявок/справочников, fallback `offline_user` при сетевых ошибках |
+| v1.3.0 | 2026-06-13 | Офлайн-режим: Service Worker, IndexedDB, очередь синхронизации, баннер сети |
 | v1.2.0 | 2026-06-13 | Сжатие фото в браузере, `PHOTO_SKIP_SHARP`/passthrough, UI зависит от CV status, ленивая загрузка CLIP, `ensure-swap`/`build-client`, исправления 502 и модала заявок |
 | v1.1.0 | 2026-06-12 | Роль `bizadmin`, настройки CV в UI (`/settings`, `cv_settings`), CLIP-проверка Сбербанка |
 | v1.0.0 | 2026-06-10 | Первый релиз: заявки, банкоматы, Excel, push, Integration API v1 |
