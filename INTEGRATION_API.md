@@ -1,6 +1,6 @@
 # Integration API — контракт для внешних систем
 
-Версия: **v1.3.9** (Integration API **v1** — контракт без изменений)
+Версия: **v1.4.0** (Integration API **v1** — добавлено webhook-событие `task.deleted`)
 Базовый URL (dev): `http://localhost:3001/api/integration/v1`  
 Базовый URL (production): `https://<ваш-домен>/api/integration/v1`
 
@@ -367,6 +367,7 @@ GET /v1/stats
 | `task.updated` | Статус или поля изменены |
 | `task.completed` | Уборка завершена |
 | `task.cancelled` | Заявка отменена |
+| `task.deleted` | Заявка безвозвратно удалена (только `bizadmin`, Internal API) |
 | `task.overdue` | Заявка просрочена |
 | `atm.created` | Банкомат добавлен через API |
 | `atm.updated` | Банкомат обновлён через API |
@@ -567,6 +568,7 @@ GET /api/integration/logs?limit=50
 
 | Версия | Дата | Изменения |
 |--------|------|-----------|
+| v1.4.0 | 2026-06-06 | Webhook `task.deleted`; Internal API `DELETE /api/tasks/:id/permanent` (только bizadmin) |
 | v1.3.9 | 2026-06-06 | Исправление офлайн-фото и синхронизации в веб-UI |
 | v1.3.8 | 2026-06-06 | Обновление веб-UI; контракт Integration API без изменений |
 | v1.3.7 | 2026-06-06 | Офлайн-фото и синхронизация в веб-UI; контракт Integration API без изменений |

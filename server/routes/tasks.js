@@ -1,8 +1,11 @@
 import { Router } from 'express';
 import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import * as XLSX from 'xlsx';
 import db, { hasAllRequiredPhotos } from '../db.js';
-import { authMiddleware, requireRole } from '../middleware.js';
+import { authMiddleware, requireRole, requireBizAdmin } from '../middleware.js';
 import { notifyTaskAssigned, notifyTaskCompleted, notifyOverdue, notifyCvRejected } from '../push.js';
 import { validateTaskPhotos, PHOTO_TYPE_LABELS } from '../cv/validatePhotos.js';
 import { dispatchWebhooks } from '../integration/webhooks.js';
@@ -11,7 +14,33 @@ import { asyncHandler } from '../middleware/errorHandler.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const uploadsDir = path.join(__dirname, '../uploads');
+
 const router = Router();
+
+function permanentlyDeleteTask(taskId) {
+  const full = db.prepare(TASK_SELECT_INTEGRATION + ' WHERE t.id = ?').get(taskId);
+  if (!full) return null;
+
+  const photos = db.prepare('SELECT filename FROM task_photos WHERE task_id = ?').all(taskId);
+  const taskDir = path.join(uploadsDir, String(taskId));
+
+  for (const photo of photos) {
+    const filePath = path.join(taskDir, photo.filename);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  }
+  if (fs.existsSync(taskDir)) {
+    try {
+      fs.rmdirSync(taskDir);
+    } catch {
+      fs.rmSync(taskDir, { recursive: true, force: true });
+    }
+  }
+
+  db.prepare('DELETE FROM cleaning_tasks WHERE id = ?').run(taskId);
+  return full;
+}
 
 const TASK_SELECT = `
   SELECT t.*,
@@ -396,6 +425,14 @@ router.patch('/:id', asyncHandler(async (req, res) => {
 
   res.json(updated);
 }));
+
+router.delete('/:id/permanent', requireBizAdmin, (req, res) => {
+  const full = permanentlyDeleteTask(req.params.id);
+  if (!full) return res.status(404).json({ error: 'Заявка не найдена' });
+
+  dispatchWebhooks('task.deleted', formatTask(full));
+  res.json({ ok: true, deleted: true });
+});
 
 router.delete('/:id', requireRole('admin', 'supervisor'), (req, res) => {
   const task = db.prepare('SELECT id FROM cleaning_tasks WHERE id = ?').get(req.params.id);

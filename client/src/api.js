@@ -3,6 +3,7 @@ import {
   getCachedTasks,
   enqueue,
   patchCachedTask,
+  removeCachedTask,
   cachePhotos,
   getCachedPhotos,
   addPendingPhotoToCache,
@@ -188,6 +189,12 @@ export const api = {
   },
 
   cancelTask: (id) => request(`/tasks/${id}`, { method: 'DELETE' }),
+
+  deleteTask: async (id) => {
+    const result = await request(`/tasks/${id}/permanent`, { method: 'DELETE' });
+    await removeCachedTask(id).catch(() => {});
+    return result;
+  },
 
   exportTasks: async (params = {}) => {
     const q = new URLSearchParams(params).toString();

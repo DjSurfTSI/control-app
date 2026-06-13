@@ -1,6 +1,6 @@
 import { STATUS_LABELS, PRIORITY_LABELS, formatDate } from '../utils';
 
-export default function TaskCard({ task, isManager, onStart, onComplete, onEdit, onCancel, onView }) {
+export default function TaskCard({ task, isManager, canDelete, onStart, onComplete, onEdit, onCancel, onDelete, onView }) {
   return (
     <div className={`task-card card status-${task.status}`}>
       <div className="task-card-top">
@@ -28,10 +28,13 @@ export default function TaskCard({ task, isManager, onStart, onComplete, onEdit,
         {isManager && (
           <>
             <button type="button" className="btn-secondary btn-sm" onClick={() => onEdit(task)}>Изменить</button>
-            {task.status !== 'cancelled' && task.status !== 'completed' && (
+            {!canDelete && task.status !== 'cancelled' && task.status !== 'completed' && (
               <button type="button" className="btn-danger btn-sm" onClick={() => onCancel(task.id)}>Отмена</button>
             )}
           </>
+        )}
+        {canDelete && (
+          <button type="button" className="btn-danger btn-sm" onClick={() => onDelete(task.id)}>Удалить</button>
         )}
       </div>
     </div>

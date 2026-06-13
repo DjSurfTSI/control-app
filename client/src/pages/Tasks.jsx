@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
-import { STATUS_LABELS, PRIORITY_LABELS, formatDate, todayISO, isManager } from '../utils';
+import { STATUS_LABELS, PRIORITY_LABELS, formatDate, todayISO, isManager, isBizAdmin } from '../utils';
 import PhotoUpload from '../components/PhotoUpload';
 import TaskCard from '../components/TaskCard';
 import ImportTasksModal from '../components/ImportTasksModal';
@@ -70,7 +70,7 @@ function CompleteModal({ task, onClose, onComplete }) {
   );
 }
 
-function TaskModal({ task, atms, cleaners, onClose, onSave, isManager }) {
+function TaskModal({ task, atms, cleaners, onClose, onSave, isManager, canDelete, onDelete }) {
   const isNew = !task?.id;
   const [form, setForm] = useState({
     atm_id: task?.atm_id || '',
@@ -82,7 +82,22 @@ function TaskModal({ task, atms, cleaners, onClose, onSave, isManager }) {
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
+
+  const handleDelete = async () => {
+    if (!confirm('Удалить заявку с сервера безвозвратно? Будут удалены все фото и данные.')) return;
+    setDeleting(true);
+    setError('');
+    try {
+      await onDelete(task.id);
+      onClose();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleSave = async () => {
     setError('');
@@ -177,6 +192,11 @@ function TaskModal({ task, atms, cleaners, onClose, onSave, isManager }) {
         )}
 
         <div className="modal-actions">
+          {canDelete && !isNew && (
+            <button className="btn-danger" onClick={handleDelete} disabled={deleting || saving} style={{ marginRight: 'auto' }}>
+              {deleting ? 'Удаление...' : 'Удалить'}
+            </button>
+          )}
           <button className="btn-secondary" onClick={onClose}>Закрыть</button>
           {(isNew || isManager) && (
             <button className="btn-primary" onClick={handleSave} disabled={saving}>
@@ -192,6 +212,7 @@ function TaskModal({ task, atms, cleaners, onClose, onSave, isManager }) {
 export default function Tasks() {
   const { user } = useAuth();
   const manager = isManager(user);
+  const bizAdmin = isBizAdmin(user);
   const [searchParams, setSearchParams] = useSearchParams();
   const [tasks, setTasks] = useState([]);
   const [atms, setAtms] = useState([]);
@@ -314,6 +335,17 @@ export default function Tasks() {
     load();
   };
 
+  const performDelete = async (id) => {
+    await api.deleteTask(id);
+    if (modal?.id === id) setModal(null);
+    load();
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Удалить заявку с сервера безвозвратно? Будут удалены все фото и данные.')) return;
+    await performDelete(id);
+  };
+
   return (
     <div className="page-enter">
       <div className="page-header">
@@ -375,10 +407,12 @@ export default function Tasks() {
                 key={t.id}
                 task={t}
                 isManager={manager}
+                canDelete={bizAdmin}
                 onStart={(task) => updateStatus(task, 'in_progress')}
                 onComplete={(task) => setCompleteModal(task)}
                 onEdit={setModal}
                 onCancel={handleCancel}
+                onDelete={handleDelete}
                 onView={setModal}
               />
             ))}
@@ -416,8 +450,11 @@ export default function Tasks() {
                       {!manager && t.status === 'in_progress' && (
                         <button className="btn-success btn-sm" onClick={() => setCompleteModal(t)}>Завершить</button>
                       )}
-                      {manager && t.status !== 'cancelled' && t.status !== 'completed' && (
+                      {manager && !bizAdmin && t.status !== 'cancelled' && t.status !== 'completed' && (
                         <button className="btn-danger btn-sm" onClick={() => handleCancel(t.id)}>Отмена</button>
+                      )}
+                      {bizAdmin && (
+                        <button className="btn-danger btn-sm" onClick={() => handleDelete(t.id)}>Удалить</button>
                       )}
                     </td>
                   </tr>
@@ -434,6 +471,8 @@ export default function Tasks() {
           atms={atms}
           cleaners={cleaners}
           isManager={manager}
+          canDelete={bizAdmin}
+          onDelete={performDelete}
           onClose={() => setModal(null)}
           onSave={handleSave}
         />

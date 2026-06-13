@@ -139,6 +139,35 @@ export async function getQueueCount() {
   return idbRequest(db.transaction('queue', 'readonly').objectStore('queue').count());
 }
 
+export async function removeCachedTask(taskId) {
+  const db = await openDb();
+  const id = String(taskId);
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction('tasks_cache', 'readwrite');
+    const store = tx.objectStore('tasks_cache');
+    const keysReq = store.getAllKeys();
+    keysReq.onsuccess = () => {
+      const keys = keysReq.result;
+      const valsReq = store.getAll();
+      valsReq.onsuccess = () => {
+        valsReq.result.forEach((val, i) => {
+          if (val?.tasks) {
+            val.tasks = val.tasks.filter((t) => Number(t.id) !== Number(taskId));
+            store.put(val, keys[i]);
+          }
+        });
+      };
+      valsReq.onerror = () => reject(valsReq.error);
+    };
+    keysReq.onerror = () => reject(keysReq.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  const photosTx = db.transaction('photos_cache', 'readwrite');
+  photosTx.objectStore('photos_cache').delete(id);
+  await txComplete(photosTx);
+}
+
 export async function patchCachedTask(taskId, patch) {
   const db = await openDb();
   return new Promise((resolve, reject) => {

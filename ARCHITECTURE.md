@@ -299,6 +299,7 @@ flowchart LR
 | `task.updated` | Изменение полей |
 | `task.completed` | status → completed |
 | `task.cancelled` | Отмена |
+| `task.deleted` | Безвозвратное удаление (bizadmin) |
 | `atm.created` / `atm.updated` | Синхронизация объектов |
 
 ### 4.4 Admin API (управление интеграцией)
@@ -348,6 +349,8 @@ flowchart LR
 | `POST /api/tasks/import` | ✓ | ✓ | ✓ | — | Импорт из Excel |
 | `GET /api/tasks/export` | ✓ | ✓ | ✓ | — | Экспорт в Excel |
 | `PATCH /api/tasks/:id` | ✓ | ✓ | ✓ | свои | Изменение / завершение |
+| `DELETE /api/tasks/:id` | ✓ | ✓ | ✓ | — | Отмена заявки (статус `cancelled`) |
+| `DELETE /api/tasks/:id/permanent` | ✓ | — | — | — | Безвозвратное удаление заявки, фото и файлов |
 | `GET /api/atms` | ✓ | ✓ | ✓ | ✓ | Список банкоматов |
 | `POST /api/atms` | ✓ | ✓ | ✓ | — | Добавление банкомата |
 | `GET /api/users` | все | все | только cleaner | — | Список пользователей |
@@ -792,6 +795,7 @@ npx web-push generate-vapid-keys
 
 | Версия | Дата | Изменения |
 |--------|------|-----------|
+| v1.4.0 | 2026-06-06 | Удаление заявок bizadmin: `DELETE /api/tasks/:id/permanent`, webhook `task.deleted` |
 | v1.3.9 | 2026-06-06 | `photo_blobs` в IndexedDB, `getMergedPhotosForTask`, исправление гонки UI при очереди |
 | v1.3.8 | 2026-06-06 | Визуальное обновление UI (v1.3.8): единая тема в `index.css`, mobile nav, карточки |
 | v1.3.7 | 2026-06-06 | Предпросмотр офлайн-фото без перезахода; автосинхронизация очереди с retry |

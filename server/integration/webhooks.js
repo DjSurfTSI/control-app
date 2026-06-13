@@ -6,6 +6,7 @@ export const WEBHOOK_EVENTS = [
   'task.updated',
   'task.completed',
   'task.cancelled',
+  'task.deleted',
   'task.overdue',
   'atm.created',
   'atm.updated',
