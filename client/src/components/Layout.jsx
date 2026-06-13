@@ -45,7 +45,7 @@ export default function Layout() {
     <div className="layout">
       <header className="header desktop-header">
         <div className="header-brand">
-          <span className="logo">🏧</span>
+          <span className="logo-wrap">🏧</span>
           <div>
             <h1>Контроль уборки</h1>
             <p>Банкоматы</p>
@@ -70,7 +70,7 @@ export default function Layout() {
           >
             {pushLoading ? '...' : pushEnabled ? '🔔' : '🔕'}
           </button>
-          <div>
+          <div className="header-user-info">
             <strong>{user.full_name}</strong>
             <span>{ROLE_LABELS[user.role]}</span>
           </div>
@@ -109,84 +109,11 @@ export default function Layout() {
             <span className="mobile-nav-label">{item.label}</span>
           </NavLink>
         ))}
-        <button className="mobile-nav-item mobile-nav-btn" onClick={togglePush} disabled={pushLoading}>
+        <button type="button" className="mobile-nav-item mobile-nav-btn" onClick={togglePush} disabled={pushLoading}>
           <span className="mobile-nav-icon">{pushEnabled ? '🔔' : '🔕'}</span>
           <span className="mobile-nav-label">Push</span>
         </button>
       </nav>
-
-      <style>{`
-        .layout { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; padding-bottom: 0; }
-        .header {
-          display: flex; align-items: center; gap: 2rem;
-          padding: 1rem 2rem;
-          background: var(--surface);
-          border-bottom: 1px solid var(--border);
-          flex-wrap: wrap;
-        }
-        .header-brand { display: flex; align-items: center; gap: 0.75rem; }
-        .logo { font-size: 2rem; }
-        .header-brand h1 { font-size: 1.1rem; font-weight: 700; line-height: 1.2; }
-        .header-brand p { font-size: 0.8rem; color: var(--text-muted); }
-        .nav { display: flex; gap: 0.5rem; flex: 1; }
-        .nav a {
-          padding: 0.5rem 1rem; border-radius: 8px;
-          color: var(--text-muted); font-weight: 500; transition: all 0.15s;
-        }
-        .nav a:hover { color: var(--text); background: var(--surface-hover); }
-        .nav a.active { color: var(--primary); background: #1e3a5f; }
-        .header-user { display: flex; align-items: center; gap: 0.75rem; }
-        .header-user div { text-align: right; }
-        .header-user strong { display: block; font-size: 0.9rem; }
-        .header-user span { font-size: 0.75rem; color: var(--text-muted); }
-        .alert-badge {
-          background: var(--danger); color: white;
-          width: 22px; height: 22px; border-radius: 50%;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 0.75rem; font-weight: 700;
-        }
-        .notif-error {
-          background: #7f1d1d33; color: #fca5a5; text-align: center;
-          padding: 0.5rem; font-size: 0.85rem;
-        }
-        .offline-banner {
-          display: flex; align-items: center; justify-content: center; gap: 1rem; flex-wrap: wrap;
-          padding: 0.5rem 1rem; font-size: 0.85rem; text-align: center;
-        }
-        .offline-banner.offline { background: #78350f44; color: #fcd34d; }
-        .offline-banner.sync-pending { background: #1e3a5f88; color: #93c5fd; }
-        .sync-feedback { font-size: 0.8rem; color: #bfdbfe; max-width: 100%; }
-        .main { flex: 1; padding: 2rem; max-width: 1280px; width: 100%; margin: 0 auto; }
-        .mobile-nav { display: none; }
-
-        @media (max-width: 768px) {
-          .desktop-header .nav, .desktop-header .header-user div { display: none; }
-          .desktop-header { padding: 0.75rem 1rem; gap: 1rem; }
-          .main { padding: 1rem 1rem 5rem; }
-          .mobile-nav {
-            display: flex;
-            position: fixed; bottom: 0; left: 0; right: 0;
-            background: var(--surface);
-            border-top: 1px solid var(--border);
-            padding: 0.35rem max(0.5rem, env(safe-area-inset-right, 0px))
-              calc(0.35rem + env(safe-area-inset-bottom, 0px))
-              max(0.5rem, env(safe-area-inset-left, 0px));
-            z-index: 50;
-            justify-content: space-around;
-          }
-          .mobile-nav-item {
-            display: flex; flex-direction: column; align-items: center;
-            padding: 0.4rem 0.5rem; border-radius: 8px;
-            color: var(--text-muted); font-size: 0.65rem;
-            text-decoration: none; min-width: 56px;
-            background: none; border: none;
-          }
-          .mobile-nav-item.active { color: var(--primary); }
-          .mobile-nav-icon { font-size: 1.25rem; line-height: 1.2; }
-          .mobile-nav-label { margin-top: 2px; }
-          .mobile-nav-btn { cursor: pointer; color: var(--text-muted); }
-        }
-      `}</style>
     </div>
   );
 }

@@ -35,7 +35,7 @@ export default function Login() {
     <div className="login-page">
       <div className="login-card card animate-slide-up">
         <div className="login-header">
-          <span className="login-logo">🏧</span>
+          <span className="login-logo-wrap">🏧</span>
           <h1>Контроль уборки банкоматов</h1>
           <p>Войдите для управления заявками</p>
           <p className="login-offline-hint">После первого входа приложение работает офлайн: заявки и фото синхронизируются при появлении сети.</p>
@@ -86,39 +86,6 @@ export default function Login() {
           </ul>
         </div>
       </div>
-
-      <style>{`
-        .login-page {
-          min-height: 100vh;
-          min-height: 100dvh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 1rem;
-          padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
-          background: radial-gradient(ellipse at top, #1e3a5f 0%, var(--bg) 60%);
-        }
-        .login-card { width: 100%; max-width: 420px; }
-        .login-header { text-align: center; margin-bottom: 2rem; }
-        .login-logo { font-size: 3rem; display: block; margin-bottom: 0.5rem; }
-        .login-header h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
-        .login-header p { color: var(--text-muted); font-size: 0.9rem; }
-        .login-offline-hint { font-size: 0.8rem !important; margin-top: 0.35rem; color: #93c5fd !important; }
-        .login-btn { width: 100%; margin-top: 0.5rem; padding: 0.75rem; }
-        .demo-accounts {
-          margin-top: 2rem;
-          padding-top: 1.5rem;
-          border-top: 1px solid var(--border);
-        }
-        .demo-accounts p { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem; }
-        .demo-accounts code { background: var(--bg); padding: 0.1rem 0.4rem; border-radius: 4px; }
-        .demo-accounts ul { list-style: none; }
-        .demo-btn {
-          background: none; border: none; color: var(--primary);
-          padding: 0.3rem 0; font-size: 0.85rem; text-align: left;
-        }
-        .demo-btn:hover { text-decoration: underline; }
-      `}</style>
     </div>
   );
 }

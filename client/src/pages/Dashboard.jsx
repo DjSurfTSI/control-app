@@ -43,7 +43,14 @@ export default function Dashboard() {
     load();
   }, [user, manager]);
 
-  if (loading) return <p className="empty-state">Загрузка...</p>;
+  if (loading) {
+    return (
+      <div className="loading-state">
+        <div className="loading-spinner" />
+        <span>Загрузка...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="page-enter">
@@ -118,38 +125,6 @@ export default function Dashboard() {
           </div>
         )}
       </div>
-
-      <style>{`
-        .page-title { font-size: 1.75rem; margin-bottom: 0.25rem; }
-        .page-subtitle { color: var(--text-muted); margin-bottom: 2rem; }
-        .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-          gap: 1rem;
-          margin-bottom: 2rem;
-        }
-        .stat-card {
-          border-top: 3px solid;
-          text-align: center;
-          transition: transform 0.15s;
-        }
-        a .stat-card:hover { transform: translateY(-2px); }
-        .stat-value { display: block; font-size: 2.5rem; font-weight: 700; line-height: 1; }
-        .stat-label { font-size: 0.85rem; color: var(--text-muted); }
-        .section { margin-bottom: 1.5rem; }
-        .section h3 { margin-bottom: 1rem; font-size: 1.1rem; }
-        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-        .section-header h3 { margin: 0; }
-        .count-ok { color: var(--success); font-weight: 600; }
-        .count-bad { color: var(--danger); font-weight: 600; }
-        .task-list { display: flex; flex-direction: column; gap: 0.75rem; }
-        .task-item {
-          display: flex; justify-content: space-between; align-items: flex-start;
-          padding: 0.75rem; background: var(--bg); border-radius: 8px; gap: 1rem;
-        }
-        .task-address { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem; }
-        .task-assignee { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem; }
-      `}</style>
     </div>
   );
 }

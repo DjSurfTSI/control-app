@@ -11,7 +11,12 @@ import Settings from './pages/Settings';
 
 function PrivateRoute({ children, roles }) {
   const { user, loading } = useAuth();
-  if (loading) return <p className="empty-state">Загрузка...</p>;
+  if (loading) return (
+    <div className="loading-state">
+      <div className="loading-spinner" />
+      <span>Загрузка...</span>
+    </div>
+  );
   if (!user) return <Navigate to="/login" replace />;
   if (!hasRouteAccess(user, roles)) return <Navigate to="/" replace />;
   return children;
@@ -21,7 +26,12 @@ export default function App() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <p className="empty-state">Загрузка...</p>;
+    return (
+      <div className="loading-state">
+        <div className="loading-spinner" />
+        <span>Загрузка...</span>
+      </div>
+    );
   }
 
   return (
