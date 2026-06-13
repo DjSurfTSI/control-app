@@ -6,7 +6,7 @@ import {
   getCachedPhotos,
 } from './store.js';
 
-let syncing = false;
+let syncPromise = null;
 
 function notifySyncEvents(result) {
   window.dispatchEvent(new CustomEvent('offline-queue-changed'));
@@ -27,61 +27,74 @@ async function blobFromQueueItem(item) {
   throw new Error('Нет данных фото в очереди');
 }
 
-export async function flushOfflineQueue() {
-  if (syncing) return { synced: 0, failed: 0, skipped: true };
+async function runFlush() {
   if (!navigator.onLine) return { synced: 0, failed: 0, error: 'Нет подключения к интернету' };
 
-  syncing = true;
   let synced = 0;
   let failed = 0;
   const errors = [];
 
-  try {
-    const queue = await getQueue();
-    if (queue.length === 0) return { synced: 0, failed: 0 };
+  const queue = await getQueue();
+  if (queue.length === 0) return { synced: 0, failed: 0 };
 
-    for (const item of queue) {
-      try {
-        if (item.op === 'patch_task') {
-          await api._requestOnline(`/tasks/${item.taskId}`, {
-            method: 'PATCH',
-            body: JSON.stringify(item.body),
-          });
-        } else if (item.op === 'upload_photo') {
-          const blob = await blobFromQueueItem(item);
-          const file = new File([blob], item.fileName || 'photo.jpg', { type: item.mimeType || 'image/jpeg' });
-          await api._requestOnline(`/photos/${item.taskId}`, {
-            method: 'POST',
-            body: (() => {
-              const fd = new FormData();
-              fd.append('photo', file);
-              fd.append('photo_type', item.photoType);
-              return fd;
-            })(),
-          });
-          if (item.blobUrl?.startsWith('blob:')) URL.revokeObjectURL(item.blobUrl);
-          const photos = await api._requestOnline(`/photos/${item.taskId}`);
-          void cachePhotos(item.taskId, photos).catch(() => {});
-        } else {
-          throw new Error(`Неизвестная операция: ${item.op}`);
-        }
-        await removeQueueItem(item.id);
-        synced += 1;
-      } catch (err) {
-        const msg = err.message || 'Ошибка синхронизации';
-        console.warn('Offline sync item failed:', item.op, msg);
-        errors.push(msg);
-        failed += 1;
-        if (!navigator.onLine) break;
+  const sorted = [...queue].sort((a, b) => {
+    const priority = { upload_photo: 0, patch_task: 1 };
+    return (priority[a.op] ?? 2) - (priority[b.op] ?? 2);
+  });
+
+  for (const item of sorted) {
+    try {
+      if (item.op === 'patch_task') {
+        await api._requestOnline(`/tasks/${item.taskId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(item.body),
+        });
+      } else if (item.op === 'upload_photo') {
+        const blob = await blobFromQueueItem(item);
+        const file = new File([blob], item.fileName || 'photo.jpg', { type: item.mimeType || 'image/jpeg' });
+        await api._requestOnline(`/photos/${item.taskId}`, {
+          method: 'POST',
+          body: (() => {
+            const fd = new FormData();
+            fd.append('photo', file);
+            fd.append('photo_type', item.photoType);
+            return fd;
+          })(),
+        });
+        if (item.blobUrl?.startsWith('blob:')) URL.revokeObjectURL(item.blobUrl);
+        const photos = await api._requestOnline(`/photos/${item.taskId}`);
+        void cachePhotos(item.taskId, photos).catch(() => {});
+      } else {
+        throw new Error(`Неизвестная операция: ${item.op}`);
       }
+      await removeQueueItem(item.id);
+      synced += 1;
+    } catch (err) {
+      const msg = err.message || 'Ошибка синхронизации';
+      console.warn('Offline sync item failed:', item.op, msg);
+      errors.push(msg);
+      failed += 1;
+      if (!navigator.onLine) break;
     }
-  } finally {
-    syncing = false;
   }
 
-  const result = { synced, failed, errors };
-  notifySyncEvents(result);
-  return result;
+  return { synced, failed, errors };
+}
+
+export async function flushOfflineQueue() {
+  if (syncPromise) return syncPromise;
+
+  syncPromise = (async () => {
+    try {
+      const result = await runFlush();
+      notifySyncEvents(result);
+      return result;
+    } finally {
+      syncPromise = null;
+    }
+  })();
+
+  return syncPromise;
 }
 
 export function setupAutoSync(onSynced) {

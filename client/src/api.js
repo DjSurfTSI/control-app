@@ -97,7 +97,11 @@ async function queuePhoto(taskId, file, photoType) {
     cv_detected: null,
     filename: file.name,
   };
-  await addPendingPhotoToCache(taskId, photo);
+  try {
+    await addPendingPhotoToCache(taskId, photo);
+  } catch {
+    /* UI still shows photo from return value */
+  }
   notifyQueueChange();
   return { ...photo, cv_pending: false, offline_queued: true };
 }
@@ -196,18 +200,26 @@ export const api = {
   },
 
   getPhotos: async (taskId) => {
+    const readCache = async () => {
+      try {
+        return await getCachedPhotos(taskId);
+      } catch {
+        return null;
+      }
+    };
+
+    if (!navigator.onLine) {
+      return (await readCache()) || [];
+    }
+
     try {
       const data = await request(`/photos/${taskId}`);
       void cachePhotos(taskId, data).catch(() => {});
       return data;
     } catch (err) {
-      try {
-        const cached = await getCachedPhotos(taskId);
-        if (cached) return cached;
-      } catch {
-        /* ignore IDB errors */
-      }
-      if (!navigator.onLine || isNetworkError(err)) return [];
+      const cached = await readCache();
+      if (cached) return cached;
+      if (isNetworkError(err)) return [];
       throw err;
     }
   },
