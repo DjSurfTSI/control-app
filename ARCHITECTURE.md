@@ -576,6 +576,56 @@ flowchart TB
     Layout --> useNotifications
 ```
 
+### 7.1 Структура `client/src` и импорты
+
+Важно не путать **корневой** `utils.js` и **папку** `utils/`:
+
+```
+client/src/
+├── utils.js              # Константы, роли, getCloseMetadata, canExecutorCompleteTask
+├── utils/
+│   ├── geolocation.js    # Геолокация: запрос при входе, кэш координат
+│   └── compressImage.js  # Сжатие JPEG перед upload
+├── pages/
+├── components/
+└── context/
+```
+
+| Модуль | Кто импортирует | Корректный путь |
+|--------|-----------------|-----------------|
+| `geolocation.js` | `utils.js` | `./utils/geolocation.js` |
+| `geolocation.js` | `Login.jsx`, `AuthContext.jsx` | `../utils/geolocation` |
+| `utils.js` (константы) | страницы, компоненты | `../utils` |
+
+Ошибка `./geolocation.js` из `src/utils.js` **ломает production-сборку** (`vite build`).
+
+### 7.2 Модуль геолокации (`utils/geolocation.js`)
+
+| Функция | Когда вызывается | Поведение |
+|---------|------------------|-----------|
+| `requestGeolocationAccess()` | Клик «Войти» в `Login.jsx` | Показывает диалог браузера (user gesture); сохраняет координаты |
+| `refreshGeolocationIfGranted()` | `api.me()` после автологина; `getCloseMetadata()` | Без диалога, если разрешение уже `granted` |
+| `getCachedGeolocation()` | Чтение кэша | `{ latitude, longitude, at }` или `null` |
+| `getGeolocationPermissionState()` | Внутренне | `granted` / `denied` / `prompt` |
+
+**localStorage:**
+
+- `geo_position_cache` — последние координаты.
+- `geo_permission_state` — fallback при отсутствии Permissions API.
+
+**Ограничения браузера:** геолокация только в secure context (HTTPS / localhost). Первый запрос разрешения — только из обработчика действия пользователя.
+
+### 7.3 Завершение заявки (исполнитель)
+
+Хелпер `canExecutorCompleteTask(task, userId)` в `utils.js`:
+
+- Назначение: `Number(task.assigned_to) === Number(userId)`.
+- Статусы: `in_progress`, `overdue`, `returned`, `emergency`.
+
+Точки UI: таблица/карточка (`Tasks.jsx`, `TaskCard.jsx`), `CompleteModal`, `TaskModal` (кнопка «Завершить» + поле «Отчёт»).
+
+При `overdue` кнопка не скрывается — заявка могла перейти в просрочку автоматически (`markOverdue()` на сервере при `GET /api/tasks`).
+
 ### Ключевые файлы
 
 | Файл | Назначение | При адаптации |
@@ -706,7 +756,36 @@ pm2 logs control-app
 
 > Не запускайте второй экземпляр через `npm start`, если pm2 уже держит порт 3001 (`EADDRINUSE`).
 
-При включённой CV-проверке (`CV_ENABLED=true`) при первом запуске скачивается модель CLIP в `.cache/transformers` (~150 MB). Рекомендуется **≥1 GB RAM**.
+При включённой CV-проверке (`CV_ENABLED=true`) модель CLIP **предзагружается** при старте (`warmupCvModel` в `server/index.js`, ~150 MB в `.cache/transformers`). Рекомендуется **≥1 GB RAM** или swap + `PHOTO_SKIP_SHARP=true`.
+
+### Типичные ошибки деплоя
+
+| Симптом | Причина | Решение |
+|---------|---------|---------|
+| **502** в браузере | Node.js не запустился | `pm2 logs control-app`; синтаксис в `server/routes/tasks.js`; `pm2 restart` |
+| **`vite build` Killed** | OOM на VPS | `sudo bash deploy/ensure-swap.sh`; или сборка на ПК + `scp client/dist` |
+| **`Could not resolve "./geolocation.js"`** | Неверный импорт в `src/utils.js` | `./utils/geolocation.js` (v2.1.1+) |
+| Старый UI после `git pull` | Не пересобран `client/dist` | `bash deploy/build-client.sh` |
+| Геолокация не запрашивается | HTTP вместо HTTPS | Только HTTPS или localhost |
+| `EADDRINUSE :3001` | Два процесса на порту | `pm2 delete control-app` → `pm2 start deploy/ecosystem.config.cjs` |
+
+**Проверка сборки локально:**
+
+```bash
+npm run build --prefix client
+# ожидается: ✓ built in ... dist/index.html
+```
+
+**Полный цикл обновления:**
+
+```bash
+cd ~/control-app
+git pull
+npm install --prefix server    # если менялся server/package-lock.json
+bash deploy/build-client.sh
+pm2 restart control-app
+pm2 logs control-app --lines 20
+```
 
 ```mermaid
 flowchart LR
@@ -850,6 +929,7 @@ npx web-push generate-vapid-keys
 
 | Версия | Дата | Изменения |
 |--------|------|-----------|
+| v2.1.1 | 2026-06-13 | Импорт `./utils/geolocation.js`; таблицы деплоя и импортов в документации |
 | v2.1.0 | 2026-06-13 | Геолокация при входе; сворачиваемые фильтры; завершение из TaskModal и для overdue; фиксы CV/502; блок «Данные при закрытии» — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.0.0 | 2026-06-06 | Устройства СО, сотрудники, статусы v2, исполнитель, рейтинг, watermark, геополя при закрытии |
 | v1.4.0 | 2026-06-06 | Удаление заявок bizadmin: `DELETE /api/tasks/:id/permanent`, webhook `task.deleted` |

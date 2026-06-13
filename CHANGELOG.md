@@ -4,6 +4,27 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/).
 
+**Актуальная версия:** v2.1.1
+
+---
+
+## [v2.1.1] — 2026-06-13
+
+### Исправлено
+
+- **Сборка клиента (`vite build`)** — ошибка `Could not resolve "./geolocation.js" from "src/utils.js"`. Файл геолокации лежит в `client/src/utils/geolocation.js`, импорт в корневом `utils.js` должен быть `./utils/geolocation.js`, а не `./geolocation.js`.
+
+### Документация
+
+- Добавлен [CHANGELOG.md](./CHANGELOG.md).
+- Обновлены [README.md](./README.md) и [ARCHITECTURE.md](./ARCHITECTURE.md): геолокация, завершение заявок, деплой, структура импортов клиента.
+
+### Коммиты
+
+| SHA | Описание |
+|-----|----------|
+| `e924a5f` | fix: путь импорта geolocation.js + документация |
+
 ---
 
 ## [v2.1.0] — 2026-06-13
@@ -31,10 +52,31 @@
 
 | Область | Файлы | Поведение |
 |---------|-------|-----------|
-| Геолокация | `utils/geolocation.js`, `Login.jsx`, `AuthContext.jsx`, `utils.js` | `requestGeolocationAccess()` при входе; `refreshGeolocationIfGranted()` при reopen и при `getCloseMetadata()` |
+| Геолокация | `client/src/utils/geolocation.js`, `Login.jsx`, `AuthContext.jsx`, `client/src/utils.js` | См. таблицу импортов ниже |
 | Закрытие заявки | `Tasks.jsx`, `server/routes/tasks.js` | `closed_device`, `closed_os`, `closed_latitude`, `closed_longitude` всегда пишутся при `status=completed`; fallback User-Agent с сервера |
 | CV | `server/cv/validatePhotos.js`, `server/routes/photos.js`, `server/index.js` | Очередь, warmup, ответ upload с `cv_detected` |
 | Фильтры mobile | `Tasks.jsx` | `filtersOpen`, `filters-collapsible`, `filters-collapsed` |
+
+#### Импорты геолокации (важно для сборки)
+
+| Файл | Правильный импорт |
+|------|-------------------|
+| `client/src/utils.js` | `from './utils/geolocation.js'` |
+| `client/src/pages/Login.jsx` | `from '../utils/geolocation'` |
+| `client/src/context/AuthContext.jsx` | `from '../utils/geolocation'` |
+
+> `utils.js` находится в `src/`, а `geolocation.js` — в подпапке `src/utils/`. Путь `./geolocation.js` **неверен** и ломает `vite build`.
+
+#### localStorage (геолокация)
+
+| Ключ | Содержимое |
+|------|------------|
+| `geo_position_cache` | `{ latitude, longitude, at }` |
+| `geo_permission_state` | `granted` / `denied` (fallback, если Permissions API недоступен) |
+
+#### Сервер: поля при закрытии заявки
+
+При `PATCH /api/tasks/:id` с `status: completed` всегда записываются `closed_device`, `closed_os`, `closed_latitude`, `closed_longitude`. Выражение в коде: `closed_device ?? (ua || null)` — **нельзя** писать `??` и `||` без скобок (SyntaxError, 502).
 
 ### Коммиты (main)
 
