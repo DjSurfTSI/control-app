@@ -11,8 +11,12 @@ export default function Layout() {
   const manager = isManager(user);
   const admin = isAdmin(user);
   const { alerts, pushEnabled, pushLoading, enablePush, disablePush } = useNotifications(true);
-  const { online, pending, syncing, syncNow } = useOffline();
+  const { online, pending, syncing, syncNow, lastSyncMessage } = useOffline();
   const [notifError, setNotifError] = useState('');
+
+  const handleSync = async () => {
+    await syncNow();
+  };
 
   const handleLogout = () => {
     logout();
@@ -84,9 +88,12 @@ export default function Layout() {
             <span>⏳ Ожидает отправки: {pending} {pending === 1 ? 'действие' : 'действий'}</span>
           )}
           {online && pending > 0 && (
-            <button type="button" className="btn-sm btn-secondary" onClick={syncNow} disabled={syncing}>
+            <button type="button" className="btn-sm btn-secondary" onClick={handleSync} disabled={syncing}>
               {syncing ? 'Синхронизация…' : 'Синхронизировать'}
             </button>
+          )}
+          {lastSyncMessage && online && (
+            <span className="sync-feedback">{lastSyncMessage}</span>
           )}
         </div>
       )}
@@ -148,6 +155,7 @@ export default function Layout() {
         }
         .offline-banner.offline { background: #78350f44; color: #fcd34d; }
         .offline-banner.sync-pending { background: #1e3a5f88; color: #93c5fd; }
+        .sync-feedback { font-size: 0.8rem; color: #bfdbfe; max-width: 100%; }
         .main { flex: 1; padding: 2rem; max-width: 1280px; width: 100%; margin: 0 auto; }
         .mobile-nav { display: none; }
 

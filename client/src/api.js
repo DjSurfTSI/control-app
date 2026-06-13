@@ -79,11 +79,14 @@ function notifyQueueChange() {
 
 async function queuePhoto(taskId, file, photoType) {
   const blobUrl = URL.createObjectURL(file);
+  const blobData = await file.arrayBuffer();
   await enqueue({
     op: 'upload_photo',
     taskId,
     photoType,
     blobUrl,
+    blobData,
+    mimeType: file.type || 'image/jpeg',
     fileName: file.name,
   });
   const photo = {
