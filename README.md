@@ -112,6 +112,25 @@ pm2 restart control-app
 
 Проверка памяти: `free -h`
 
+### Ошибка 502 при загрузке фото
+
+Чаще всего pm2 перезапускал Node из‑за лимита памяти **300M** (CLIP + sharp). В `deploy/ecosystem.config.cjs` лимит увеличен до **900M**.
+
+На сервере после `git pull`:
+
+```bash
+pm2 delete control-app
+pm2 start deploy/ecosystem.config.cjs
+pm2 save
+sudo cp deploy/nginx-control-app.conf /etc/nginx/sites-available/control-app
+sudo nginx -t && sudo systemctl reload nginx
+npm rebuild --prefix server sharp
+```
+
+Логи: `pm2 logs control-app --lines 50`
+
+Если мало RAM — включите swap (`sudo bash deploy/ensure-swap.sh`) или временно отключите CV в «Настройки» / `CV_ENABLED=false`.
+
 Подробнее: [ARCHITECTURE.md](./ARCHITECTURE.md) → раздел «Запуск и деплой».
 
 ## Документация

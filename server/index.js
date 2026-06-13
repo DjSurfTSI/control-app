@@ -50,9 +50,21 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Сервер запущен: http://localhost:${PORT}`);
   if (isCvEnabled()) {
-    warmupCvModel().then(() => console.log('CV-модель готова к проверке фото'))
-      .catch((err) => console.warn('CV warmup:', err.message));
+    // Отложенный warmup — не конкурирует с загрузкой фото сразу после старта
+    const delayMs = parseInt(process.env.CV_WARMUP_DELAY_MS || '15000', 10);
+    setTimeout(() => {
+      warmupCvModel()
+        .then(() => console.log('CV-модель готова к проверке фото'))
+        .catch((err) => console.warn('CV warmup:', err.message));
+    }, delayMs);
   } else {
     console.log('CV-проверка отключена в настройках');
   }
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('uncaughtException:', err);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('unhandledRejection:', err);
 });

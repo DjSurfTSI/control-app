@@ -5,7 +5,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import db, { REQUIRED_PHOTO_TYPES } from '../db.js';
 import { authMiddleware } from '../middleware.js';
-import { isManager } from '../roles.js';
+import { isManager, isCleaner } from '../roles.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { validatePhoto } from '../cv/validatePhotos.js';
 import { isCvEnabled } from '../cv/atmDetector.js';
@@ -43,8 +43,9 @@ const router = Router();
 router.use(authMiddleware);
 
 function canAccessTask(task, user) {
-  if (user.role !== 'cleaner') return true;
-  return task.assigned_to === user.id;
+  if (isManager(user)) return true;
+  if (isCleaner(user)) return task.assigned_to === user.id;
+  return false;
 }
 
 function photoUrl(req, taskId, filename) {
@@ -112,7 +113,8 @@ router.post('/:taskId', (req, res, next) => {
     optimized = await optimizePhoto(req.file.path);
   } catch (err) {
     if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-    return res.status(400).json({ error: 'Не удалось обработать изображение' });
+    console.error(`Photo upload optimize failed (task ${req.params.taskId}):`, err.message);
+    return res.status(400).json({ error: 'Не удалось обработать изображение. Попробуйте другое фото или уменьшите размер.' });
   }
 
   const result = db.prepare(

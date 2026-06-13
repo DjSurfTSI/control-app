@@ -29,6 +29,7 @@ cd "$APP_DIR"
 echo "==> Установка зависимостей..."
 npm install --prefix server
 npm install --prefix client
+npm rebuild --prefix server sharp 2>/dev/null || true
 
 echo "==> Сборка фронтенда..."
 bash "$APP_DIR/deploy/build-client.sh"
