@@ -7,6 +7,10 @@ const router = Router();
 
 router.use(authMiddleware);
 
+router.get('/cv/status', (_req, res) => {
+  res.json({ enabled: getCvSettings().enabled });
+});
+
 router.get('/cv', requireBizAdmin, (_req, res) => {
   res.json(getCvSettings());
 });

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { formatDateTime } from '../utils';
+import { invalidateCvStatus } from '../hooks/useCvStatus';
 
 export default function Settings() {
   const [settings, setSettings] = useState(null);
@@ -41,6 +42,7 @@ export default function Settings() {
         margin: data.margin,
       });
       setSuccess('Настройки сохранены');
+      invalidateCvStatus();
     } catch (e) {
       setError(e.message);
     } finally {

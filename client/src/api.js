@@ -87,6 +87,7 @@ export const api = {
   getPendingAlerts: () => request('/notifications/pending'),
 
   getCvSettings: () => request('/settings/cv'),
+  getCvStatus: () => request('/settings/cv/status'),
   updateCvSettings: (data) => request('/settings/cv', { method: 'PATCH', body: JSON.stringify(data) }),
 };
 

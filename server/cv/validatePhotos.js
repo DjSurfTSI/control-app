@@ -1,7 +1,7 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import db, { REQUIRED_PHOTO_TYPES } from '../db.js';
-import { detectAtmInPhoto } from './atmDetector.js';
+import { detectAtmInPhoto, isCvEnabled } from './atmDetector.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -35,14 +35,20 @@ export async function validateTaskPhotos(taskId) {
     'SELECT * FROM task_photos WHERE task_id = ? AND photo_type IS NOT NULL'
   ).all(taskId);
 
+  for (const type of REQUIRED_PHOTO_TYPES) {
+    if (!photos.find((p) => p.photo_type === type)) {
+      return { ok: false, failed: [{ photo_type: type, reason: 'missing' }] };
+    }
+  }
+
+  if (!isCvEnabled()) {
+    return { ok: true, failed: [] };
+  }
+
   const failed = [];
 
   for (const type of REQUIRED_PHOTO_TYPES) {
     const photo = photos.find((p) => p.photo_type === type);
-    if (!photo) {
-      return { ok: false, failed: [{ photo_type: type, reason: 'missing' }] };
-    }
-
     const filePath = path.join(uploadsDir, String(taskId), photo.filename);
     const result = await validatePhoto(filePath, photo.id);
 

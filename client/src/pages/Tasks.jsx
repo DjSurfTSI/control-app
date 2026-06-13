@@ -13,18 +13,21 @@ function CompleteModal({ task, onClose, onComplete }) {
   const [photoStatus, setPhotoStatus] = useState({
     complete: false,
     missing: ['left', 'right', 'front'],
+    cvEnabled: true,
     cvPassed: false,
     cvFailed: [],
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const canSubmit = photoStatus.complete && (photoStatus.cvEnabled ? photoStatus.cvPassed : true);
+
   const handleComplete = async () => {
     if (!photoStatus.complete) {
       setError(`Прикрепите фото: ${photoStatus.missing.map((t) => PHOTO_TYPE_LABELS[t]).join(', ')}`);
       return;
     }
-    if (!photoStatus.cvPassed) {
+    if (photoStatus.cvEnabled && !photoStatus.cvPassed) {
       const failed = photoStatus.cvFailed?.map((t) => PHOTO_TYPE_LABELS[t]).join(', ') || 'не все ракурсы';
       setError(`Банкомат не обнаружен на фото: ${failed}. Переснимите перед завершением.`);
       return;
@@ -56,9 +59,9 @@ function CompleteModal({ task, onClose, onComplete }) {
           <button
             className="btn-success"
             onClick={handleComplete}
-            disabled={saving || !photoStatus.complete || !photoStatus.cvPassed}
+            disabled={saving || !canSubmit}
           >
-            {saving ? 'Проверка CV...' : 'Завершить'}
+            {saving ? (photoStatus.cvEnabled ? 'Проверка CV...' : 'Сохранение...') : 'Завершить'}
           </button>
         </div>
       </div>
