@@ -44,15 +44,33 @@ export function isExecutor(user) {
 
 export const EXECUTOR_COMPLETABLE_STATUSES = ['in_progress', 'overdue', 'returned', 'emergency'];
 
-/** Вкладки мобильного списка заявок для исполнителя */
-export const EXECUTOR_MOBILE_TABS = [
-  { id: 'new', label: 'Новые', shortLabel: 'Новые', statuses: ['new'] },
-  { id: 'in_progress', label: 'В работе', shortLabel: 'В работе', statuses: ['in_progress', 'overdue', 'no_access'] },
-  { id: 'completed', label: 'Выполненные', shortLabel: 'Готовые', statuses: ['completed'] },
-  { id: 'cancelled', label: 'Отмененные', shortLabel: 'Отмена', statuses: ['cancelled'] },
-  { id: 'returned', label: 'Возврат', shortLabel: 'Возврат', statuses: ['returned'] },
-  { id: 'emergency', label: 'Экстренные', shortLabel: 'Срочно', statuses: ['emergency'] },
-];
+/** Статусы в фильтре заявок (без legacy pending) */
+export const TASK_FILTER_STATUSES = Object.keys(STATUS_LABELS).filter((k) => k !== 'pending');
+
+const EXECUTOR_STATUS_SHORT = {
+  new: 'Новая',
+  in_progress: 'В работе',
+  completed: 'Выполн.',
+  overdue: 'Просроч.',
+  returned: 'Возврат',
+  cancelled: 'Отмена',
+  no_access: 'Нет дост.',
+  emergency: 'Срочная',
+};
+
+/** Вкладки мобильного списка заявок для исполнителя — по одному статусу из фильтра */
+export const EXECUTOR_MOBILE_TABS = TASK_FILTER_STATUSES.map((id) => ({
+  id,
+  label: STATUS_LABELS[id],
+  shortLabel: EXECUTOR_STATUS_SHORT[id] ?? STATUS_LABELS[id],
+  statuses: [id],
+}));
+
+export const BULK_ASSIGNABLE_STATUSES = ['new', 'in_progress', 'overdue', 'returned', 'no_access', 'emergency'];
+
+export function canBulkAssignTask(task) {
+  return task && BULK_ASSIGNABLE_STATUSES.includes(task.status);
+}
 
 export function filterTasksByExecutorTab(tasks, tabId) {
   const tab = EXECUTOR_MOBILE_TABS.find((t) => t.id === tabId);

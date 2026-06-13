@@ -7,7 +7,7 @@ import {
   STATUS_LABELS, formatDate, formatDateTime, todayISO,
   isManager, isBizAdmin, isExecutor, getCloseMetadata, PHOTO_TYPE_LABELS, formatCloseLocation,
   canExecutorCompleteTask,
-  EXECUTOR_MOBILE_TABS, filterTasksByExecutorTab,
+  EXECUTOR_MOBILE_TABS, filterTasksByExecutorTab, TASK_FILTER_STATUSES, canBulkAssignTask,
 } from '../utils';
 import PhotoUpload from '../components/PhotoUpload';
 import TaskCard from '../components/TaskCard';
@@ -297,9 +297,13 @@ export default function Tasks() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [executorMobileTab, setExecutorMobileTab] = useState('new');
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [bulkExecutor, setBulkExecutor] = useState('');
+  const [bulkAssigning, setBulkAssigning] = useState(false);
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
   const showExecutorMobileTabs = executor && isMobile;
+  const showBulkSelect = manager && activeFilterCount > 0;
   const mobileFilteredTasks = showExecutorMobileTabs
     ? filterTasksByExecutorTab(tasks, executorMobileTab)
     : tasks;
@@ -364,9 +368,43 @@ export default function Tasks() {
     if (!executor || !isMobile) return;
     const status = searchParams.get('status');
     if (!status) return;
-    const tab = EXECUTOR_MOBILE_TABS.find((t) => t.statuses.includes(status));
-    if (tab) setExecutorMobileTab(tab.id);
+    if (TASK_FILTER_STATUSES.includes(status)) setExecutorMobileTab(status);
   }, [executor, isMobile, searchParams]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [JSON.stringify(filters)]);
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllAssignable = () => {
+    setSelectedIds(new Set(tasks.filter(canBulkAssignTask).map((t) => t.id)));
+  };
+
+  const handleBulkAssign = async () => {
+    if (!bulkExecutor || selectedIds.size === 0) return;
+    if (!confirm(`Назначить ${selectedIds.size} заявок выбранному исполнителю?`)) return;
+    setBulkAssigning(true);
+    try {
+      await Promise.all(
+        [...selectedIds].map((id) => api.updateTask(id, { assigned_to: Number(bulkExecutor) })),
+      );
+      setSelectedIds(new Set());
+      setBulkExecutor('');
+      await load();
+    } catch (e) {
+      alert(e.message || 'Не удалось назначить заявки');
+    } finally {
+      setBulkAssigning(false);
+    }
+  };
 
   useEffect(() => {
     const onSynced = () => load();
@@ -485,8 +523,8 @@ export default function Tasks() {
           <label>Статус</label>
           <select value={filters.status} onChange={(e) => { setFilter('status', e.target.value); setSearchParams(e.target.value ? { status: e.target.value } : {}); }}>
             <option value="">Все</option>
-            {Object.entries(STATUS_LABELS).filter(([k]) => k !== 'pending').map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
+            {TASK_FILTER_STATUSES.map((k) => (
+              <option key={k} value={k}>{STATUS_LABELS[k]}</option>
             ))}
           </select>
         </div>
@@ -521,6 +559,41 @@ export default function Tasks() {
         </div>
       </div>
 
+      {showBulkSelect && !loading && tasks.length > 0 && (
+        <div className="bulk-assign-bar card animate-slide-up">
+          <div className="bulk-assign-info">
+            <button type="button" className="btn-secondary btn-sm" onClick={selectAllAssignable}>
+              Выбрать все
+            </button>
+            <button
+              type="button"
+              className="btn-secondary btn-sm"
+              onClick={() => setSelectedIds(new Set())}
+              disabled={selectedIds.size === 0}
+            >
+              Сбросить
+            </button>
+            <span className="bulk-assign-count">Выбрано: {selectedIds.size}</span>
+          </div>
+          <div className="bulk-assign-actions">
+            <select value={bulkExecutor} onChange={(e) => setBulkExecutor(e.target.value)}>
+              <option value="">Исполнитель</option>
+              {executors.map((ex) => (
+                <option key={ex.id} value={ex.id}>{ex.full_name}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="btn-primary btn-sm"
+              disabled={!bulkExecutor || selectedIds.size === 0 || bulkAssigning}
+              onClick={handleBulkAssign}
+            >
+              {bulkAssigning ? 'Назначение...' : `Назначить (${selectedIds.size})`}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="card animate-slide-up">
         {loadError && <div className="error-msg">{loadError}</div>}
         {loading ? (
@@ -538,6 +611,9 @@ export default function Tasks() {
             <div className="mobile-tasks">
               {mobileFilteredTasks.map((t) => (
                 <TaskCard key={t.id} task={t} isManager={manager} isExecutor={executor} currentUserId={user?.id} canDelete={bizAdmin}
+                  selectable={showBulkSelect && canBulkAssignTask(t)}
+                  selected={selectedIds.has(t.id)}
+                  onSelectToggle={toggleSelect}
                   onStart={(task) => updateStatus(task, 'in_progress')} onComplete={(task) => setCompleteModal(task)}
                   onAssignSelf={handleAssignSelf} onEdit={setModal} onCancel={handleCancel} onDelete={handleDelete} onView={setModal} />
               ))}
@@ -548,6 +624,17 @@ export default function Tasks() {
             <table>
               <thead>
                 <tr>
+                  {showBulkSelect && (
+                    <th className="table-select-col">
+                      <input
+                        type="checkbox"
+                        className="task-select-checkbox"
+                        checked={tasks.filter(canBulkAssignTask).length > 0 && tasks.filter(canBulkAssignTask).every((t) => selectedIds.has(t.id))}
+                        onChange={(e) => (e.target.checked ? selectAllAssignable() : setSelectedIds(new Set()))}
+                        aria-label="Выбрать все заявки"
+                      />
+                    </th>
+                  )}
                   <th>№</th><th>Статус</th><th>Доступность</th><th>Терр. Банк</th><th>ГОСБ</th>
                   <th>Адрес</th><th>Место</th><th>План</th><th>Контроль</th><th>Начало</th><th>Завершение</th>
                   <th>Услуга</th><th>Исполнитель</th><th>Действия</th>
@@ -555,7 +642,20 @@ export default function Tasks() {
               </thead>
               <tbody>
                 {tasks.map((t) => (
-                  <tr key={t.id}>
+                  <tr key={t.id} className={selectedIds.has(t.id) ? 'task-card-selected' : ''}>
+                    {showBulkSelect && (
+                      <td className="table-select-col">
+                        {canBulkAssignTask(t) ? (
+                          <input
+                            type="checkbox"
+                            className="task-select-checkbox"
+                            checked={selectedIds.has(t.id)}
+                            onChange={() => toggleSelect(t.id)}
+                            aria-label={`Выбрать заявку №${t.id}`}
+                          />
+                        ) : null}
+                      </td>
+                    )}
                     <td><strong>{t.id}</strong></td>
                     <td><span className={`badge badge-${t.status}`}>{STATUS_LABELS[t.status]}</span></td>
                     <td>{t.accessibility_type || '—'}</td>

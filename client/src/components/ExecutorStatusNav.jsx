@@ -15,7 +15,7 @@ export default function ExecutorStatusNav({ activeTab, tasks, onTabChange }) {
             className={`mobile-nav-item executor-status-tab${active ? ' active' : ''}`}
             onClick={() => onTabChange?.(tab.id)}
           >
-            <span className="executor-status-label">{tab.label}</span>
+            <span className="executor-status-label">{tab.shortLabel || tab.label}</span>
             <span className={`executor-status-count${count > 0 ? ' has-items' : ''}`}>{count}</span>
           </button>
         );
