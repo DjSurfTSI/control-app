@@ -112,6 +112,16 @@ db.exec(`
     updated_at TEXT,
     updated_by INTEGER REFERENCES users(id)
   );
+
+  CREATE TABLE IF NOT EXISTS reference_directories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL CHECK(type IN ('territorial_bank', 'gosb', 'accessibility_type')),
+    value TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(type, value)
+  );
 `);
 
 const migrations = [
@@ -154,6 +164,38 @@ function migrateAtmsData() {
   db.exec(`
     UPDATE atms SET territorial_bank = bank_name WHERE territorial_bank IS NULL OR territorial_bank = '';
     UPDATE atms SET gosb = zone WHERE gosb IS NULL OR gosb = '';
+  `);
+}
+
+function seedReferenceDirectories() {
+  const count = db.prepare('SELECT COUNT(*) as c FROM reference_directories').get().c;
+  if (count > 0) return;
+
+  const insert = db.prepare(`
+    INSERT OR IGNORE INTO reference_directories (type, value, sort_order) VALUES (?, ?, ?)
+  `);
+
+  const seedType = (type, sql) => {
+    const rows = db.prepare(sql).all();
+    rows.forEach((row, idx) => {
+      if (row.v) insert.run(type, row.v, idx + 1);
+    });
+  };
+
+  seedType('territorial_bank', `
+    SELECT DISTINCT v FROM (
+      SELECT COALESCE(NULLIF(TRIM(territorial_bank), ''), NULLIF(TRIM(bank_name), '')) as v FROM atms
+    ) WHERE v IS NOT NULL AND v != ''
+  `);
+  seedType('gosb', `
+    SELECT DISTINCT v FROM (
+      SELECT COALESCE(NULLIF(TRIM(gosb), ''), NULLIF(TRIM(zone), '')) as v FROM atms
+    ) WHERE v IS NOT NULL AND v != ''
+  `);
+  seedType('accessibility_type', `
+    SELECT DISTINCT TRIM(accessibility_type) as v
+    FROM atms
+    WHERE accessibility_type IS NOT NULL AND TRIM(accessibility_type) != ''
   `);
 }
 
@@ -311,6 +353,7 @@ function migrateUsersForBizadmin() {
 
 migrateUsersForBizadmin();
 migrateAtmsData();
+seedReferenceDirectories();
 migrateUsersRoleExecutor();
 migrateTaskStatuses();
 

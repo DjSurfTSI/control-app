@@ -1230,3 +1230,146 @@ td small {
     transform: scale(0.96);
   }
 }
+
+/* ——— Settings & reference directories ——— */
+.settings-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.settings-tab {
+  padding: 0.55rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-tab.active {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.settings-card {
+  max-width: 560px;
+}
+
+.toggle-row {
+  margin-bottom: 1.5rem;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toggle-label input {
+  width: auto;
+}
+
+.hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.35rem;
+}
+
+.cv-sliders.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.settings-card .meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 1rem 0;
+}
+
+.success-msg {
+  background: #14532d33;
+  color: #86efac;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.reference-directories {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.reference-hint {
+  margin-bottom: 0.25rem;
+}
+
+.reference-section {
+  padding: 1rem 1.1rem;
+}
+
+.reference-section h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.reference-add-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.reference-add-row input {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.reference-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.reference-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.reference-item input {
+  flex: 1;
+  min-width: 10rem;
+}
+
+.reference-item-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.reference-empty {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  padding: 0.25rem 0;
+}
+
+input[type="range"] {
+  width: 100%;
+  margin-top: 0.5rem;
+}

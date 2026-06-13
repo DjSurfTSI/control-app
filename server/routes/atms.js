@@ -3,6 +3,7 @@ import multer from 'multer';
 import db from '../db.js';
 import { authMiddleware, requireRole } from '../middleware.js';
 import { readExcelRows, writeExcelBuffer, pickColumn } from '../utils/excelImport.js';
+import { validateDeviceReferenceFields } from '../utils/referenceDirectories.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 const router = Router();
@@ -111,6 +112,16 @@ router.post('/', requireRole('admin', 'supervisor'), (req, res) => {
   }
 
   try {
+    validateDeviceReferenceFields({
+      territorial_bank: tb,
+      gosb: gb,
+      accessibility_type,
+    });
+  } catch (e) {
+    return res.status(e.status || 400).json({ error: e.message });
+  }
+
+  try {
     const result = db.prepare(`
       INSERT INTO atms (serial_number, bank_name, territorial_bank, address, gosb, zone, accessibility_type, installation_name, notes)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -158,6 +169,26 @@ router.patch('/:id', requireRole('admin', 'supervisor'), (req, res) => {
   if (fields.active !== undefined) { updates.push('active = ?'); params.push(fields.active ? 1 : 0); }
 
   if (updates.length === 0) return res.status(400).json({ error: 'Нет данных для обновления' });
+
+  const nextTb = fields.territorial_bank !== undefined
+    ? fields.territorial_bank
+    : db.prepare('SELECT COALESCE(territorial_bank, bank_name) as v FROM atms WHERE id = ?').get(req.params.id)?.v;
+  const nextGb = fields.gosb !== undefined
+    ? fields.gosb
+    : db.prepare('SELECT COALESCE(gosb, zone) as v FROM atms WHERE id = ?').get(req.params.id)?.v;
+  const nextAcc = fields.accessibility_type !== undefined
+    ? fields.accessibility_type
+    : db.prepare('SELECT accessibility_type as v FROM atms WHERE id = ?').get(req.params.id)?.v;
+
+  try {
+    validateDeviceReferenceFields({
+      territorial_bank: nextTb,
+      gosb: nextGb,
+      accessibility_type: nextAcc,
+    });
+  } catch (e) {
+    return res.status(e.status || 400).json({ error: e.message });
+  }
 
   params.push(req.params.id);
   db.prepare(`UPDATE atms SET ${updates.join(', ')} WHERE id = ?`).run(...params);

@@ -2,7 +2,33 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import ExcelImportModal from '../components/ExcelImportModal';
 
-function DeviceModal({ device, onClose, onSave }) {
+const EMPTY_DIRECTORIES = {
+  territorial_bank: [],
+  gosb: [],
+  accessibility_type: [],
+};
+
+function DirectorySelect({ label, value, options, onChange, required, allowExtra }) {
+  const showExtra = allowExtra && value && !options.includes(value);
+  return (
+    <div className="form-group">
+      <label>{label}{required ? ' *' : ''}</label>
+      <select value={value} onChange={(e) => onChange(e.target.value)} required={required}>
+        <option value="">— Выберите —</option>
+        {options.map((opt) => (
+          <option key={opt} value={opt}>{opt}</option>
+        ))}
+        {showExtra && <option value={value}>{value}</option>}
+      </select>
+      {showExtra && <p className="hint">Значение не в справочнике (из импорта). При сохранении выберите значение из списка.</p>}
+      {!showExtra && options.length === 0 && (
+        <p className="hint">Справочник пуст. Добавьте значения в Настройки → Справочники.</p>
+      )}
+    </div>
+  );
+}
+
+function DeviceModal({ device, directories, onClose, onSave }) {
   const isNew = !device?.id;
   const [form, setForm] = useState({
     serial_number: device?.serial_number || '',
@@ -39,20 +65,32 @@ function DeviceModal({ device, onClose, onSave }) {
             <label>ID УС *</label>
             <input value={form.serial_number} onChange={(e) => set('serial_number', e.target.value)} />
           </div>
-          <div className="form-group">
-            <label>Территориальный Банк *</label>
-            <input value={form.territorial_bank} onChange={(e) => set('territorial_bank', e.target.value)} />
-          </div>
+          <DirectorySelect
+            label="Территориальный Банк"
+            value={form.territorial_bank}
+            options={directories.territorial_bank}
+            onChange={(val) => set('territorial_bank', val)}
+            required
+            allowExtra={!isNew}
+          />
         </div>
         <div className="form-row">
-          <div className="form-group">
-            <label>ГОСБ *</label>
-            <input value={form.gosb} onChange={(e) => set('gosb', e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label>Вид доступности *</label>
-            <input value={form.accessibility_type} onChange={(e) => set('accessibility_type', e.target.value)} />
-          </div>
+          <DirectorySelect
+            label="ГОСБ"
+            value={form.gosb}
+            options={directories.gosb}
+            onChange={(val) => set('gosb', val)}
+            required
+            allowExtra={!isNew}
+          />
+          <DirectorySelect
+            label="Вид доступности"
+            value={form.accessibility_type}
+            options={directories.accessibility_type}
+            onChange={(val) => set('accessibility_type', val)}
+            required
+            allowExtra={!isNew}
+          />
         </div>
         <div className="form-group">
           <label>Адрес места установки *</label>
@@ -75,16 +113,32 @@ function DeviceModal({ device, onClose, onSave }) {
 
 export default function Atms() {
   const [atms, setAtms] = useState([]);
+  const [directories, setDirectories] = useState(EMPTY_DIRECTORIES);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
   const [importModal, setImportModal] = useState(false);
 
-  const load = async () => {
-    setLoading(true);
-    try { setAtms(await api.getAtms()); } finally { setLoading(false); }
+  const loadDirectories = async () => {
+    try {
+      setDirectories(await api.getReferenceDirectories());
+    } catch {
+      setDirectories(EMPTY_DIRECTORIES);
+    }
   };
 
-  useEffect(() => { load(); }, []);
+  const load = async () => {
+    setLoading(true);
+    try {
+      setAtms(await api.getAtms());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    loadDirectories();
+  }, []);
 
   const handleSave = async (action, form) => {
     if (action === 'create') await api.createAtm(form);
@@ -151,11 +205,18 @@ export default function Atms() {
         )}
       </div>
 
-      {modal && <DeviceModal device={modal.id ? modal : null} onClose={() => setModal(null)} onSave={handleSave} />}
+      {modal && (
+        <DeviceModal
+          device={modal.id ? modal : null}
+          directories={directories}
+          onClose={() => setModal(null)}
+          onSave={handleSave}
+        />
+      )}
       {importModal && (
         <ExcelImportModal
           title="Импорт устройств из Excel"
-          description="Столбцы: ID УС, Территориальный Банк, ГОСБ, Адрес места установки, Вид доступности, Наименование места установки. Все поля обязательны."
+          description="Столбцы: ID УС, Территориальный Банк, ГОСБ, Адрес места установки, Вид доступности, Наименование места установки. Все поля обязательны. Значения справочников при импорте не проверяются."
           onClose={() => setImportModal(false)}
           onDone={load}
           onImport={api.importAtms}

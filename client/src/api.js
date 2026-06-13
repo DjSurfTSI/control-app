@@ -310,6 +310,12 @@ export const api = {
   },
 
   updateCvSettings: (data) => request('/settings/cv', { method: 'PATCH', body: JSON.stringify(data) }),
+
+  getReferenceDirectories: () => request('/reference'),
+  getReferenceDirectoriesManage: () => request('/reference/manage'),
+  createReferenceEntry: (data) => request('/reference', { method: 'POST', body: JSON.stringify(data) }),
+  updateReferenceEntry: (id, data) => request(`/reference/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteReferenceEntry: (id) => request(`/reference/${id}`, { method: 'DELETE' }),
 };
 
 function downloadBlob(blob, filename) {

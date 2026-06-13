@@ -671,6 +671,32 @@ client/src/
 
 Блок `.filters.filters-extended` использует `flex` + сетку `.filters-body` (`auto-fill`, minmax 180px) на **полную ширину** карточки. Ранее наследование трёхколоночной сетки `.filters` обрезало поля примерно наполовину экрана.
 
+### 7.7 Справочники устройств (v2.3.0)
+
+Таблица `reference_directories`:
+
+| Поле | Описание |
+|------|----------|
+| `type` | `territorial_bank` \| `gosb` \| `accessibility_type` |
+| `value` | Значение справочника (уникально в рамках типа) |
+| `active` | 1 — используется в списках |
+
+**Бизнес-администратор:** `Настройки` → вкладка **«Справочники»** (`ReferenceDirectoriesEditor.jsx`) — добавление, изменение, удаление значений.
+
+**API:**
+
+| Метод | Путь | Роль | Назначение |
+|-------|------|------|------------|
+| GET | `/api/reference` | admin, supervisor | Списки значений для формы устройства |
+| GET | `/api/reference/manage` | bizadmin | Полный список с id |
+| POST/PATCH/DELETE | `/api/reference/...` | bizadmin | CRUD записей |
+
+**Устройства (`Atms.jsx`):** поля Терр. Банк, ГОСБ, Вид доступности — `<select>` из `GET /api/reference`.
+
+**Валидация:** `POST`/`PATCH /api/atms` вызывают `validateDeviceReferenceFields` — если в справочнике есть активные значения типа, поле должно совпадать. **Импорт Excel** (`POST /api/atms/import`) — без проверки справочника.
+
+**Миграция:** `seedReferenceDirectories()` — при пустой таблице заполняет DISTINCT-значениями из `atms`.
+
 ### Ключевые файлы
 
 | Файл | Назначение | При адаптации |
@@ -975,6 +1001,7 @@ npx web-push generate-vapid-keys
 
 | Версия | Дата | Изменения |
 |--------|------|-----------|
+| v2.3.0 | 2026-06-13 | Справочники устройств (bizadmin) — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.2.4 | 2026-06-13 | Массовое «Взять на себя» для исполнителя — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.2.3 | 2026-06-13 | 8 статусов в mobile-nav, массовое назначение — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.2.2 | 2026-06-13 | Статусы в mobile-nav, фикс ширины фильтров (десктоп) — см. [CHANGELOG.md](./CHANGELOG.md) |

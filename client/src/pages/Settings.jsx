@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { formatDateTime } from '../utils';
 import { invalidateCvStatus } from '../hooks/useCvStatus';
+import ReferenceDirectoriesEditor from '../components/ReferenceDirectoriesEditor';
 
-export default function Settings() {
+function CvSettingsPanel() {
   const [settings, setSettings] = useState(null);
   const [form, setForm] = useState({ enabled: true, threshold: 0.3, margin: 0.12 });
   const [loading, setLoading] = useState(true);
@@ -53,16 +54,7 @@ export default function Settings() {
   if (loading) return <p className="empty-state">Загрузка...</p>;
 
   return (
-    <div className="page-enter">
-      <div className="page-header">
-        <div>
-          <h2 className="page-title">Настройки CV</h2>
-          <p className="page-subtitle">
-            Управление проверкой банкомата на фотографиях (модель CLIP)
-          </p>
-        </div>
-      </div>
-
+    <>
       {error && <div className="error-msg">{error}</div>}
       {success && <div className="success-msg">{success}</div>}
 
@@ -129,27 +121,42 @@ export default function Settings() {
           {saving ? 'Сохранение...' : 'Сохранить'}
         </button>
       </div>
+    </>
+  );
+}
 
-      <style>{`
-        .page-header { margin-bottom: 1.5rem; }
-        .page-title { font-size: 1.75rem; margin-bottom: 0.25rem; }
-        .page-subtitle { color: var(--text-muted); }
-        .settings-card { max-width: 560px; }
-        .toggle-row { margin-bottom: 1.5rem; }
-        .toggle-label {
-          display: flex; align-items: center; gap: 0.75rem;
-          font-weight: 600; cursor: pointer;
-        }
-        .toggle-label input { width: auto; }
-        .hint { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.35rem; }
-        .cv-sliders.disabled { opacity: 0.5; pointer-events: none; }
-        .meta { font-size: 0.8rem; color: var(--text-muted); margin: 1rem 0; }
-        .success-msg {
-          background: #14532d33; color: #86efac;
-          padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem;
-        }
-        input[type="range"] { width: 100%; margin-top: 0.5rem; }
-      `}</style>
+export default function Settings() {
+  const [tab, setTab] = useState('cv');
+
+  return (
+    <div className="page-enter">
+      <div className="page-header">
+        <div>
+          <h2 className="page-title">Настройки</h2>
+          <p className="page-subtitle">Параметры системы и справочники устройств</p>
+        </div>
+      </div>
+
+      <div className="settings-tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          className={`settings-tab${tab === 'cv' ? ' active' : ''}`}
+          onClick={() => setTab('cv')}
+        >
+          CV-проверка
+        </button>
+        <button
+          type="button"
+          role="tab"
+          className={`settings-tab${tab === 'directories' ? ' active' : ''}`}
+          onClick={() => setTab('directories')}
+        >
+          Справочники
+        </button>
+      </div>
+
+      {tab === 'cv' ? <CvSettingsPanel /> : <ReferenceDirectoriesEditor />}
     </div>
   );
 }

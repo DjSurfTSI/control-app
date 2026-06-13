@@ -10,6 +10,7 @@ import photoRoutes from './routes/photos.js';
 import notificationRoutes from './routes/notifications.js';
 import integrationRoutes from './routes/integration.js';
 import settingsRoutes from './routes/settings.js';
+import referenceRoutes from './routes/reference.js';
 import { isCvEnabled, warmupCvModel } from './cv/atmDetector.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -28,6 +29,7 @@ app.use('/api/photos', photoRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/integration', integrationRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/reference', referenceRoutes);
 
 app.use((err, req, res, next) => {
   if (req.path.startsWith('/api')) {
