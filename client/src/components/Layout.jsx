@@ -1,13 +1,18 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { ExecutorTasksNavProvider, useExecutorTasksNav } from '../context/ExecutorTasksNavContext';
+import ExecutorStatusNav from './ExecutorStatusNav';
 import { ROLE_LABELS, isManager, isAdmin, isBizAdmin } from '../utils';
 import { useNotifications } from '../hooks/useNotifications';
 import { useOffline } from '../hooks/useOffline';
 import { useState } from 'react';
 
-export default function Layout() {
+function LayoutShell() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { state: executorNav } = useExecutorTasksNav();
+  const showExecutorStatusNav = executorNav.enabled && location.pathname === '/tasks';
   const manager = isManager(user);
   const admin = isAdmin(user);
   const { alerts, pushEnabled, pushLoading, enablePush, disablePush } = useNotifications(true);
@@ -42,7 +47,7 @@ export default function Layout() {
   ];
 
   return (
-    <div className="layout">
+    <div className={`layout${showExecutorStatusNav ? ' layout-executor-tasks' : ''}`}>
       <header className="header desktop-header">
         <div className="header-brand">
           <span className="logo-wrap">🏧</span>
@@ -102,18 +107,40 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      <nav className="mobile-nav">
-        {navItems.map((item) => (
-          <NavLink key={item.to} to={item.to} end={item.end} className="mobile-nav-item">
-            <span className="mobile-nav-icon">{item.icon}</span>
-            <span className="mobile-nav-label">{item.label}</span>
-          </NavLink>
-        ))}
-        <button type="button" className="mobile-nav-item mobile-nav-btn" onClick={togglePush} disabled={pushLoading}>
-          <span className="mobile-nav-icon">{pushEnabled ? '🔔' : '🔕'}</span>
-          <span className="mobile-nav-label">Push</span>
-        </button>
+      <nav
+        className={`mobile-nav${showExecutorStatusNav ? ' executor-status-nav' : ''}`}
+        role={showExecutorStatusNav ? 'tablist' : undefined}
+        aria-label={showExecutorStatusNav ? 'Разделы заявок' : undefined}
+      >
+        {showExecutorStatusNav ? (
+          <ExecutorStatusNav
+            activeTab={executorNav.activeTab}
+            tasks={executorNav.tasks}
+            onTabChange={executorNav.onTabChange}
+          />
+        ) : (
+          <>
+            {navItems.map((item) => (
+              <NavLink key={item.to} to={item.to} end={item.end} className="mobile-nav-item">
+                <span className="mobile-nav-icon">{item.icon}</span>
+                <span className="mobile-nav-label">{item.label}</span>
+              </NavLink>
+            ))}
+            <button type="button" className="mobile-nav-item mobile-nav-btn" onClick={togglePush} disabled={pushLoading}>
+              <span className="mobile-nav-icon">{pushEnabled ? '🔔' : '🔕'}</span>
+              <span className="mobile-nav-label">Push</span>
+            </button>
+          </>
+        )}
       </nav>
     </div>
+  );
+}
+
+export default function Layout() {
+  return (
+    <ExecutorTasksNavProvider>
+      <LayoutShell />
+    </ExecutorTasksNavProvider>
   );
 }

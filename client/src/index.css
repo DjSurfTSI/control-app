@@ -536,6 +536,65 @@ label {
   max-width: 100%;
 }
 
+.filters.filters-extended {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.filters-extended .filters-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+  width: 100%;
+}
+
+.filters-toggle {
+  display: none;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0 0.75rem;
+  margin-bottom: 0;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.filters-toggle-icon {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.filters-active-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  margin-left: 0.4rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.executor-back-link {
+  display: inline-block;
+  margin-bottom: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+}
+
 .filters .form-group {
   min-width: 0;
   width: 100%;
@@ -622,98 +681,13 @@ label {
   gap: 0.25rem;
 }
 
-/* ——— Исполнитель: вкладки статусов внизу (над mobile-nav) ——— */
-.executor-mobile-dock {
-  display: none;
-}
-
+/* ——— Исполнитель: вкладки статусов в mobile-nav ——— */
 @media (max-width: 767px) {
-  .executor-mobile-dock {
-    display: block;
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: calc(3.1rem + env(safe-area-inset-bottom, 0px));
-    z-index: 49;
-    background: rgba(21, 29, 43, 0.96);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-top: 1px solid var(--border);
-    padding: 0.35rem max(0.35rem, env(safe-area-inset-left, 0px))
-      0.35rem max(0.35rem, env(safe-area-inset-right, 0px));
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
-  }
-
-  .executor-mobile-tabs {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(2, auto);
-    gap: 0.3rem;
-  }
-
-  .executor-mobile-tab {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.15rem;
-    min-height: 2.75rem;
-    padding: 0.25rem 0.15rem;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--text-muted);
-    font-size: 0.62rem;
-    font-weight: 600;
-    line-height: 1.15;
-    text-align: center;
-    cursor: pointer;
-  }
-
-  .executor-mobile-tab.active {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: white;
-  }
-
-  .executor-mobile-tab-label {
-    display: block;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .executor-mobile-tab-count {
-    min-width: 1.1rem;
-    height: 1.1rem;
-    padding: 0 0.25rem;
-    border-radius: 999px;
-    background: var(--surface-hover);
-    color: var(--text-muted);
-    font-size: 0.6rem;
-    font-weight: 700;
-    line-height: 1.1rem;
-    text-align: center;
-  }
-
-  .executor-mobile-tab.active .executor-mobile-tab-count {
-    background: rgba(255, 255, 255, 0.25);
-    color: white;
-  }
-
-  .executor-mobile-tab-count.has-items {
-    background: rgba(59, 130, 246, 0.2);
-    color: var(--primary);
-  }
-
-  .executor-mobile-tab.active .executor-mobile-tab-count.has-items {
-    background: rgba(255, 255, 255, 0.3);
-    color: white;
-  }
-
-  .tasks-executor-mobile {
-    padding-bottom: 5.75rem;
+  .filters-collapsible .filters-toggle { display: flex; }
+  .filters-collapsible.filters-collapsed .filters-body { display: none; }
+  .filters-collapsible .filters-body {
+    grid-template-columns: 1fr;
+    padding-top: 0.25rem;
   }
 }
 
@@ -1079,6 +1053,77 @@ td small {
     z-index: 50;
     justify-content: space-around;
     box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  .mobile-nav.executor-status-nav {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, auto);
+    gap: 0.3rem;
+    justify-content: stretch;
+    padding: 0.35rem max(0.35rem, env(safe-area-inset-right, 0px))
+      calc(0.35rem + env(safe-area-inset-bottom, 0px))
+      max(0.35rem, env(safe-area-inset-left, 0px));
+  }
+
+  .layout-executor-tasks .main {
+    padding-bottom: 6.75rem;
+  }
+
+  .executor-status-tab {
+    min-width: 0;
+    min-height: 2.85rem;
+    padding: 0.25rem 0.15rem;
+    gap: 0.15rem;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    cursor: pointer;
+  }
+
+  .executor-status-tab.active {
+    background: rgba(59, 130, 246, 0.12);
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .executor-status-label {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.58rem;
+    font-weight: 600;
+    line-height: 1.15;
+    text-align: center;
+  }
+
+  .executor-status-count {
+    min-width: 1.1rem;
+    height: 1.1rem;
+    padding: 0 0.25rem;
+    border-radius: 999px;
+    background: var(--surface-hover);
+    color: var(--text-muted);
+    font-size: 0.58rem;
+    font-weight: 700;
+    line-height: 1.1rem;
+    text-align: center;
+  }
+
+  .executor-status-count.has-items {
+    background: rgba(59, 130, 246, 0.2);
+    color: var(--primary);
+  }
+
+  .executor-status-tab.active .executor-status-count {
+    background: rgba(59, 130, 246, 0.25);
+    color: var(--primary);
+  }
+
+  .executor-status-tab.active .executor-status-count.has-items {
+    background: var(--primary);
+    color: white;
   }
 
   .mobile-nav-item {

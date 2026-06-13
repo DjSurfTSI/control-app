@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useEffect, useState, useCallback } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { EXECUTOR_NAV_DEFAULT, useExecutorTasksNav } from '../context/ExecutorTasksNavContext';
 import {
   STATUS_LABELS, formatDate, formatDateTime, todayISO,
   isManager, isBizAdmin, isExecutor, getCloseMetadata, PHOTO_TYPE_LABELS, formatCloseLocation,
   canExecutorCompleteTask,
-  EXECUTOR_MOBILE_TABS, filterTasksByExecutorTab, countTasksForExecutorTab,
+  EXECUTOR_MOBILE_TABS, filterTasksByExecutorTab,
 } from '../utils';
 import PhotoUpload from '../components/PhotoUpload';
 import TaskCard from '../components/TaskCard';
@@ -276,34 +277,9 @@ function TaskModal({
   );
 }
 
-function ExecutorMobileTabs({ activeTab, onChange, tasks }) {
-  return (
-    <div className="executor-mobile-dock" role="tablist" aria-label="Разделы заявок">
-      <div className="executor-mobile-tabs">
-        {EXECUTOR_MOBILE_TABS.map((tab) => {
-          const count = countTasksForExecutorTab(tasks, tab);
-          const active = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              className={`executor-mobile-tab${active ? ' active' : ''}`}
-              onClick={() => onChange(tab.id)}
-            >
-              <span className="executor-mobile-tab-label">{tab.shortLabel || tab.label}</span>
-              <span className={`executor-mobile-tab-count${count > 0 ? ' has-items' : ''}`}>{count}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 export default function Tasks() {
   const { user } = useAuth();
+  const { setState: setExecutorNav } = useExecutorTasksNav();
   const manager = isManager(user);
   const executor = isExecutor(user);
   const bizAdmin = isBizAdmin(user);
@@ -328,6 +304,24 @@ export default function Tasks() {
     ? filterTasksByExecutorTab(tasks, executorMobileTab)
     : tasks;
   const activeExecutorTab = EXECUTOR_MOBILE_TABS.find((t) => t.id === executorMobileTab);
+
+  const handleExecutorTabChange = useCallback((tabId) => {
+    setExecutorMobileTab(tabId);
+  }, []);
+
+  useEffect(() => {
+    if (showExecutorMobileTabs) {
+      setExecutorNav({
+        enabled: true,
+        activeTab: executorMobileTab,
+        tasks,
+        onTabChange: handleExecutorTabChange,
+      });
+    } else {
+      setExecutorNav(EXECUTOR_NAV_DEFAULT);
+    }
+    return () => setExecutorNav(EXECUTOR_NAV_DEFAULT);
+  }, [showExecutorMobileTabs, executorMobileTab, tasks, handleExecutorTabChange, setExecutorNav]);
 
   const setFilter = (key, val) => setFilters((f) => ({ ...f, [key]: val }));
 
@@ -446,9 +440,12 @@ export default function Tasks() {
   };
 
   return (
-    <div className={`page-enter${showExecutorMobileTabs ? ' tasks-executor-mobile' : ''}`}>
+    <div className="page-enter">
       <div className="page-header">
         <div>
+          {showExecutorMobileTabs && (
+            <Link to="/" className="executor-back-link">← Дашборд</Link>
+          )}
           <h2 className="page-title">Заявки</h2>
           <p className="page-subtitle">Планирование и контроль исполнения работ</p>
         </div>
@@ -610,62 +607,7 @@ export default function Tasks() {
       {completeModal && <CompleteModal task={completeModal} onClose={() => setCompleteModal(null)} onComplete={handleComplete} />}
       {importModal && <ImportTasksModal onClose={() => setImportModal(false)} onDone={load} />}
 
-      {showExecutorMobileTabs && (
-        <ExecutorMobileTabs
-          activeTab={executorMobileTab}
-          onChange={setExecutorMobileTab}
-          tasks={tasks}
-        />
-      )}
-
       <style>{`
-        .filters-extended .filters-body {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-          gap: 0.75rem;
-          align-items: end;
-        }
-        .filters-toggle {
-          display: none;
-          width: 100%;
-          justify-content: space-between;
-          align-items: center;
-          padding: 0.25rem 0 0.75rem;
-          margin-bottom: 0;
-          background: none;
-          border: none;
-          color: var(--text);
-          font-size: 0.95rem;
-          font-weight: 600;
-          cursor: pointer;
-          text-align: left;
-        }
-        .filters-toggle-icon {
-          color: var(--text-muted);
-          font-size: 0.75rem;
-        }
-        .filters-active-badge {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-width: 1.25rem;
-          height: 1.25rem;
-          margin-left: 0.4rem;
-          padding: 0 0.35rem;
-          border-radius: 999px;
-          background: var(--primary);
-          color: white;
-          font-size: 0.7rem;
-          font-weight: 700;
-        }
-        @media (max-width: 767px) {
-          .filters-collapsible .filters-toggle { display: flex; }
-          .filters-collapsible.filters-collapsed .filters-body { display: none; }
-          .filters-collapsible .filters-body {
-            grid-template-columns: 1fr;
-            padding-top: 0.25rem;
-          }
-        }
         .table-scroll { overflow-x: auto; }
         .table-scroll table { min-width: 1200px; font-size: 0.85rem; }
       `}</style>

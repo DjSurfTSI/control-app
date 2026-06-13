@@ -48,10 +48,10 @@ export const EXECUTOR_COMPLETABLE_STATUSES = ['in_progress', 'overdue', 'returne
 export const EXECUTOR_MOBILE_TABS = [
   { id: 'new', label: 'Новые', shortLabel: 'Новые', statuses: ['new'] },
   { id: 'in_progress', label: 'В работе', shortLabel: 'В работе', statuses: ['in_progress', 'overdue', 'no_access'] },
-  { id: 'completed', label: 'Завершенные', shortLabel: 'Готовые', statuses: ['completed'] },
+  { id: 'completed', label: 'Выполненные', shortLabel: 'Готовые', statuses: ['completed'] },
   { id: 'cancelled', label: 'Отмененные', shortLabel: 'Отмена', statuses: ['cancelled'] },
   { id: 'returned', label: 'Возврат', shortLabel: 'Возврат', statuses: ['returned'] },
-  { id: 'emergency', label: 'Экстренно', shortLabel: 'Срочно', statuses: ['emergency'] },
+  { id: 'emergency', label: 'Экстренные', shortLabel: 'Срочно', statuses: ['emergency'] },
 ];
 
 export function filterTasksByExecutorTab(tasks, tabId) {
