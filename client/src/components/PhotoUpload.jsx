@@ -3,9 +3,11 @@ import { api } from '../api';
 import { PHOTO_TYPES, PHOTO_TYPE_LABELS, checkRequiredPhotos, checkPhotoCv } from '../utils';
 import { compressImageForUpload } from '../utils/compressImage';
 import { useCvStatus } from '../hooks/useCvStatus';
+import { useOffline } from '../hooks/useOffline';
 
 export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
   const { cvEnabled, loading: cvLoading } = useCvStatus();
+  const { online } = useOffline();
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(null);
@@ -39,6 +41,12 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
   useEffect(() => { if (taskId) load(); }, [taskId]);
 
   useEffect(() => {
+    const onSynced = () => { if (taskId) load(); };
+    window.addEventListener('offline-synced', onSynced);
+    return () => window.removeEventListener('offline-synced', onSynced);
+  }, [taskId]);
+
+  useEffect(() => {
     if (!loading) emitChange(photos);
   }, [cvEnabled]);
 
@@ -53,7 +61,9 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
       const compressed = await compressImageForUpload(file);
       const result = await api.uploadPhoto(taskId, compressed, type);
       await load();
-      if (cvEnabled && result.cv_pending) {
+      if (result.offline_queued) {
+        setError('');
+      } else if (cvEnabled && online && result.cv_pending) {
         await pollCvResult(type, 30);
       }
     } catch (err) {
@@ -100,6 +110,9 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
           CV-проверка отключена. Достаточно трёх фото с разных ракурсов.
         </p>
       )}
+      {!online && !readOnly && (
+        <p className="photo-offline-hint">Фото сохранятся на устройстве и отправятся при появлении сети.</p>
+      )}
 
       {!check.complete && !readOnly && (
         <p className="photo-hint">Не хватает: {check.missing.map((t) => PHOTO_TYPE_LABELS[t]).join(', ')}</p>
@@ -126,7 +139,7 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
           const cvFail = cvEnabled && photo?.cv_detected === 0;
           const cvPending = cvEnabled && photo && photo.cv_detected == null;
           const slotClass = photo
-            ? (cvFail ? 'cv-fail' : cvPending ? 'cv-pending' : 'filled')
+            ? (cvFail ? 'cv-fail' : (cvPending && !photo.offline) ? 'cv-pending' : 'filled')
             : 'empty';
 
           return (
@@ -139,7 +152,8 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
                   </a>
                   {cvOk && <span className="photo-cv-badge ok">✓ ATM</span>}
                   {cvFail && <span className="photo-cv-badge fail">✗</span>}
-                  {cvPending && uploading !== type && (
+                  {photo.offline && <span className="photo-cv-badge pending">📡</span>}
+                  {cvPending && !photo.offline && uploading !== type && (
                     <span className="photo-cv-badge pending">…</span>
                   )}
                   {!readOnly && (
@@ -180,6 +194,7 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
         .photo-title { display: block; font-weight: 600; margin-bottom: 0.5rem; }
         .photo-cv-hint { color: var(--text-muted); font-size: 0.8rem; margin-bottom: 0.5rem; }
         .photo-cv-off { color: var(--success); }
+        .photo-offline-hint { color: #93c5fd; font-size: 0.8rem; margin-bottom: 0.5rem; }
         .photo-hint { color: var(--warning); font-size: 0.85rem; margin-bottom: 0.5rem; }
         .photo-cv-fail { color: var(--danger); font-size: 0.85rem; margin-bottom: 0.5rem; }
         .photo-ok { color: var(--success); font-size: 0.85rem; margin-bottom: 0.5rem; }

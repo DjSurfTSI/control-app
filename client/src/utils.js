@@ -57,8 +57,8 @@ export function checkPhotoCv(photos, cvEnabled = true) {
     return { passed: missing.length === 0, failed: [], pending: [], missing };
   }
   const required = PHOTO_TYPES.map((t) => photos.find((p) => p.photo_type === t)).filter(Boolean);
-  const failed = required.filter((p) => p.cv_detected === 0).map((p) => p.photo_type);
-  const pending = required.filter((p) => p.cv_detected == null).map((p) => p.photo_type);
+  const failed = required.filter((p) => p.cv_detected === 0 && !p.offline).map((p) => p.photo_type);
+  const pending = required.filter((p) => p.cv_detected == null && !p.offline).map((p) => p.photo_type);
   const passed = missing.length === 0 && failed.length === 0 && pending.length === 0;
   return { passed, failed, pending, missing };
 }

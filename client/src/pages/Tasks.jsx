@@ -231,6 +231,12 @@ export default function Tasks() {
   useEffect(() => { load(); }, [filterStatus, filterDate]);
 
   useEffect(() => {
+    const onSynced = () => load();
+    window.addEventListener('offline-synced', onSynced);
+    return () => window.removeEventListener('offline-synced', onSynced);
+  }, [filterStatus, filterDate]);
+
+  useEffect(() => {
     const s = searchParams.get('status') || '';
     if (s !== filterStatus) setFilterStatus(s);
   }, [searchParams]);
@@ -240,8 +246,11 @@ export default function Tasks() {
       setCompleteModal(task);
       return;
     }
-    await api.updateTask(task.id, { status });
+    const res = await api.updateTask(task.id, { status });
     load();
+    if (res?.offline) {
+      /* queued — banner shows pending count */
+    }
   };
 
   const handleComplete = async (taskId, report) => {

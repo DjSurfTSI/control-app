@@ -38,6 +38,7 @@ export default function Login() {
           <span className="login-logo">🏧</span>
           <h1>Контроль уборки банкоматов</h1>
           <p>Войдите для управления заявками</p>
+          <p className="login-offline-hint">После первого входа приложение работает офлайн: заявки и фото синхронизируются при появлении сети.</p>
         </div>
 
         {error && <div className="error-msg">{error}</div>}
@@ -100,6 +101,7 @@ export default function Login() {
         .login-logo { font-size: 3rem; display: block; margin-bottom: 0.5rem; }
         .login-header h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
         .login-header p { color: var(--text-muted); font-size: 0.9rem; }
+        .login-offline-hint { font-size: 0.8rem !important; margin-top: 0.35rem; color: #93c5fd !important; }
         .login-btn { width: 100%; margin-top: 0.5rem; padding: 0.75rem; }
         .demo-accounts {
           margin-top: 2rem;

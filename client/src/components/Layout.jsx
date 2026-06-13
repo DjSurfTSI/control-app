@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ROLE_LABELS, isManager, isAdmin, isBizAdmin } from '../utils';
 import { useNotifications } from '../hooks/useNotifications';
+import { useOffline } from '../hooks/useOffline';
 import { useState } from 'react';
 
 export default function Layout() {
@@ -10,6 +11,7 @@ export default function Layout() {
   const manager = isManager(user);
   const admin = isAdmin(user);
   const { alerts, pushEnabled, pushLoading, enablePush, disablePush } = useNotifications(true);
+  const { online, pending, syncing, syncNow } = useOffline();
   const [notifError, setNotifError] = useState('');
 
   const handleLogout = () => {
@@ -74,6 +76,21 @@ export default function Layout() {
 
       {notifError && <div className="notif-error">{notifError}</div>}
 
+      {(!online || pending > 0) && (
+        <div className={`offline-banner ${online ? 'sync-pending' : 'offline'}`}>
+          {!online ? (
+            <span>📡 Нет сети — показаны сохранённые данные. Действия будут отправлены при подключении.</span>
+          ) : (
+            <span>⏳ Ожидает отправки: {pending} {pending === 1 ? 'действие' : 'действий'}</span>
+          )}
+          {online && pending > 0 && (
+            <button type="button" className="btn-sm btn-secondary" onClick={syncNow} disabled={syncing}>
+              {syncing ? 'Синхронизация…' : 'Синхронизировать'}
+            </button>
+          )}
+        </div>
+      )}
+
       <main className="main">
         <Outlet />
       </main>
@@ -125,6 +142,12 @@ export default function Layout() {
           background: #7f1d1d33; color: #fca5a5; text-align: center;
           padding: 0.5rem; font-size: 0.85rem;
         }
+        .offline-banner {
+          display: flex; align-items: center; justify-content: center; gap: 1rem; flex-wrap: wrap;
+          padding: 0.5rem 1rem; font-size: 0.85rem; text-align: center;
+        }
+        .offline-banner.offline { background: #78350f44; color: #fcd34d; }
+        .offline-banner.sync-pending { background: #1e3a5f88; color: #93c5fd; }
         .main { flex: 1; padding: 2rem; max-width: 1280px; width: 100%; margin: 0 auto; }
         .mobile-nav { display: none; }
 

@@ -15,13 +15,21 @@ export function AuthProvider({ children }) {
     }
     api.me()
       .then(setUser)
-      .catch(() => localStorage.removeItem('token'))
+      .catch(() => {
+        const cached = localStorage.getItem('offline_user');
+        if (cached && !navigator.onLine) {
+          setUser(JSON.parse(cached));
+        } else {
+          localStorage.removeItem('token');
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 
   const login = async (email, password) => {
     const { token, user: u } = await api.login(email, password);
     localStorage.setItem('token', token);
+    localStorage.setItem('offline_user', JSON.stringify(u));
     setUser(u);
     return u;
   };

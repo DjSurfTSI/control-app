@@ -1,7 +1,27 @@
+import {
+  cacheTasks,
+  getCachedTasks,
+  enqueue,
+  patchCachedTask,
+  cachePhotos,
+  getCachedPhotos,
+  addPendingPhotoToCache,
+  setMeta,
+  getMeta,
+} from './offline/store.js';
+
 const API = '/api';
 
 function getToken() {
   return localStorage.getItem('token');
+}
+
+export function isNetworkError(err) {
+  return err instanceof TypeError
+    || err?.message?.includes('Failed to fetch')
+    || err?.message?.includes('NetworkError')
+    || err?.message?.includes('Ошибка сервера (502)')
+    || err?.message?.includes('Ошибка сервера (503)');
 }
 
 async function request(path, options = {}) {
@@ -31,11 +51,53 @@ async function request(path, options = {}) {
   return data;
 }
 
+function notifyQueueChange() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('offline-queue-changed'));
+  }
+}
+
+async function queuePhoto(taskId, file, photoType) {
+  const blobUrl = URL.createObjectURL(file);
+  await enqueue({
+    op: 'upload_photo',
+    taskId,
+    photoType,
+    blobUrl,
+    fileName: file.name,
+  });
+  const photo = {
+    id: `offline-${Date.now()}`,
+    photo_type: photoType,
+    url: blobUrl,
+    offline: true,
+    cv_detected: null,
+    filename: file.name,
+  };
+  await addPendingPhotoToCache(taskId, photo);
+  notifyQueueChange();
+  return { ...photo, cv_pending: false, offline_queued: true };
+}
+
 export const api = {
+  _requestOnline: request,
+
   login: (email, password) =>
     request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
 
-  me: () => request('/auth/me'),
+  me: async () => {
+    try {
+      const u = await request('/auth/me');
+      localStorage.setItem('offline_user', JSON.stringify(u));
+      return u;
+    } catch (err) {
+      const cached = localStorage.getItem('offline_user');
+      if (cached && (!navigator.onLine || isNetworkError(err))) {
+        return JSON.parse(cached);
+      }
+      throw err;
+    }
+  },
 
   getUsers: (role) => request(`/users${role ? `?role=${role}` : ''}`),
   createUser: (data) => request('/users', { method: 'POST', body: JSON.stringify(data) }),
@@ -46,13 +108,47 @@ export const api = {
   createAtm: (data) => request('/atms', { method: 'POST', body: JSON.stringify(data) }),
   updateAtm: (id, data) => request(`/atms/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
-  getTasks: (params = {}) => {
+  getTasks: async (params = {}) => {
     const q = new URLSearchParams(params).toString();
-    return request(`/tasks${q ? `?${q}` : ''}`);
+    const cacheKey = q || '_all';
+    try {
+      const data = await request(`/tasks${q ? `?${q}` : ''}`);
+      await cacheTasks(cacheKey, data);
+      return data;
+    } catch (err) {
+      const cached = await getCachedTasks(cacheKey);
+      if (cached) return cached;
+      throw err;
+    }
   },
-  getStats: () => request('/tasks/stats'),
+
+  getStats: async () => {
+    try {
+      return await request('/tasks/stats');
+    } catch (err) {
+      if (!navigator.onLine || isNetworkError(err)) return null;
+      throw err;
+    }
+  },
+
   createTask: (data) => request('/tasks', { method: 'POST', body: JSON.stringify(data) }),
-  updateTask: (id, data) => request(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  updateTask: async (id, data) => {
+    const applyOffline = async () => {
+      await enqueue({ op: 'patch_task', taskId: id, body: data });
+      await patchCachedTask(id, data);
+      notifyQueueChange();
+      return { id, ...data, offline: true };
+    };
+    if (!navigator.onLine) return applyOffline();
+    try {
+      return await request(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+    } catch (err) {
+      if (isNetworkError(err)) return applyOffline();
+      throw err;
+    }
+  },
+
   cancelTask: (id) => request(`/tasks/${id}`, { method: 'DELETE' }),
 
   exportTasks: async (params = {}) => {
@@ -72,13 +168,34 @@ export const api = {
     return request('/tasks/import', { method: 'POST', body: fd });
   },
 
-  getPhotos: (taskId) => request(`/photos/${taskId}`),
-  uploadPhoto: (taskId, file, photoType) => {
-    const fd = new FormData();
-    fd.append('photo', file);
-    fd.append('photo_type', photoType);
-    return request(`/photos/${taskId}`, { method: 'POST', body: fd });
+  getPhotos: async (taskId) => {
+    try {
+      const data = await request(`/photos/${taskId}`);
+      await cachePhotos(taskId, data);
+      return data;
+    } catch (err) {
+      const cached = await getCachedPhotos(taskId);
+      if (cached) return cached;
+      throw err;
+    }
   },
+
+  uploadPhoto: async (taskId, file, photoType) => {
+    const upload = () => {
+      const fd = new FormData();
+      fd.append('photo', file);
+      fd.append('photo_type', photoType);
+      return request(`/photos/${taskId}`, { method: 'POST', body: fd });
+    };
+    if (!navigator.onLine) return queuePhoto(taskId, file, photoType);
+    try {
+      return await upload();
+    } catch (err) {
+      if (isNetworkError(err)) return queuePhoto(taskId, file, photoType);
+      throw err;
+    }
+  },
+
   deletePhoto: (taskId, photoId) => request(`/photos/${taskId}/${photoId}`, { method: 'DELETE' }),
 
   getVapidKey: () => request('/notifications/vapid-public-key'),
@@ -87,7 +204,20 @@ export const api = {
   getPendingAlerts: () => request('/notifications/pending'),
 
   getCvSettings: () => request('/settings/cv'),
-  getCvStatus: () => request('/settings/cv/status'),
+
+  getCvStatus: async () => {
+    try {
+      const data = await request('/settings/cv/status');
+      await setMeta('cv_enabled', data.enabled);
+      return data;
+    } catch (err) {
+      const cached = await getMeta('cv_enabled');
+      if (cached !== undefined) return { enabled: !!cached };
+      if (!navigator.onLine || isNetworkError(err)) return { enabled: true };
+      throw err;
+    }
+  },
+
   updateCvSettings: (data) => request('/settings/cv', { method: 'PATCH', body: JSON.stringify(data) }),
 };
 
