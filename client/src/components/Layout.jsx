@@ -109,7 +109,7 @@ export default function Layout() {
       </nav>
 
       <style>{`
-        .layout { min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 0; }
+        .layout { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; padding-bottom: 0; }
         .header {
           display: flex; align-items: center; gap: 2rem;
           padding: 1rem 2rem;
@@ -160,7 +160,9 @@ export default function Layout() {
             position: fixed; bottom: 0; left: 0; right: 0;
             background: var(--surface);
             border-top: 1px solid var(--border);
-            padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom));
+            padding: 0.35rem max(0.5rem, env(safe-area-inset-right, 0px))
+              calc(0.35rem + env(safe-area-inset-bottom, 0px))
+              max(0.5rem, env(safe-area-inset-left, 0px));
             z-index: 50;
             justify-content: space-around;
           }

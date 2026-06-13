@@ -90,10 +90,12 @@ export default function Login() {
       <style>{`
         .login-page {
           min-height: 100vh;
+          min-height: 100dvh;
           display: flex;
           align-items: center;
           justify-content: center;
           padding: 1rem;
+          padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
           background: radial-gradient(ellipse at top, #1e3a5f 0%, var(--bg) 60%);
         }
         .login-card { width: 100%; max-width: 420px; }
