@@ -391,7 +391,7 @@ router.patch('/:id', asyncHandler(async (req, res) => {
       const ua = (req.headers['user-agent'] || '').slice(0, 160);
       updates.push('closed_device = ?', 'closed_os = ?', 'closed_latitude = ?', 'closed_longitude = ?');
       params.push(
-        closed_device ?? ua || null,
+        closed_device ?? (ua || null),
         closed_os ?? null,
         closed_latitude ?? null,
         closed_longitude ?? null,
