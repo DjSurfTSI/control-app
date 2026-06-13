@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-
+import { requestGeolocationAccess } from '../utils/geolocation';
 const DEMO_ACCOUNTS = [
   { email: 'bizadmin@bank.ru', role: 'Бизнес-администратор' },
   { email: 'admin@bank.ru', role: 'Администратор' },
@@ -21,8 +21,10 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setLoading(true);
+    const geoPromise = requestGeolocationAccess();
     try {
       await login(email, password);
+      await geoPromise;
       navigate('/');
     } catch (err) {
       setError(err.message);
@@ -39,6 +41,7 @@ export default function Login() {
           <h1>Контроль уборки банкоматов</h1>
           <p>Войдите для управления заявками</p>
           <p className="login-offline-hint">После первого входа приложение работает офлайн: заявки и фото синхронизируются при появлении сети.</p>
+          <p className="login-offline-hint">При входе будет запрошен доступ к геолокации — он нужен для фиксации места закрытия заявки.</p>
         </div>
 
         {error && <div className="error-msg">{error}</div>}

@@ -1,3 +1,5 @@
+import { getCachedGeolocation, refreshGeolocationIfGranted } from './geolocation.js';
+
 export const STATUS_LABELS = {
   new: 'Новая',
   in_progress: 'В работе',
@@ -140,19 +142,19 @@ export async function getCloseMetadata() {
 
   const base = { closed_device, closed_os, closed_latitude: null, closed_longitude: null };
 
-  if (!navigator.geolocation) return base;
+  const cached = getCachedGeolocation();
+  if (cached) {
+    base.closed_latitude = cached.latitude;
+    base.closed_longitude = cached.longitude;
+  }
 
-  return new Promise((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({
-        ...base,
-        closed_latitude: pos.coords.latitude,
-        closed_longitude: pos.coords.longitude,
-      }),
-      () => resolve(base),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
-    );
-  });
+  const fresh = await refreshGeolocationIfGranted({ maximumAge: 0, timeout: 10000 });
+  if (fresh) {
+    base.closed_latitude = fresh.latitude;
+    base.closed_longitude = fresh.longitude;
+  }
+
+  return base;
 }
 
 export function formatCloseLocation(latitude, longitude) {

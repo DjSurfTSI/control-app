@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { api, isNetworkError } from '../api';
-
+import { refreshGeolocationIfGranted } from '../utils/geolocation';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -14,7 +14,10 @@ export function AuthProvider({ children }) {
       return;
     }
     api.me()
-      .then(setUser)
+      .then((u) => {
+        setUser(u);
+        void refreshGeolocationIfGranted();
+      })
       .catch((err) => {
         const cached = localStorage.getItem('offline_user');
         if (cached && (!navigator.onLine || isNetworkError(err))) {
