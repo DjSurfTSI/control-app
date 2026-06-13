@@ -75,8 +75,17 @@ function CompleteModal({ task, onClose, onComplete }) {
   );
 }
 
-function TaskModal({ task, atms, executors, onClose, onSave, isManager, canDelete, onDelete }) {
+function TaskModal({
+  task, atms, executors, onClose, onSave, isManager, canDelete, onDelete,
+  canComplete, onComplete,
+}) {
   const isNew = !task?.id;
+  const [photoStatus, setPhotoStatus] = useState({
+    complete: false, missing: ['left', 'right', 'front'], cvEnabled: true, cvPassed: false, cvFailed: [],
+  });
+  const [report, setReport] = useState('');
+  const [completing, setCompleting] = useState(false);
+  const canSubmitComplete = photoStatus.complete && (photoStatus.cvEnabled ? photoStatus.cvPassed : true);
   const [form, setForm] = useState({
     atm_id: task?.atm_id || '',
     assigned_to: task?.assigned_to || '',
@@ -99,6 +108,29 @@ function TaskModal({ task, atms, executors, onClose, onSave, isManager, canDelet
   const handleSave = async () => {
     setSaving(true);
     try { await onSave(isNew ? 'create' : 'update', form); onClose(); } catch (e) { setError(e.message); } finally { setSaving(false); }
+  };
+
+  const handleComplete = async () => {
+    if (!canSubmitComplete) {
+      if (!photoStatus.complete) {
+        setError(`Прикрепите фото: ${photoStatus.missing.map((t) => PHOTO_TYPE_LABELS[t]).join(', ')}`);
+      } else if (photoStatus.cvEnabled && !photoStatus.cvPassed) {
+        const failed = photoStatus.cvFailed?.map((t) => PHOTO_TYPE_LABELS[t]).join(', ') || 'не все ракурсы';
+        setError(`Банкомат не обнаружен на фото: ${failed}. Переснимите перед завершением.`);
+      }
+      return;
+    }
+    setCompleting(true);
+    setError('');
+    try {
+      const meta = await getCloseMetadata();
+      await onComplete(task.id, report, meta);
+      onClose();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setCompleting(false);
+    }
   };
 
   return (
@@ -178,7 +210,13 @@ function TaskModal({ task, atms, executors, onClose, onSave, isManager, canDelet
                 </div>
               </div>
             )}
-            <PhotoUpload taskId={task.id} readOnly={task.status === 'completed' && !isManager} />
+            <PhotoUpload taskId={task.id} readOnly={task.status === 'completed' && !isManager} onChange={setPhotoStatus} />
+            {canComplete && task.status === 'in_progress' && (
+              <div className="form-group" style={{ marginTop: '1rem' }}>
+                <label>Отчёт</label>
+                <textarea rows={3} value={report} onChange={(e) => setReport(e.target.value)} placeholder="Опишите выполненные работы..." />
+              </div>
+            )}
           </>
         )}
         <div className="modal-actions">
@@ -188,6 +226,16 @@ function TaskModal({ task, atms, executors, onClose, onSave, isManager, canDelet
             </button>
           )}
           <button className="btn-secondary" onClick={onClose}>Закрыть</button>
+          {canComplete && !isNew && (
+            <button
+              className="btn-success"
+              onClick={handleComplete}
+              disabled={completing || saving || !canSubmitComplete}
+              title={!canSubmitComplete ? 'Загрузите все фото и дождитесь проверки CV' : ''}
+            >
+              {completing ? 'Завершение...' : 'Завершить'}
+            </button>
+          )}
           {(isNew || isManager) && (
             <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Сохранение...' : 'Сохранить'}</button>
           )}
@@ -448,8 +496,18 @@ export default function Tasks() {
       </div>
 
       {modal && (
-        <TaskModal task={modal.id ? modal : null} atms={atms} executors={executors} isManager={manager}
-          canDelete={bizAdmin} onDelete={performDelete} onClose={() => setModal(null)} onSave={handleSave} />
+        <TaskModal
+          task={modal.id ? modal : null}
+          atms={atms}
+          executors={executors}
+          isManager={manager}
+          canDelete={bizAdmin}
+          canComplete={executor && modal.id && modal.assigned_to === user?.id && modal.status === 'in_progress'}
+          onComplete={handleComplete}
+          onDelete={performDelete}
+          onClose={() => setModal(null)}
+          onSave={handleSave}
+        />
       )}
       {completeModal && <CompleteModal task={completeModal} onClose={() => setCompleteModal(null)} onComplete={handleComplete} />}
       {importModal && <ImportTasksModal onClose={() => setImportModal(false)} onDone={load} />}

@@ -59,8 +59,8 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
   }, [taskId]);
 
   useEffect(() => {
-    if (!loading) emitChange(photos);
-  }, [cvEnabled]);
+    if (!loading && photos.length > 0) emitChange(photos);
+  }, [cvEnabled, loading, photos]);
 
   useEffect(() => {
     if (!cvEnabled || !online || !taskId) return undefined;
@@ -106,12 +106,11 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
         setPhotos((prev) => {
           const next = [
             ...prev.filter((p) => p.photo_type !== type),
-            { ...result, photo_type: type },
+            { ...result, photo_type: type, cv_detected: result.cv_detected ?? null },
           ];
           emitChange(next);
           return next;
         });
-        void cachePhotos(taskId, await api.getPhotos(taskId)).catch(() => {});
       }
     } catch (err) {
       setError(err.message);
