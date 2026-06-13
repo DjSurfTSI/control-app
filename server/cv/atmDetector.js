@@ -54,16 +54,18 @@ export function isCvEnabled() {
   return isCvEnabledRuntime();
 }
 
+const CLASSIFIER_LOAD_TIMEOUT_MS = parseInt(process.env.CV_LOAD_TIMEOUT_MS || '90000', 10);
+
 async function getClassifier() {
   if (!isCvEnabledRuntime()) return null;
   if (!classifierPromise) {
-    classifierPromise = (async () => {
+    classifierPromise = withTimeout((async () => {
       const { pipeline, env } = await import('@xenova/transformers');
       env.cacheDir = path.join(__dirname, '../../.cache/transformers');
       env.allowLocalModels = true;
       console.log('Загрузка CV-модели (CLIP)...');
       return pipeline('zero-shot-image-classification', 'Xenova/clip-vit-base-patch32');
-    })().catch((err) => {
+    })(), CLASSIFIER_LOAD_TIMEOUT_MS).catch((err) => {
       console.error('CV model load failed:', err.message);
       classifierPromise = null;
       return null;

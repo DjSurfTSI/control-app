@@ -62,7 +62,40 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
     if (!loading) emitChange(photos);
   }, [cvEnabled]);
 
+  useEffect(() => {
+    if (!cvEnabled || !online || !taskId) return undefined;
+    const hasPending = photos.some((p) => p.cv_detected == null && !p.offline);
+    if (!hasPending) return undefined;
+
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const data = await api.getPhotos(taskId);
+        if (!cancelled) {
+          setPhotos(data);
+          emitChange(data);
+        }
+      } catch {
+        /* ignore poll errors */
+      }
+    };
+    const id = setInterval(tick, 2000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [photos, cvEnabled, online, taskId, emitChange]);
+
   const getPhotoForType = (type) => photos.find((p) => p.photo_type === type);
+
+  const pollCvResults = async (attempts = 40) => {
+    for (let i = 0; i < attempts; i += 1) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const data = await api.getPhotos(taskId);
+      setPhotos(data);
+      emitChange(data);
+      const pending = data.filter((p) => p.cv_detected == null && !p.offline);
+      if (pending.length === 0) return;
+    }
+    setError('CV-проверка занимает больше обычного. Подождите или обновите страницу.');
+  };
 
   const handleUpload = async (type, e) => {
     const file = e.target.files?.[0];
@@ -82,9 +115,9 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
           return next;
         });
       } else {
-        await load();
+        await load({ keepExisting: true });
         if (cvEnabled && online && result.cv_pending) {
-          await pollCvResult(type, 30);
+          await pollCvResults();
         }
       }
     } catch (err) {
@@ -93,18 +126,6 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
       setUploading(null);
       if (inputRefs.current[type]) inputRefs.current[type].value = '';
     }
-  };
-
-  const pollCvResult = async (type, attempts) => {
-    for (let i = 0; i < attempts; i += 1) {
-      await new Promise((r) => setTimeout(r, 2000));
-      const data = await api.getPhotos(taskId);
-      setPhotos(data);
-      emitChange(data);
-      const photo = data.find((p) => p.photo_type === type);
-      if (photo?.cv_detected != null) return;
-    }
-    setError('CV-проверка занимает больше обычного. Подождите и обновите страницу.');
   };
 
   const handleDelete = async (photoId) => {

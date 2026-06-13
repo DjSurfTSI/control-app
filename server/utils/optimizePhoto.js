@@ -98,3 +98,39 @@ export async function optimizePhoto(inputPath, options = {}) {
     throw err;
   }
 }
+
+export async function applyWatermark(inputPath, watermark) {
+  if (!watermark) {
+    return { path: inputPath, filename: path.basename(inputPath) };
+  }
+
+  const sharp = (await import('sharp')).default;
+  const dir = path.dirname(inputPath);
+  const stem = path.basename(inputPath, path.extname(inputPath));
+  const tempPath = path.join(dir, `${stem}.wm.tmp`);
+
+  try {
+    const meta = await sharp(inputPath).metadata();
+    const width = Math.min(meta.width || MAX_EDGE, MAX_EDGE);
+    const fontSize = Math.max(14, Math.round(width / 28));
+    const safeText = watermark.replace(/[<>&'"]/g, '');
+    const svg = Buffer.from(`
+      <svg width="${width}" height="${fontSize + 20}">
+        <style>.t { fill: rgba(255,255,255,0.95); font-size: ${fontSize}px; font-family: Arial, sans-serif; }</style>
+        <rect x="0" y="0" width="100%" height="100%" fill="rgba(0,0,0,0.35)"/>
+        <text x="8" y="${fontSize + 4}" class="t">${safeText}</text>
+      </svg>`);
+
+    await sharp(inputPath)
+      .composite([{ input: svg, gravity: 'southwest' }])
+      .jpeg({ quality: JPEG_QUALITY, mozjpeg: false })
+      .toFile(tempPath);
+
+    fs.renameSync(tempPath, inputPath);
+    return { path: inputPath, filename: path.basename(inputPath) };
+  } catch (err) {
+    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+    console.error('applyWatermark failed:', err.message);
+    return { path: inputPath, filename: path.basename(inputPath) };
+  }
+}

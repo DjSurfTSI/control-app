@@ -7,9 +7,9 @@ import db, { REQUIRED_PHOTO_TYPES } from '../db.js';
 import { authMiddleware } from '../middleware.js';
 import { isManager, isExecutor } from '../roles.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
-import { validatePhoto } from '../cv/validatePhotos.js';
+import { validatePhoto, saveCvResult } from '../cv/validatePhotos.js';
 import { isCvEnabled } from '../cv/atmDetector.js';
-import { optimizePhoto } from '../utils/optimizePhoto.js';
+import { optimizePhoto, applyWatermark } from '../utils/optimizePhoto.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -61,12 +61,6 @@ function mapPhoto(req, taskId, photo) {
   };
 }
 
-function runCvInBackground(filePath, photoId) {
-  validatePhoto(filePath, photoId).catch((err) => {
-    console.error(`CV background error (photo ${photoId}):`, err.message);
-  });
-}
-
 router.get('/:taskId', asyncHandler(async (req, res) => {
   const task = db.prepare('SELECT * FROM cleaning_tasks WHERE id = ?').get(req.params.taskId);
   if (!task) return res.status(404).json({ error: 'Заявка не найдена' });
@@ -110,9 +104,7 @@ router.post('/:taskId', (req, res, next) => {
 
   let optimized;
   try {
-    optimized = await optimizePhoto(req.file.path, {
-      watermark: `Заявка #${task.id} · ${new Date().toLocaleString('ru-RU')}`,
-    });
+    optimized = await optimizePhoto(req.file.path);
   } catch (err) {
     if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     console.error(`Photo upload optimize failed (task ${req.params.taskId}):`, err.message);
@@ -131,13 +123,29 @@ router.post('/:taskId', (req, res, next) => {
 
   const photo = db.prepare('SELECT * FROM task_photos WHERE id = ?').get(result.lastInsertRowid);
 
-  if (isCvEnabled()) {
-    runCvInBackground(optimized.path, photo.id);
+  const cvEnabled = isCvEnabled();
+  if (cvEnabled) {
+    const cvCopy = `${optimized.path}.cvcheck.jpg`;
+    fs.copyFileSync(optimized.path, cvCopy);
+    validatePhoto(cvCopy, photo.id)
+      .catch((err) => {
+        console.error(`CV background error (photo ${photo.id}):`, err.message);
+        saveCvResult(photo.id, { detected: true, confidence: 0, skipped: true, error: err.message });
+      })
+      .finally(() => {
+        if (fs.existsSync(cvCopy)) fs.unlinkSync(cvCopy);
+      });
+  }
+
+  try {
+    await applyWatermark(optimized.path, `Заявка #${task.id} · ${new Date().toLocaleString('ru-RU')}`);
+  } catch (err) {
+    console.error(`Watermark failed (task ${req.params.taskId}):`, err.message);
   }
 
   res.status(201).json({
     ...mapPhoto(req, req.params.taskId, photo),
-    cv_pending: isCvEnabled(),
+    cv_pending: cvEnabled,
     optimized: {
       width: optimized.width,
       height: optimized.height,

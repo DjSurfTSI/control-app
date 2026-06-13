@@ -25,8 +25,15 @@ export function saveCvResult(photoId, result) {
 }
 
 export async function validatePhoto(filePath, photoId) {
-  const result = await detectAtmInPhoto(filePath);
-  if (photoId) saveCvResult(photoId, result);
+  let result = { detected: true, confidence: 0, skipped: true, error: 'cv_unavailable' };
+  try {
+    result = await detectAtmInPhoto(filePath);
+  } catch (err) {
+    console.error('validatePhoto error:', err.message);
+    result = { detected: true, confidence: 0, skipped: true, error: err.message };
+  } finally {
+    if (photoId) saveCvResult(photoId, result);
+  }
   return result;
 }
 
@@ -49,6 +56,19 @@ export async function validateTaskPhotos(taskId) {
 
   for (const type of REQUIRED_PHOTO_TYPES) {
     const photo = photos.find((p) => p.photo_type === type);
+
+    if (photo.cv_checked_at != null && photo.cv_detected != null) {
+      if (photo.cv_detected !== 1) {
+        failed.push({
+          photo_type: type,
+          label: PHOTO_TYPE_LABELS[type],
+          confidence: photo.cv_confidence,
+          cached: true,
+        });
+      }
+      continue;
+    }
+
     const filePath = path.join(uploadsDir, String(taskId), photo.filename);
     const result = await validatePhoto(filePath, photo.id);
 
