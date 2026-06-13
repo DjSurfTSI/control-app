@@ -172,7 +172,8 @@ router.get('/export', requireRole('admin', 'supervisor'), (req, res) => {
   markOverdue();
   const built = applyTaskFilters(req.query, `
     SELECT t.id, t.status, t.scheduled_date, t.deadline_date, t.started_at, t.completed_at,
-      t.service_contract, a.accessibility_type,
+      t.service_contract, t.closed_device, t.closed_os, t.closed_latitude, t.closed_longitude,
+      a.accessibility_type,
       COALESCE(a.territorial_bank, a.bank_name) as territorial_bank,
       COALESCE(a.gosb, a.zone) as gosb,
       a.address, a.installation_name, u.full_name as assignee
@@ -199,6 +200,10 @@ router.get('/export', requireRole('admin', 'supervisor'), (req, res) => {
     'Фактическая дата завершения работ': r.completed_at || '',
     'Услуга по договору': r.service_contract || '',
     'Исполнитель': r.assignee || '',
+    'Устройство закрытия': r.closed_device || '',
+    'ОС закрытия': r.closed_os || '',
+    'Широта': r.closed_latitude ?? '',
+    'Долгота': r.closed_longitude ?? '',
   }));
 
   const buf = writeExcelBuffer(data, 'Заявки');
@@ -383,10 +388,14 @@ router.patch('/:id', asyncHandler(async (req, res) => {
     }
     if (nextStatus === 'completed') {
       updates.push("completed_at = datetime('now')");
-      if (closed_device !== undefined) { updates.push('closed_device = ?'); params.push(closed_device); }
-      if (closed_os !== undefined) { updates.push('closed_os = ?'); params.push(closed_os); }
-      if (closed_latitude !== undefined) { updates.push('closed_latitude = ?'); params.push(closed_latitude); }
-      if (closed_longitude !== undefined) { updates.push('closed_longitude = ?'); params.push(closed_longitude); }
+      const ua = (req.headers['user-agent'] || '').slice(0, 160);
+      updates.push('closed_device = ?', 'closed_os = ?', 'closed_latitude = ?', 'closed_longitude = ?');
+      params.push(
+        closed_device ?? ua || null,
+        closed_os ?? null,
+        closed_latitude ?? null,
+        closed_longitude ?? null,
+      );
     }
   }
 

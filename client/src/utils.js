@@ -97,24 +97,60 @@ export function formatDateTime(dateStr) {
   });
 }
 
-export async function getCloseMetadata() {
-  const closed_os = navigator.userAgentData?.platform || navigator.platform || 'Unknown';
-  const closed_device = navigator.userAgent?.slice(0, 160) || 'Web';
+function detectClientDevice() {
+  let closed_os = navigator.userAgentData?.platform || navigator.platform || 'Unknown';
+  let closed_device = 'Web';
 
-  if (!navigator.geolocation) {
-    return { closed_device, closed_os, closed_latitude: null, closed_longitude: null };
+  const ua = navigator.userAgent || '';
+  const mobile = /Android|iPhone|iPad|Mobile/i.test(ua);
+  let browser = 'Браузер';
+  if (/Edg\//i.test(ua)) browser = 'Edge';
+  else if (/Chrome\//i.test(ua)) browser = 'Chrome';
+  else if (/Firefox\//i.test(ua)) browser = 'Firefox';
+  else if (/Safari\//i.test(ua)) browser = 'Safari';
+
+  closed_device = `${mobile ? 'Мобильное устройство' : 'Компьютер'} • ${browser}`;
+  return { closed_os, closed_device };
+}
+
+export async function getCloseMetadata() {
+  let { closed_os, closed_device } = detectClientDevice();
+
+  try {
+    if (navigator.userAgentData?.getHighEntropyValues) {
+      const hints = await navigator.userAgentData.getHighEntropyValues(['platform', 'model', 'mobile']);
+      if (hints.platform) closed_os = hints.platform;
+      const kind = hints.mobile ? 'Мобильное устройство' : 'Компьютер';
+      closed_device = hints.model ? `${kind} (${hints.model})` : kind;
+    }
+  } catch {
+    /* ignore */
   }
+
+  const base = { closed_device, closed_os, closed_latitude: null, closed_longitude: null };
+
+  if (!navigator.geolocation) return base;
 
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({
-        closed_device,
-        closed_os,
+        ...base,
         closed_latitude: pos.coords.latitude,
         closed_longitude: pos.coords.longitude,
       }),
-      () => resolve({ closed_device, closed_os, closed_latitude: null, closed_longitude: null }),
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
+      () => resolve(base),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
     );
   });
+}
+
+export function formatCloseLocation(latitude, longitude) {
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const text = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  return {
+    text,
+    mapsUrl: `https://maps.google.com/?q=${lat},${lng}`,
+  };
 }

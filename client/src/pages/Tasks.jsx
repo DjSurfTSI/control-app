@@ -4,7 +4,7 @@ import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import {
   STATUS_LABELS, formatDate, formatDateTime, todayISO,
-  isManager, isBizAdmin, isExecutor, getCloseMetadata, PHOTO_TYPE_LABELS,
+  isManager, isBizAdmin, isExecutor, getCloseMetadata, PHOTO_TYPE_LABELS, formatCloseLocation,
 } from '../utils';
 import PhotoUpload from '../components/PhotoUpload';
 import TaskCard from '../components/TaskCard';
@@ -30,6 +30,7 @@ function CompleteModal({ task, onClose, onComplete }) {
   const canSubmit = photoStatus.complete && (photoStatus.cvEnabled ? photoStatus.cvPassed : true);
 
   const handleComplete = async () => {
+    const metaPromise = getCloseMetadata();
     if (!photoStatus.complete) {
       setError(`Прикрепите фото: ${photoStatus.missing.map((t) => PHOTO_TYPE_LABELS[t]).join(', ')}`);
       return;
@@ -41,7 +42,7 @@ function CompleteModal({ task, onClose, onComplete }) {
     }
     setSaving(true);
     try {
-      const meta = await getCloseMetadata();
+      const meta = await metaPromise;
       await onComplete(task.id, report, meta);
       onClose();
     } catch (e) {
@@ -111,6 +112,7 @@ function TaskModal({
   };
 
   const handleComplete = async () => {
+    const metaPromise = getCloseMetadata();
     if (!canSubmitComplete) {
       if (!photoStatus.complete) {
         setError(`Прикрепите фото: ${photoStatus.missing.map((t) => PHOTO_TYPE_LABELS[t]).join(', ')}`);
@@ -123,7 +125,7 @@ function TaskModal({
     setCompleting(true);
     setError('');
     try {
-      const meta = await getCloseMetadata();
+      const meta = await metaPromise;
       await onComplete(task.id, report, meta);
       onClose();
     } catch (e) {
@@ -188,7 +190,29 @@ function TaskModal({
               <div><span>Завершение</span><strong>{formatDateTime(task.completed_at)}</strong></div>
               <div><span>Услуга</span><strong>{task.service_contract || '—'}</strong></div>
               <div><span>Исполнитель</span><strong>{task.assignee_name || '—'}{task.assignee_rating != null ? ` (${Math.round(task.assignee_rating)})` : ''}</strong></div>
+              {task.report && <div><span>Отчёт</span><strong>{task.report}</strong></div>}
             </div>
+            {task.status === 'completed' && (
+              <div className="task-close-section" style={{ marginTop: '1rem' }}>
+                <h3 className="task-close-title">Данные при закрытии</h3>
+                <div className="task-detail-grid">
+                  <div><span>Устройство</span><strong>{task.closed_device || '—'}</strong></div>
+                  <div><span>ОС / платформа</span><strong>{task.closed_os || '—'}</strong></div>
+                  <div>
+                    <span>Геолокация</span>
+                    <strong>
+                      {(() => {
+                        const geo = formatCloseLocation(task.closed_latitude, task.closed_longitude);
+                        if (!geo) return 'Не определена';
+                        return (
+                          <a href={geo.mapsUrl} target="_blank" rel="noopener noreferrer">{geo.text}</a>
+                        );
+                      })()}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            )}
             {isManager && (
               <div className="form-row" style={{ marginTop: '1rem' }}>
                 <div className="form-group">
@@ -244,6 +268,7 @@ function TaskModal({
           .task-detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; }
           .task-detail-grid div { background: var(--bg); padding: 0.6rem 0.75rem; border-radius: 8px; }
           .task-detail-grid span { display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.2rem; }
+          .task-close-title { font-size: 0.95rem; margin: 0 0 0.5rem; }
         `}</style>
       </div>
     </div>
@@ -321,7 +346,7 @@ export default function Tasks() {
 
   const handleComplete = async (taskId, report, meta) => {
     await api.updateTask(taskId, { status: 'completed', report: report || 'Работы выполнены', ...meta });
-    load();
+    await load();
   };
 
   const handleSave = async (action, form) => {
