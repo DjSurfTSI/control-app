@@ -204,6 +204,7 @@ export const api = {
       } catch {
         /* ignore IDB errors */
       }
+      if (!navigator.onLine || isNetworkError(err)) return [];
       throw err;
     }
   },
@@ -236,11 +237,15 @@ export const api = {
   getCvStatus: async () => {
     try {
       const data = await request('/settings/cv/status');
-      await setMeta('cv_enabled', data.enabled);
+      void setMeta('cv_enabled', data.enabled).catch(() => {});
       return data;
     } catch (err) {
-      const cached = await getMeta('cv_enabled');
-      if (cached !== undefined) return { enabled: !!cached };
+      try {
+        const cached = await getMeta('cv_enabled');
+        if (cached !== undefined) return { enabled: !!cached };
+      } catch {
+        /* ignore IDB errors */
+      }
       if (!navigator.onLine || isNetworkError(err)) return { enabled: true };
       throw err;
     }

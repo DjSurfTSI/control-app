@@ -9,7 +9,8 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
   const { cvEnabled, loading: cvLoading } = useCvStatus();
   const { online } = useOffline();
   const [photos, setPhotos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [photosError, setPhotosError] = useState('');
   const [uploading, setUploading] = useState(null);
   const [error, setError] = useState('');
   const inputRefs = useRef({});
@@ -29,11 +30,18 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
 
   const load = async () => {
     setLoading(true);
+    setPhotosError('');
+    const safety = setTimeout(() => setLoading(false), 25000);
     try {
       const data = await api.getPhotos(taskId);
       setPhotos(data);
       emitChange(data);
+    } catch (err) {
+      setPhotos([]);
+      setPhotosError(err.message || 'Не удалось загрузить фото');
+      emitChange([]);
     } finally {
+      clearTimeout(safety);
       setLoading(false);
     }
   };
@@ -92,15 +100,26 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
     await load();
   };
 
-  if (loading || cvLoading) return <p className="photo-loading">Загрузка фото...</p>;
-
   const check = checkRequiredPhotos(photos);
   const cv = checkPhotoCv(photos, cvEnabled);
   const canComplete = cvEnabled ? cv.passed : check.complete;
+  const showInitialLoad = loading && photos.length === 0 && readOnly;
+
+  if (showInitialLoad) return <p className="photo-loading">Загрузка фото...</p>;
 
   return (
     <div className="photo-upload animate-fade-in">
       <label className="photo-title">Фотоотчёт — обязательные ракурсы</label>
+      {(loading || cvLoading) && (
+        <p className="photo-loading">Загрузка фото...</p>
+      )}
+      {photosError && (
+        <div className="error-msg">
+          {photosError}
+          {' '}
+          <button type="button" className="btn-secondary btn-sm" onClick={load}>Повторить</button>
+        </div>
+      )}
       {cvEnabled ? (
         <p className="photo-cv-hint">
           Фото проверяются CV-моделью: на снимке должен быть виден банкомат Сбербанка (зелёный или серый терминал)

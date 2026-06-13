@@ -11,7 +11,7 @@ export function invalidateCvStatus() {
 
 export function useCvStatus() {
   const [cvEnabled, setCvEnabled] = useState(cachedEnabled ?? true);
-  const [loading, setLoading] = useState(cachedEnabled === null);
+  const [loading, setLoading] = useState(false);
   const [tick, setTick] = useState(0);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
@@ -26,7 +26,6 @@ export function useCvStatus() {
     (async () => {
       if (cachedEnabled !== null && tick === 0) {
         setCvEnabled(cachedEnabled);
-        setLoading(false);
         return;
       }
       setLoading(true);
@@ -37,9 +36,9 @@ export function useCvStatus() {
           setCvEnabled(data.enabled);
         }
       } catch {
-        if (!cancelled) setCvEnabled(true);
+        if (!cancelled && cachedEnabled === null) setCvEnabled(true);
       } finally {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       }
     })();
     return () => { cancelled = true; };
