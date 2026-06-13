@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../api';
+import { mergeWorkspaceConfig } from '../config/workspaceCatalog';
 import { useAuth } from '../context/AuthContext';
 import { requestGeolocationAccess } from '../utils/geolocation';
 const DEMO_ACCOUNTS = [
@@ -23,9 +25,15 @@ export default function Login() {
     setLoading(true);
     const geoPromise = requestGeolocationAccess();
     try {
-      await login(email, password);
+      const u = await login(email, password);
       await geoPromise;
-      navigate('/');
+      try {
+        const ws = await api.getWorkspace();
+        const merged = mergeWorkspaceConfig(ws.config, u.role);
+        navigate(merged.homeRoute || '/');
+      } catch {
+        navigate('/');
+      }
     } catch (err) {
       setError(err.message);
     } finally {

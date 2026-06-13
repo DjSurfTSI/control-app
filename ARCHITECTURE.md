@@ -697,6 +697,29 @@ client/src/
 
 **Миграция:** `seedReferenceDirectories()` — при пустой таблице заполняет DISTINCT-значениями из `atms`.
 
+### 7.8 Конструктор рабочего пространства (v2.4.0)
+
+Таблица `user_workspaces`:
+
+| Поле | Описание |
+|------|----------|
+| `user_id` | PK, FK → `users(id)` |
+| `config` | JSON: `homeRoute`, `nav[]`, `dashboardWidgets[]` |
+
+**Доступ:** все авторизованные роли; каталог разделов и виджетов фильтруется по роли (`workspaceCatalog.js`).
+
+**API:**
+
+| Метод | Путь | Назначение |
+|-------|------|------------|
+| GET | `/api/workspace` | Текущая конфигурация пользователя |
+| PUT | `/api/workspace` | Сохранить настройки |
+| POST | `/api/workspace/reset` | Сброс к дефолту роли |
+
+**Клиент:** `WorkspaceContext` → `Layout` (навигация, `homeRoute`), `Dashboard` (виджеты), `WorkspaceBuilder.jsx` (`/workspace`). Кнопка 🎛️ в шапке всегда доступна.
+
+**Виджеты дашборда:** `stats_*` (менеджеры), `cleaner_table`, `today_tasks` (все роли).
+
 ### Ключевые файлы
 
 | Файл | Назначение | При адаптации |
@@ -1001,6 +1024,7 @@ npx web-push generate-vapid-keys
 
 | Версия | Дата | Изменения |
 |--------|------|-----------|
+| v2.4.0 | 2026-06-13 | Конструктор рабочего пространства — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.3.0 | 2026-06-13 | Справочники устройств (bizadmin) — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.2.4 | 2026-06-13 | Массовое «Взять на себя» для исполнителя — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.2.3 | 2026-06-13 | 8 статусов в mobile-nav, массовое назначение — см. [CHANGELOG.md](./CHANGELOG.md) |

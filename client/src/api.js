@@ -311,6 +311,10 @@ export const api = {
 
   updateCvSettings: (data) => request('/settings/cv', { method: 'PATCH', body: JSON.stringify(data) }),
 
+  getWorkspace: () => request('/workspace'),
+  updateWorkspace: (config) => request('/workspace', { method: 'PUT', body: JSON.stringify({ config }) }),
+  resetWorkspace: () => request('/workspace/reset', { method: 'POST' }),
+
   getReferenceDirectories: () => request('/reference'),
   getReferenceDirectoriesManage: () => request('/reference/manage'),
   createReferenceEntry: (data) => request('/reference', { method: 'POST', body: JSON.stringify(data) }),

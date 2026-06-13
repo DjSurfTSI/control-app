@@ -11,6 +11,7 @@ import notificationRoutes from './routes/notifications.js';
 import integrationRoutes from './routes/integration.js';
 import settingsRoutes from './routes/settings.js';
 import referenceRoutes from './routes/reference.js';
+import workspaceRoutes from './routes/workspace.js';
 import { isCvEnabled, warmupCvModel } from './cv/atmDetector.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -30,6 +31,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/integration', integrationRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/reference', referenceRoutes);
+app.use('/api/workspace', workspaceRoutes);
 
 app.use((err, req, res, next) => {
   if (req.path.startsWith('/api')) {

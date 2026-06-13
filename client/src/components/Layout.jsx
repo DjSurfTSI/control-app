@@ -1,8 +1,9 @@
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ExecutorTasksNavProvider, useExecutorTasksNav } from '../context/ExecutorTasksNavContext';
+import { WorkspaceProvider, useWorkspace } from '../context/WorkspaceContext';
 import ExecutorStatusNav from './ExecutorStatusNav';
-import { ROLE_LABELS, isManager, isAdmin, isBizAdmin } from '../utils';
+import { ROLE_LABELS } from '../utils';
 import { useNotifications } from '../hooks/useNotifications';
 import { useOffline } from '../hooks/useOffline';
 import { useState } from 'react';
@@ -12,9 +13,8 @@ function LayoutShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const { state: executorNav } = useExecutorTasksNav();
+  const { navItems, homeRoute } = useWorkspace();
   const showExecutorStatusNav = executorNav.enabled && location.pathname === '/tasks';
-  const manager = isManager(user);
-  const admin = isAdmin(user);
   const { alerts, pushEnabled, pushLoading, enablePush, disablePush } = useNotifications(true);
   const { online, pending, syncing, syncNow, lastSyncMessage } = useOffline();
   const [notifError, setNotifError] = useState('');
@@ -38,24 +38,16 @@ function LayoutShell() {
     }
   };
 
-  const navItems = [
-    { to: '/', label: 'Дашборд', icon: '📊', end: true },
-    { to: '/tasks', label: 'Заявки', icon: '📋' },
-    ...(manager ? [{ to: '/atms', label: 'Устройства', icon: '🏧' }] : []),
-    ...(manager ? [{ to: '/users', label: 'Сотрудники', icon: '👥' }] : []),
-    ...(isBizAdmin(user) ? [{ to: '/settings', label: 'Настройки', icon: '⚙️' }] : []),
-  ];
-
   return (
     <div className={`layout${showExecutorStatusNav ? ' layout-executor-tasks' : ''}`}>
       <header className="header desktop-header">
-        <div className="header-brand">
+        <Link to={homeRoute} className="header-brand header-brand-link">
           <span className="logo-wrap">🏧</span>
           <div>
             <h1>Контроль уборки</h1>
             <p>Устройства самообслуживания</p>
           </div>
-        </div>
+        </Link>
         <nav className="nav">
           {navItems.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end}>{item.label}</NavLink>
@@ -67,6 +59,9 @@ function LayoutShell() {
               {alerts.length}
             </span>
           )}
+          <Link to="/workspace" className="btn-secondary btn-sm" title="Конструктор рабочего пространства">
+            🎛️
+          </Link>
           <button
             className={`btn-sm ${pushEnabled ? 'btn-success' : 'btn-secondary'}`}
             onClick={togglePush}
@@ -140,7 +135,9 @@ function LayoutShell() {
 export default function Layout() {
   return (
     <ExecutorTasksNavProvider>
-      <LayoutShell />
+      <WorkspaceProvider>
+        <LayoutShell />
+      </WorkspaceProvider>
     </ExecutorTasksNavProvider>
   );
 }
