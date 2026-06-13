@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '../api';
 import { PHOTO_TYPES, PHOTO_TYPE_LABELS, checkRequiredPhotos, checkPhotoCv } from '../utils';
+import { compressImageForUpload } from '../utils/compressImage';
 import { useCvStatus } from '../hooks/useCvStatus';
 
 export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
@@ -49,7 +50,8 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
     setError('');
     setUploading(type);
     try {
-      const result = await api.uploadPhoto(taskId, file, type);
+      const compressed = await compressImageForUpload(file);
+      const result = await api.uploadPhoto(taskId, compressed, type);
       await load();
       if (cvEnabled && result.cv_pending) {
         await pollCvResult(type, 30);
@@ -162,7 +164,7 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
                       onClick={() => inputRefs.current[type]?.click()}
                       disabled={uploading === type}
                     >
-                      {uploading === type ? (cvEnabled ? 'CV…' : '…') : '📷'}
+                      {uploading === type ? (cvEnabled ? 'CV…' : 'Загрузка…') : '📷'}
                     </button>
                   </>
                 )

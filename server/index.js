@@ -10,7 +10,7 @@ import photoRoutes from './routes/photos.js';
 import notificationRoutes from './routes/notifications.js';
 import integrationRoutes from './routes/integration.js';
 import settingsRoutes from './routes/settings.js';
-import { warmupCvModel, isCvEnabled } from './cv/atmDetector.js';
+import { isCvEnabled } from './cv/atmDetector.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -50,13 +50,7 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Сервер запущен: http://localhost:${PORT}`);
   if (isCvEnabled()) {
-    // Отложенный warmup — не конкурирует с загрузкой фото сразу после старта
-    const delayMs = parseInt(process.env.CV_WARMUP_DELAY_MS || '15000', 10);
-    setTimeout(() => {
-      warmupCvModel()
-        .then(() => console.log('CV-модель готова к проверке фото'))
-        .catch((err) => console.warn('CV warmup:', err.message));
-    }, delayMs);
+    console.log('CV-проверка включена — модель загрузится при первой проверке фото (без предзагрузки)');
   } else {
     console.log('CV-проверка отключена в настройках');
   }

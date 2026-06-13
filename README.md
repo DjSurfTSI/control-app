@@ -114,22 +114,28 @@ pm2 restart control-app
 
 ### Ошибка 502 при загрузке фото
 
-Чаще всего pm2 перезапускал Node из‑за лимита памяти **300M** (CLIP + sharp). В `deploy/ecosystem.config.cjs` лимит увеличен до **900M**.
+Причина — нехватка RAM на VPS (sharp / CLIP). С v1.1.1+ фото **сжимаются в браузере** до отправки, sharp на сервере часто не вызывается.
 
-На сервере после `git pull`:
+**Обязательно на сервере:**
 
 ```bash
+cd ~/control-app
+git pull
+npm install --prefix server
+bash deploy/build-client.sh
+
+# В server/.env добавьте (или раскомментируйте):
+# PHOTO_SKIP_SHARP=true
+
 pm2 delete control-app
 pm2 start deploy/ecosystem.config.cjs
 pm2 save
-sudo cp deploy/nginx-control-app.conf /etc/nginx/sites-available/control-app
-sudo nginx -t && sudo systemctl reload nginx
-npm rebuild --prefix server sharp
+sudo bash deploy/ensure-swap.sh
 ```
 
-Логи: `pm2 logs control-app --lines 50`
+Логи при загрузке: `pm2 logs control-app --lines 30` — должна быть строка `optimizePhoto passthrough`.
 
-Если мало RAM — включите swap (`sudo bash deploy/ensure-swap.sh`) или временно отключите CV в «Настройки» / `CV_ENABLED=false`.
+Дополнительно: отключите CV в «Настройки» (bizadmin), если RAM < 1 ГБ.
 
 Подробнее: [ARCHITECTURE.md](./ARCHITECTURE.md) → раздел «Запуск и деплой».
 
