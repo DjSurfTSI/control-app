@@ -6,6 +6,8 @@ import {
   cachePhotos,
   getCachedPhotos,
   addPendingPhotoToCache,
+  savePhotoBlob,
+  getMergedPhotosForTask,
   setMeta,
   getMeta,
 } from './offline/store.js';
@@ -80,27 +82,32 @@ function notifyQueueChange() {
 async function queuePhoto(taskId, file, photoType) {
   const blobUrl = URL.createObjectURL(file);
   const blobData = await file.arrayBuffer();
-  await enqueue({
+  const normalizedTaskId = Number(taskId);
+
+  const queueId = await enqueue({
     op: 'upload_photo',
-    taskId,
+    taskId: normalizedTaskId,
     photoType,
     blobUrl,
-    blobData,
     mimeType: file.type || 'image/jpeg',
-    fileName: file.name,
+    fileName: file.name || 'photo.jpg',
   });
+
+  await savePhotoBlob(queueId, blobData, file.type || 'image/jpeg');
+
   const photo = {
-    id: `offline-${Date.now()}`,
+    id: `offline-${queueId}`,
     photo_type: photoType,
     url: blobUrl,
     offline: true,
     cv_detected: null,
-    filename: file.name,
+    filename: file.name || 'photo.jpg',
   };
+
   try {
-    await addPendingPhotoToCache(taskId, photo);
+    await addPendingPhotoToCache(normalizedTaskId, photo);
   } catch {
-    /* UI still shows photo from return value */
+    /* merged read will use queue */
   }
   notifyQueueChange();
   return { ...photo, cv_pending: false, offline_queued: true };
@@ -166,7 +173,7 @@ export const api = {
 
   updateTask: async (id, data) => {
     const applyOffline = async () => {
-      await enqueue({ op: 'patch_task', taskId: id, body: data });
+      await enqueue({ op: 'patch_task', taskId: Number(id), body: data });
       await patchCachedTask(id, data);
       notifyQueueChange();
       return { id, ...data, offline: true };
@@ -200,38 +207,36 @@ export const api = {
   },
 
   getPhotos: async (taskId) => {
-    const readCache = async () => {
-      try {
-        return await getCachedPhotos(taskId);
-      } catch {
-        return null;
-      }
-    };
+    const merged = async () => getMergedPhotosForTask(taskId);
 
     if (!navigator.onLine) {
-      return (await readCache()) || [];
+      return merged();
     }
 
     try {
       const data = await request(`/photos/${taskId}`);
       void cachePhotos(taskId, data).catch(() => {});
-      return data;
+      const queued = await merged();
+      if (queued.length === 0) return data;
+      const byType = new Map(data.map((p) => [p.photo_type, p]));
+      queued.forEach((p) => { if (p.offline) byType.set(p.photo_type, p); });
+      return Array.from(byType.values());
     } catch (err) {
-      const cached = await readCache();
-      if (cached) return cached;
+      const fallback = await merged();
+      if (fallback.length > 0) return fallback;
       if (isNetworkError(err)) return [];
       throw err;
     }
   },
 
-  uploadPhoto: async (taskId, file, photoType) => {
+  uploadPhoto: async (taskId, file, photoType, { preferOffline = false } = {}) => {
     const upload = () => {
       const fd = new FormData();
       fd.append('photo', file);
       fd.append('photo_type', photoType);
       return request(`/photos/${taskId}`, { method: 'POST', body: fd });
     };
-    if (!navigator.onLine) return queuePhoto(taskId, file, photoType);
+    if (preferOffline || !navigator.onLine) return queuePhoto(taskId, file, photoType);
     try {
       return await upload();
     } catch (err) {

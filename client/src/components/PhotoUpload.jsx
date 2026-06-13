@@ -28,20 +28,18 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
     });
   }, [cvEnabled, onChange]);
 
-  const applyLocalPhotos = useCallback((next) => {
-    setPhotos(next);
-    emitChange(next);
-  }, [emitChange]);
-
   const load = async ({ keepExisting = false } = {}) => {
     if (!keepExisting) setLoading(true);
     setPhotosError('');
     const safety = setTimeout(() => setLoading(false), 25000);
     try {
       const data = await api.getPhotos(taskId);
-      if (data.length > 0 || !keepExisting) {
-        applyLocalPhotos(data);
-      }
+      setPhotos((prev) => {
+        if (keepExisting && data.length === 0 && prev.length > 0) return prev;
+        const next = data.length > 0 ? data : (keepExisting ? prev : data);
+        emitChange(next);
+        return next;
+      });
     } catch (err) {
       if (!keepExisting) {
         setPhotosError(err.message || 'Не удалось загрузить фото');
@@ -55,14 +53,9 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
   useEffect(() => { if (taskId) load(); }, [taskId]);
 
   useEffect(() => {
-    const onSynced = () => { if (taskId) load({ keepExisting: true }); };
-    const onQueueChanged = () => { if (taskId) load({ keepExisting: true }); };
+    const onSynced = () => { if (taskId) load({ keepExisting: false }); };
     window.addEventListener('offline-synced', onSynced);
-    window.addEventListener('offline-queue-changed', onQueueChanged);
-    return () => {
-      window.removeEventListener('offline-synced', onSynced);
-      window.removeEventListener('offline-queue-changed', onQueueChanged);
-    };
+    return () => window.removeEventListener('offline-synced', onSynced);
   }, [taskId]);
 
   useEffect(() => {
@@ -78,13 +71,16 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
     setUploading(type);
     try {
       const compressed = await compressImageForUpload(file);
-      const result = await api.uploadPhoto(taskId, compressed, type);
-      if (result?.offline_queued) {
-        const next = [
-          ...photos.filter((p) => p.photo_type !== type),
-          { ...result, photo_type: type },
-        ];
-        applyLocalPhotos(next);
+      const result = await api.uploadPhoto(taskId, compressed, type, { preferOffline: !online });
+      if (result?.offline_queued || result?.offline) {
+        setPhotos((prev) => {
+          const next = [
+            ...prev.filter((p) => p.photo_type !== type),
+            { ...result, photo_type: type, url: result.url, offline: true },
+          ];
+          emitChange(next);
+          return next;
+        });
       } else {
         await load();
         if (cvEnabled && online && result.cv_pending) {

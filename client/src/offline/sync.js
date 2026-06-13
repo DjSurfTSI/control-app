@@ -3,28 +3,32 @@ import {
   getQueue,
   removeQueueItem,
   cachePhotos,
-  getCachedPhotos,
+  getPhotoBlob,
 } from './store.js';
 
 let syncPromise = null;
 
 function notifySyncEvents(result) {
   window.dispatchEvent(new CustomEvent('offline-queue-changed'));
-  if (result.synced > 0) {
+  if (result.synced > 0 || result.failed > 0) {
     window.dispatchEvent(new CustomEvent('offline-synced', { detail: result }));
   }
 }
 
 async function blobFromQueueItem(item) {
+  const stored = await getPhotoBlob(item.id);
+  if (stored?.data) {
+    return new Blob([stored.data], { type: stored.mimeType || item.mimeType || 'image/jpeg' });
+  }
   if (item.blobData) {
     return new Blob([item.blobData], { type: item.mimeType || 'image/jpeg' });
   }
   if (item.blobUrl) {
     const res = await fetch(item.blobUrl);
-    if (!res.ok) throw new Error('Файл фото недоступен');
+    if (!res.ok) throw new Error('Файл фото недоступен — переснимите');
     return res.blob();
   }
-  throw new Error('Нет данных фото в очереди');
+  throw new Error('Нет данных фото в очереди — переснимите');
 }
 
 async function runFlush() {
@@ -61,7 +65,9 @@ async function runFlush() {
             return fd;
           })(),
         });
-        if (item.blobUrl?.startsWith('blob:')) URL.revokeObjectURL(item.blobUrl);
+        if (item.blobUrl?.startsWith('blob:')) {
+          try { URL.revokeObjectURL(item.blobUrl); } catch { /* ignore */ }
+        }
         const photos = await api._requestOnline(`/photos/${item.taskId}`);
         void cachePhotos(item.taskId, photos).catch(() => {});
       } else {

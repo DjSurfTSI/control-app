@@ -1,6 +1,6 @@
 const DB_NAME = 'atm-offline';
-const DB_VERSION = 1;
-const IDB_TIMEOUT_MS = 5000;
+const DB_VERSION = 2;
+const IDB_TIMEOUT_MS = 8000;
 
 function withTimeout(promise, ms = IDB_TIMEOUT_MS) {
   return Promise.race([
@@ -27,6 +27,9 @@ function openDb() {
       if (!db.objectStoreNames.contains('queue')) {
         db.createObjectStore('queue', { keyPath: 'id', autoIncrement: true });
       }
+      if (!db.objectStoreNames.contains('photo_blobs')) {
+        db.createObjectStore('photo_blobs');
+      }
     };
   }));
 }
@@ -38,11 +41,18 @@ function idbRequest(req) {
   });
 }
 
+function txComplete(tx) {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 export async function cacheTasks(key, tasks) {
   const db = await openDb();
   const tx = db.transaction('tasks_cache', 'readwrite');
   tx.objectStore('tasks_cache').put({ tasks, at: Date.now() }, key);
-  return idbRequest(tx);
+  await txComplete(tx);
 }
 
 export async function getCachedTasks(key) {
@@ -55,7 +65,7 @@ export async function cachePhotos(taskId, photos) {
   const db = await openDb();
   const tx = db.transaction('photos_cache', 'readwrite');
   tx.objectStore('photos_cache').put({ photos, at: Date.now() }, String(taskId));
-  return idbRequest(tx);
+  await txComplete(tx);
 }
 
 export async function getCachedPhotos(taskId) {
@@ -70,7 +80,7 @@ export async function setMeta(key, value) {
   const db = await openDb();
   const tx = db.transaction('meta', 'readwrite');
   tx.objectStore('meta').put(value, key);
-  return idbRequest(tx);
+  await txComplete(tx);
 }
 
 export async function getMeta(key) {
@@ -78,11 +88,34 @@ export async function getMeta(key) {
   return idbRequest(db.transaction('meta', 'readonly').objectStore('meta').get(key));
 }
 
+export async function savePhotoBlob(queueId, data, mimeType) {
+  const db = await openDb();
+  const tx = db.transaction('photo_blobs', 'readwrite');
+  tx.objectStore('photo_blobs').put({ data, mimeType, at: Date.now() }, String(queueId));
+  await txComplete(tx);
+}
+
+export async function getPhotoBlob(queueId) {
+  const db = await openDb();
+  const row = await idbRequest(
+    db.transaction('photo_blobs', 'readonly').objectStore('photo_blobs').get(String(queueId))
+  );
+  return row ?? null;
+}
+
+export async function deletePhotoBlob(queueId) {
+  const db = await openDb();
+  const tx = db.transaction('photo_blobs', 'readwrite');
+  tx.objectStore('photo_blobs').delete(String(queueId));
+  await txComplete(tx);
+}
+
 export async function enqueue(item) {
   const db = await openDb();
-  return idbRequest(
-    db.transaction('queue', 'readwrite').objectStore('queue').add({ ...item, createdAt: Date.now() })
-  );
+  const tx = db.transaction('queue', 'readwrite');
+  const id = await idbRequest(tx.objectStore('queue').add({ ...item, createdAt: Date.now() }));
+  await txComplete(tx);
+  return id;
 }
 
 export async function getQueue() {
@@ -97,7 +130,8 @@ export async function removeQueueItem(id) {
   const db = await openDb();
   const tx = db.transaction('queue', 'readwrite');
   tx.objectStore('queue').delete(id);
-  return idbRequest(tx);
+  await txComplete(tx);
+  await deletePhotoBlob(id).catch(() => {});
 }
 
 export async function getQueueCount() {
@@ -138,4 +172,62 @@ export async function addPendingPhotoToCache(taskId, photo) {
   const next = [...filtered, photo];
   await cachePhotos(taskId, next);
   return next;
+}
+
+const previewUrlCache = new Map();
+
+export async function getQueuePhotoPreview(item) {
+  const cacheKey = `${item.id}-${item.photoType}`;
+  if (previewUrlCache.has(cacheKey)) {
+    return previewUrlCache.get(cacheKey);
+  }
+
+  let url = item.blobUrl;
+  if (url) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) url = null;
+    } catch {
+      url = null;
+    }
+  }
+
+  if (!url) {
+    const blob = await getPhotoBlob(item.id);
+    if (blob?.data) {
+      url = URL.createObjectURL(new Blob([blob.data], { type: blob.mimeType || 'image/jpeg' }));
+    }
+  }
+
+  const preview = {
+    id: `offline-${item.id}`,
+    photo_type: item.photoType,
+    url: url || '',
+    offline: true,
+    cv_detected: null,
+    filename: item.fileName || 'photo.jpg',
+  };
+
+  if (url) previewUrlCache.set(cacheKey, preview);
+  return preview;
+}
+
+export async function getMergedPhotosForTask(taskId) {
+  const cached = (await getCachedPhotos(taskId).catch(() => null)) || [];
+  const queue = await getQueue();
+  const pendingItems = queue.filter(
+    (i) => i.op === 'upload_photo' && Number(i.taskId) === Number(taskId)
+  );
+
+  const pendingPhotos = await Promise.all(pendingItems.map(getQueuePhotoPreview));
+  const byType = new Map();
+
+  cached.forEach((p) => {
+    if (p?.photo_type) byType.set(p.photo_type, p);
+  });
+  pendingPhotos.forEach((p) => {
+    if (p?.photo_type && p.url) byType.set(p.photo_type, p);
+  });
+
+  return Array.from(byType.values());
 }

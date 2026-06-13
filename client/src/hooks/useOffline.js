@@ -14,24 +14,22 @@ function formatSyncMessage(result) {
   return '';
 }
 
-async function autoSyncWithRetry(maxAttempts = 5) {
+async function autoSyncWithRetry(maxAttempts = 6) {
   let lastResult = { synced: 0, failed: 0 };
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     if (!navigator.onLine) break;
     if (attempt > 0) {
-      await new Promise((r) => setTimeout(r, 1500 * attempt));
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
     }
-    lastResult = await flushOfflineQueue();
-    if (lastResult.synced > 0 || lastResult.failed > 0) break;
     const pending = await getQueueCount().catch(() => 0);
     if (pending === 0) break;
-    try {
-      await api._requestOnline('/auth/me');
-      lastResult = await flushOfflineQueue();
-      break;
-    } catch {
-      /* server not ready yet */
-    }
+
+    lastResult = await flushOfflineQueue();
+    await new Promise((r) => setTimeout(r, 300));
+
+    const remaining = await getQueueCount().catch(() => 0);
+    if (remaining === 0 || lastResult.synced > 0) break;
+    if (lastResult.failed > 0 && attempt >= maxAttempts - 1) break;
   }
   return lastResult;
 }
