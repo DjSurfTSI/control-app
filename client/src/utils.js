@@ -44,6 +44,26 @@ export function isExecutor(user) {
 
 export const EXECUTOR_COMPLETABLE_STATUSES = ['in_progress', 'overdue', 'returned', 'emergency'];
 
+/** Вкладки мобильного списка заявок для исполнителя */
+export const EXECUTOR_MOBILE_TABS = [
+  { id: 'new', label: 'Новые', statuses: ['new'] },
+  { id: 'in_progress', label: 'В работе', statuses: ['in_progress', 'overdue', 'no_access'] },
+  { id: 'completed', label: 'Завершенные', statuses: ['completed'] },
+  { id: 'cancelled', label: 'Отмененные', statuses: ['cancelled'] },
+  { id: 'returned', label: 'Возврат', statuses: ['returned'] },
+  { id: 'emergency', label: 'Экстренно', statuses: ['emergency'] },
+];
+
+export function filterTasksByExecutorTab(tasks, tabId) {
+  const tab = EXECUTOR_MOBILE_TABS.find((t) => t.id === tabId);
+  if (!tab) return tasks;
+  return tasks.filter((t) => tab.statuses.includes(t.status));
+}
+
+export function countTasksForExecutorTab(tasks, tab) {
+  return tasks.filter((t) => tab.statuses.includes(t.status)).length;
+}
+
 export function isTaskAssignedToUser(task, userId) {
   if (!task || userId == null) return false;
   return Number(task.assigned_to) === Number(userId);

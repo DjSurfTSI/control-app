@@ -6,6 +6,7 @@ import {
   STATUS_LABELS, formatDate, formatDateTime, todayISO,
   isManager, isBizAdmin, isExecutor, getCloseMetadata, PHOTO_TYPE_LABELS, formatCloseLocation,
   canExecutorCompleteTask,
+  EXECUTOR_MOBILE_TABS, filterTasksByExecutorTab, countTasksForExecutorTab,
 } from '../utils';
 import PhotoUpload from '../components/PhotoUpload';
 import TaskCard from '../components/TaskCard';
@@ -275,6 +276,30 @@ function TaskModal({
   );
 }
 
+function ExecutorMobileTabs({ activeTab, onChange, tasks }) {
+  return (
+    <div className="executor-mobile-tabs" role="tablist" aria-label="Разделы заявок">
+      {EXECUTOR_MOBILE_TABS.map((tab) => {
+        const count = countTasksForExecutorTab(tasks, tab);
+        const active = activeTab === tab.id;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            className={`executor-mobile-tab${active ? ' active' : ''}`}
+            onClick={() => onChange(tab.id)}
+          >
+            <span className="executor-mobile-tab-label">{tab.label}</span>
+            <span className={`executor-mobile-tab-count${count > 0 ? ' has-items' : ''}`}>{count}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Tasks() {
   const { user } = useAuth();
   const manager = isManager(user);
@@ -293,14 +318,23 @@ export default function Tasks() {
   const [filters, setFilters] = useState({ ...EMPTY_FILTERS, status: searchParams.get('status') || '' });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [executorMobileTab, setExecutorMobileTab] = useState('new');
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  const showExecutorMobileTabs = executor && isMobile;
+  const mobileFilteredTasks = showExecutorMobileTabs
+    ? filterTasksByExecutorTab(tasks, executorMobileTab)
+    : tasks;
+  const activeExecutorTab = EXECUTOR_MOBILE_TABS.find((t) => t.id === executorMobileTab);
 
   const setFilter = (key, val) => setFilters((f) => ({ ...f, [key]: val }));
 
   const buildParams = () => {
     const params = {};
-    Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
+    const skipStatus = executor && isMobile;
+    Object.entries(filters).forEach(([k, v]) => {
+      if (v && !(skipStatus && k === 'status')) params[k] = v;
+    });
     return params;
   };
 
@@ -328,7 +362,15 @@ export default function Tasks() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  useEffect(() => { load(); }, [user, JSON.stringify(filters), manager]);
+  useEffect(() => { load(); }, [user, JSON.stringify(filters), manager, executor, isMobile]);
+
+  useEffect(() => {
+    if (!executor || !isMobile) return;
+    const status = searchParams.get('status');
+    if (!status) return;
+    const tab = EXECUTOR_MOBILE_TABS.find((t) => t.statuses.includes(status));
+    if (tab) setExecutorMobileTab(tab.id);
+  }, [executor, isMobile, searchParams]);
 
   useEffect(() => {
     const onSynced = () => load();
@@ -419,6 +461,7 @@ export default function Tasks() {
         </div>
       </div>
 
+      {!showExecutorMobileTabs && (
       <div className={`filters card animate-slide-up filters-extended${isMobile ? ' filters-collapsible' : ''}${isMobile && !filtersOpen ? ' filters-collapsed' : ''}`}>
         {isMobile && (
           <button
@@ -477,6 +520,7 @@ export default function Tasks() {
         <button type="button" className="btn-secondary btn-sm filters-reset" onClick={resetFilters}>Сбросить</button>
         </div>
       </div>
+      )}
 
       <div className="card animate-slide-up">
         {loadError && <div className="error-msg">{loadError}</div>}
@@ -485,13 +529,30 @@ export default function Tasks() {
         ) : tasks.length === 0 ? (
           <p className="empty-state">Заявок не найдено</p>
         ) : isMobile ? (
-          <div className="mobile-tasks">
-            {tasks.map((t) => (
-              <TaskCard key={t.id} task={t} isManager={manager} isExecutor={executor} currentUserId={user?.id} canDelete={bizAdmin}
-                onStart={(task) => updateStatus(task, 'in_progress')} onComplete={(task) => setCompleteModal(task)}
-                onAssignSelf={handleAssignSelf} onEdit={setModal} onCancel={handleCancel} onDelete={handleDelete} onView={setModal} />
-            ))}
-          </div>
+          <>
+            {showExecutorMobileTabs && (
+              <ExecutorMobileTabs
+                activeTab={executorMobileTab}
+                onChange={setExecutorMobileTab}
+                tasks={tasks}
+              />
+            )}
+            {mobileFilteredTasks.length === 0 ? (
+              <p className="empty-state">
+                {showExecutorMobileTabs && activeExecutorTab
+                  ? `Нет заявок: ${activeExecutorTab.label}`
+                  : 'Заявок не найдено'}
+              </p>
+            ) : (
+              <div className="mobile-tasks">
+                {mobileFilteredTasks.map((t) => (
+                  <TaskCard key={t.id} task={t} isManager={manager} isExecutor={executor} currentUserId={user?.id} canDelete={bizAdmin}
+                    onStart={(task) => updateStatus(task, 'in_progress')} onComplete={(task) => setCompleteModal(task)}
+                    onAssignSelf={handleAssignSelf} onEdit={setModal} onCancel={handleCancel} onDelete={handleDelete} onView={setModal} />
+                ))}
+              </div>
+            )}
+          </>
         ) : (
           <div className="table-wrap table-scroll">
             <table>
@@ -603,6 +664,60 @@ export default function Tasks() {
             grid-template-columns: 1fr;
             padding-top: 0.25rem;
           }
+        }
+        .executor-mobile-tabs {
+          display: flex;
+          gap: 0.5rem;
+          overflow-x: auto;
+          padding: 0 0 0.85rem;
+          margin: 0 0 0.5rem;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+        }
+        .executor-mobile-tabs::-webkit-scrollbar { display: none; }
+        .executor-mobile-tab {
+          flex: 0 0 auto;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.5rem 0.75rem;
+          border-radius: 999px;
+          border: 1px solid var(--border);
+          background: var(--bg);
+          color: var(--text-muted);
+          font-size: 0.82rem;
+          font-weight: 600;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .executor-mobile-tab.active {
+          background: var(--primary);
+          border-color: var(--primary);
+          color: white;
+        }
+        .executor-mobile-tab-count {
+          min-width: 1.35rem;
+          height: 1.35rem;
+          padding: 0 0.35rem;
+          border-radius: 999px;
+          background: var(--surface-hover);
+          color: var(--text-muted);
+          font-size: 0.72rem;
+          font-weight: 700;
+          line-height: 1.35rem;
+          text-align: center;
+        }
+        .executor-mobile-tab.active .executor-mobile-tab-count {
+          background: rgba(255, 255, 255, 0.22);
+          color: white;
+        }
+        .executor-mobile-tab-count.has-items {
+          background: rgba(59, 130, 246, 0.15);
+          color: var(--primary);
+        }
+        .executor-mobile-tab.active .executor-mobile-tab-count.has-items {
+          background: rgba(255, 255, 255, 0.25);
+          color: white;
         }
         .table-scroll { overflow-x: auto; }
         .table-scroll table { min-width: 1200px; font-size: 0.85rem; }
