@@ -6,6 +6,7 @@ import { STATUS_LABELS, PRIORITY_LABELS, formatDate, todayISO, isManager } from 
 import PhotoUpload from '../components/PhotoUpload';
 import TaskCard from '../components/TaskCard';
 import ImportTasksModal from '../components/ImportTasksModal';
+import DateInput from '../components/DateInput';
 import { PHOTO_TYPE_LABELS } from '../utils';
 
 function CompleteModal({ task, onClose, onComplete }) {
@@ -116,7 +117,7 @@ function TaskModal({ task, atms, cleaners, onClose, onSave, isManager }) {
             <div className="form-row">
               <div className="form-group">
                 <label>Дата *</label>
-                <input type="date" value={form.scheduled_date} onChange={(e) => set('scheduled_date', e.target.value)} />
+                <DateInput value={form.scheduled_date} onChange={(e) => set('scheduled_date', e.target.value)} />
               </div>
               <div className="form-group">
                 <label>Приоритет</label>
@@ -158,7 +159,7 @@ function TaskModal({ task, atms, cleaners, onClose, onSave, isManager }) {
               <div className="form-row">
                 <div className="form-group">
                   <label>Дата</label>
-                  <input type="date" value={form.scheduled_date} onChange={(e) => set('scheduled_date', e.target.value)} />
+                  <DateInput value={form.scheduled_date} onChange={(e) => set('scheduled_date', e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label>Уборщик</label>
@@ -351,9 +352,9 @@ export default function Tasks() {
         </div>
         <div className="form-group" style={{ margin: 0 }}>
           <label>Дата</label>
-          <input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} />
+          <DateInput value={filterDate} onChange={(e) => setFilterDate(e.target.value)} />
         </div>
-        <button className="btn-secondary btn-sm" onClick={() => { setFilterStatus(''); setFilterDate(''); setSearchParams({}); }}>
+        <button type="button" className="btn-secondary btn-sm filters-reset" onClick={() => { setFilterStatus(''); setFilterDate(''); setSearchParams({}); }}>
           Сбросить
         </button>
       </div>
@@ -455,8 +456,18 @@ export default function Tasks() {
         .page-title { font-size: 1.75rem; margin-bottom: 0.25rem; }
         .page-subtitle { color: var(--text-muted); }
         .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-        .filters { display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 1.5rem; flex-wrap: wrap; max-width: 100%; }
-        .filters .form-group { min-width: 0; flex: 1 1 120px; max-width: 100%; }
+        .filters {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+          gap: 1rem;
+          align-items: end;
+          margin-bottom: 1.5rem;
+          max-width: 100%;
+        }
+        .filters .form-group { min-width: 0; width: 100%; }
+        .filters .form-group input,
+        .filters .form-group select { width: 100%; }
+        .filters-reset { align-self: end; }
         .actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
         td small { color: var(--text-muted); }
         .modal-wide { max-width: 600px; }
@@ -464,7 +475,8 @@ export default function Tasks() {
         .report-text { background: var(--bg); padding: 0.75rem; border-radius: 8px; font-size: 0.9rem; }
         @media (max-width: 768px) {
           .page-title { font-size: 1.35rem; }
-          .filters { flex-direction: column; align-items: stretch; }
+          .filters { grid-template-columns: 1fr; }
+          .filters-reset { width: 100%; }
         }
       `}</style>
     </div>

@@ -114,12 +114,25 @@ input[type="date"],
 input[type="datetime-local"],
 input[type="time"] {
   display: block;
-  -webkit-appearance: none;
-  appearance: none;
+  min-height: 2.75rem;
 }
 
-input[type="date"]::-webkit-date-and-time-value {
-  text-align: left;
+.date-input,
+input[type="date"] {
+  width: 100%;
+  cursor: pointer;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.9;
+  padding: 0.15rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+  }
 }
 
 input:focus, select:focus, textarea:focus {
