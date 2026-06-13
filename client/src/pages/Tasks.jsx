@@ -455,8 +455,8 @@ export default function Tasks() {
         .page-title { font-size: 1.75rem; margin-bottom: 0.25rem; }
         .page-subtitle { color: var(--text-muted); }
         .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-        .filters { display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 1.5rem; flex-wrap: wrap; }
-        .filters .form-group { min-width: 140px; flex: 1; }
+        .filters { display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 1.5rem; flex-wrap: wrap; max-width: 100%; }
+        .filters .form-group { min-width: 0; flex: 1 1 120px; max-width: 100%; }
         .actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
         td small { color: var(--text-muted); }
         .modal-wide { max-width: 600px; }
