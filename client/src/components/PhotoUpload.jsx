@@ -85,18 +85,6 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
 
   const getPhotoForType = (type) => photos.find((p) => p.photo_type === type);
 
-  const pollCvResults = async (attempts = 40) => {
-    for (let i = 0; i < attempts; i += 1) {
-      await new Promise((r) => setTimeout(r, 1500));
-      const data = await api.getPhotos(taskId);
-      setPhotos(data);
-      emitChange(data);
-      const pending = data.filter((p) => p.cv_detected == null && !p.offline);
-      if (pending.length === 0) return;
-    }
-    setError('CV-проверка занимает больше обычного. Подождите или обновите страницу.');
-  };
-
   const handleUpload = async (type, e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -115,10 +103,15 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
           return next;
         });
       } else {
-        await load({ keepExisting: true });
-        if (cvEnabled && online && result.cv_pending) {
-          await pollCvResults();
-        }
+        setPhotos((prev) => {
+          const next = [
+            ...prev.filter((p) => p.photo_type !== type),
+            { ...result, photo_type: type },
+          ];
+          emitChange(next);
+          return next;
+        });
+        void cachePhotos(taskId, await api.getPhotos(taskId)).catch(() => {});
       }
     } catch (err) {
       setError(err.message);
@@ -231,7 +224,7 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
                       onClick={() => inputRefs.current[type]?.click()}
                       disabled={uploading === type}
                     >
-                      {uploading === type ? (cvEnabled ? 'CV…' : 'Загрузка…') : '📷'}
+                      {uploading === type ? (cvEnabled ? 'Проверка CV...' : 'Загрузка…') : '📷'}
                     </button>
                   </>
                 )

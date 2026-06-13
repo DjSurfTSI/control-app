@@ -7,7 +7,7 @@ import db, { REQUIRED_PHOTO_TYPES } from '../db.js';
 import { authMiddleware } from '../middleware.js';
 import { isManager, isExecutor } from '../roles.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
-import { validatePhoto, saveCvResult } from '../cv/validatePhotos.js';
+import { validatePhoto } from '../cv/validatePhotos.js';
 import { isCvEnabled } from '../cv/atmDetector.js';
 import { optimizePhoto, applyWatermark } from '../utils/optimizePhoto.js';
 
@@ -127,14 +127,11 @@ router.post('/:taskId', (req, res, next) => {
   if (cvEnabled) {
     const cvCopy = `${optimized.path}.cvcheck.jpg`;
     fs.copyFileSync(optimized.path, cvCopy);
-    validatePhoto(cvCopy, photo.id)
-      .catch((err) => {
-        console.error(`CV background error (photo ${photo.id}):`, err.message);
-        saveCvResult(photo.id, { detected: true, confidence: 0, skipped: true, error: err.message });
-      })
-      .finally(() => {
-        if (fs.existsSync(cvCopy)) fs.unlinkSync(cvCopy);
-      });
+    try {
+      await validatePhoto(cvCopy, photo.id);
+    } finally {
+      if (fs.existsSync(cvCopy)) fs.unlinkSync(cvCopy);
+    }
   }
 
   try {
@@ -143,9 +140,15 @@ router.post('/:taskId', (req, res, next) => {
     console.error(`Watermark failed (task ${req.params.taskId}):`, err.message);
   }
 
+  const saved = db.prepare(
+    `SELECT id, filename, original_name, photo_type, uploaded_by, created_at,
+            cv_detected, cv_confidence, cv_checked_at
+     FROM task_photos WHERE id = ?`
+  ).get(photo.id);
+
   res.status(201).json({
-    ...mapPhoto(req, req.params.taskId, photo),
-    cv_pending: cvEnabled,
+    ...mapPhoto(req, req.params.taskId, saved),
+    cv_pending: false,
     optimized: {
       width: optimized.width,
       height: optimized.height,

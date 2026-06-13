@@ -32,19 +32,20 @@ export function isNetworkError(err) {
 }
 
 async function request(path, options = {}) {
-  const headers = { ...options.headers };
-  if (!(options.body instanceof FormData)) {
+  const { timeoutMs = REQUEST_TIMEOUT_MS, ...fetchOptions } = options;
+  const headers = { ...fetchOptions.headers };
+  if (!(fetchOptions.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   let res;
   try {
     res = await fetch(`${API}${path}`, {
-      ...options,
+      ...fetchOptions,
       headers,
       signal: controller.signal,
     });
@@ -199,7 +200,11 @@ export const api = {
     };
     if (!navigator.onLine) return applyOffline();
     try {
-      return await request(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+      return await request(`/tasks/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+        timeoutMs: data.status === 'completed' ? 120000 : REQUEST_TIMEOUT_MS,
+      });
     } catch (err) {
       if (isNetworkError(err)) return applyOffline();
       throw err;
@@ -246,7 +251,13 @@ export const api = {
       const queued = await merged();
       if (queued.length === 0) return data;
       const byType = new Map(data.map((p) => [p.photo_type, p]));
-      queued.forEach((p) => { if (p.offline) byType.set(p.photo_type, p); });
+      queued.forEach((p) => {
+        if (!p.offline) return;
+        const server = byType.get(p.photo_type);
+        if (!server || String(server.id).startsWith('offline')) {
+          byType.set(p.photo_type, p);
+        }
+      });
       return Array.from(byType.values());
     } catch (err) {
       const fallback = await merged();
@@ -261,7 +272,7 @@ export const api = {
       const fd = new FormData();
       fd.append('photo', file);
       fd.append('photo_type', photoType);
-      return request(`/photos/${taskId}`, { method: 'POST', body: fd });
+      return request(`/photos/${taskId}`, { method: 'POST', body: fd, timeoutMs: 120000 });
     };
     if (preferOffline || !navigator.onLine) return queuePhoto(taskId, file, photoType);
     try {

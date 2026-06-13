@@ -30,7 +30,7 @@ const REJECT_LABELS = [
   'building facade without ATM',
 ];
 
-const CV_TIMEOUT_MS = parseInt(process.env.CV_TIMEOUT_MS || '45000', 10);
+const CV_TIMEOUT_MS = parseInt(process.env.CV_TIMEOUT_MS || '25000', 10);
 
 const FLOOR_LABELS = [
   'floor tiles or concrete ground close-up photograph',
@@ -54,7 +54,7 @@ export function isCvEnabled() {
   return isCvEnabledRuntime();
 }
 
-const CLASSIFIER_LOAD_TIMEOUT_MS = parseInt(process.env.CV_LOAD_TIMEOUT_MS || '90000', 10);
+const CLASSIFIER_LOAD_TIMEOUT_MS = parseInt(process.env.CV_LOAD_TIMEOUT_MS || '60000', 10);
 
 async function getClassifier() {
   if (!isCvEnabledRuntime()) return null;

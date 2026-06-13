@@ -10,7 +10,7 @@ import photoRoutes from './routes/photos.js';
 import notificationRoutes from './routes/notifications.js';
 import integrationRoutes from './routes/integration.js';
 import settingsRoutes from './routes/settings.js';
-import { isCvEnabled } from './cv/atmDetector.js';
+import { isCvEnabled, warmupCvModel } from './cv/atmDetector.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -50,7 +50,10 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Сервер запущен: http://localhost:${PORT}`);
   if (isCvEnabled()) {
-    console.log('CV-проверка включена — модель загрузится при первой проверке фото (без предзагрузки)');
+    console.log('CV-проверка включена — предзагрузка модели CLIP...');
+    warmupCvModel()
+      .then(() => console.log('CV-модель готова'))
+      .catch((err) => console.error('CV warmup failed:', err.message));
   } else {
     console.log('CV-проверка отключена в настройках');
   }

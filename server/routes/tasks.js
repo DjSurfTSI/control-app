@@ -350,6 +350,14 @@ router.patch('/:id', asyncHandler(async (req, res) => {
     if (nextStatus === 'completed' && executor) {
       const cv = await validateTaskPhotos(req.params.id);
       if (!cv.ok) {
+        if (cv.pending?.length) {
+          return res.status(503).json({
+            error: 'CV-проверка фото ещё не завершена. Дождитесь результата на всех снимках и повторите.',
+            code: 'cv_pending',
+            pending_photos: cv.pending,
+          });
+        }
+
         db.prepare(`
           UPDATE cleaning_tasks
           SET status = 'in_progress', completed_at = NULL, updated_at = datetime('now')
