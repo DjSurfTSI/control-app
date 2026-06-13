@@ -292,6 +292,9 @@ export default function Tasks() {
   const [exporting, setExporting] = useState(false);
   const [filters, setFilters] = useState({ ...EMPTY_FILTERS, status: searchParams.get('status') || '' });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
   const setFilter = (key, val) => setFilters((f) => ({ ...f, [key]: val }));
 
@@ -416,7 +419,22 @@ export default function Tasks() {
         </div>
       </div>
 
-      <div className="filters card animate-slide-up filters-extended">
+      <div className={`filters card animate-slide-up filters-extended${isMobile ? ' filters-collapsible' : ''}${isMobile && !filtersOpen ? ' filters-collapsed' : ''}`}>
+        {isMobile && (
+          <button
+            type="button"
+            className="filters-toggle"
+            onClick={() => setFiltersOpen((open) => !open)}
+            aria-expanded={filtersOpen}
+          >
+            <span>
+              Фильтры
+              {activeFilterCount > 0 && <span className="filters-active-badge">{activeFilterCount}</span>}
+            </span>
+            <span className="filters-toggle-icon">{filtersOpen ? '▲' : '▼'}</span>
+          </button>
+        )}
+        <div className="filters-body">
         <div className="form-group" style={{ margin: 0 }}>
           <label>№ заявки</label>
           <input value={filters.task_id} onChange={(e) => setFilter('task_id', e.target.value)} placeholder="ID" />
@@ -457,6 +475,7 @@ export default function Tasks() {
         <DateRangeInput label="Дата завершения" from={filters.completed_from} to={filters.completed_to}
           onFromChange={(e) => setFilter('completed_from', e.target.value)} onToChange={(e) => setFilter('completed_to', e.target.value)} />
         <button type="button" className="btn-secondary btn-sm filters-reset" onClick={resetFilters}>Сбросить</button>
+        </div>
       </div>
 
       <div className="card animate-slide-up">
@@ -538,7 +557,53 @@ export default function Tasks() {
       {importModal && <ImportTasksModal onClose={() => setImportModal(false)} onDone={load} />}
 
       <style>{`
-        .filters-extended { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; align-items: end; }
+        .filters-extended .filters-body {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+          gap: 0.75rem;
+          align-items: end;
+        }
+        .filters-toggle {
+          display: none;
+          width: 100%;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0.25rem 0 0.75rem;
+          margin-bottom: 0;
+          background: none;
+          border: none;
+          color: var(--text);
+          font-size: 0.95rem;
+          font-weight: 600;
+          cursor: pointer;
+          text-align: left;
+        }
+        .filters-toggle-icon {
+          color: var(--text-muted);
+          font-size: 0.75rem;
+        }
+        .filters-active-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 1.25rem;
+          height: 1.25rem;
+          margin-left: 0.4rem;
+          padding: 0 0.35rem;
+          border-radius: 999px;
+          background: var(--primary);
+          color: white;
+          font-size: 0.7rem;
+          font-weight: 700;
+        }
+        @media (max-width: 767px) {
+          .filters-collapsible .filters-toggle { display: flex; }
+          .filters-collapsible.filters-collapsed .filters-body { display: none; }
+          .filters-collapsible .filters-body {
+            grid-template-columns: 1fr;
+            padding-top: 0.25rem;
+          }
+        }
         .table-scroll { overflow-x: auto; }
         .table-scroll table { min-width: 1200px; font-size: 0.85rem; }
       `}</style>
