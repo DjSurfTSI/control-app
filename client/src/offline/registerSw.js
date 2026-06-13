@@ -1,4 +1,4 @@
-import { setupAutoSync } from './offline/sync.js';
+import { setupAutoSync } from './sync.js';
 
 export function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return () => {};
