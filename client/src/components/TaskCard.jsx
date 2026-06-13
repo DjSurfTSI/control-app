@@ -1,5 +1,4 @@
-import { STATUS_LABELS, formatDate } from '../utils';
-
+import { STATUS_LABELS, formatDate, canExecutorCompleteTask } from '../utils';
 
 
 export default function TaskCard({
@@ -9,8 +8,6 @@ export default function TaskCard({
   onStart, onComplete, onAssignSelf, onEdit, onCancel, onDelete, onView,
 
 }) {
-
-  const isMine = Number(task.assigned_to) === Number(currentUserId);
 
   const canTake = isExecutor && task.status === 'new' && !task.assigned_to;
 
@@ -60,7 +57,7 @@ export default function TaskCard({
 
         )}
 
-        {isExecutor && isMine && task.status === 'in_progress' && (
+        {isExecutor && canExecutorCompleteTask(task, currentUserId) && (
 
           <button type="button" className="btn-success btn-sm" onClick={() => onComplete(task)}>Завершить</button>
 

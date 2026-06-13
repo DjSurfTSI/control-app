@@ -40,6 +40,17 @@ export function isExecutor(user) {
   return user?.role === 'executor' || user?.role === 'cleaner';
 }
 
+export const EXECUTOR_COMPLETABLE_STATUSES = ['in_progress', 'overdue', 'returned', 'emergency'];
+
+export function isTaskAssignedToUser(task, userId) {
+  if (!task || userId == null) return false;
+  return Number(task.assigned_to) === Number(userId);
+}
+
+export function canExecutorCompleteTask(task, userId) {
+  return isTaskAssignedToUser(task, userId) && EXECUTOR_COMPLETABLE_STATUSES.includes(task.status);
+}
+
 export function hasRouteAccess(user, roles) {
   if (!roles) return true;
   if (isBizAdmin(user)) return true;

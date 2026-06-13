@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   STATUS_LABELS, formatDate, formatDateTime, todayISO,
   isManager, isBizAdmin, isExecutor, getCloseMetadata, PHOTO_TYPE_LABELS, formatCloseLocation,
+  canExecutorCompleteTask,
 } from '../utils';
 import PhotoUpload from '../components/PhotoUpload';
 import TaskCard from '../components/TaskCard';
@@ -27,7 +28,6 @@ function CompleteModal({ task, onClose, onComplete }) {
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const canSubmit = photoStatus.complete && (photoStatus.cvEnabled ? photoStatus.cvPassed : true);
 
   const handleComplete = async () => {
     const metaPromise = getCloseMetadata();
@@ -67,7 +67,7 @@ function CompleteModal({ task, onClose, onComplete }) {
         <PhotoUpload taskId={task.id} onChange={setPhotoStatus} />
         <div className="modal-actions">
           <button className="btn-secondary" onClick={onClose}>Отмена</button>
-          <button className="btn-success" onClick={handleComplete} disabled={saving || !canSubmit}>
+          <button className="btn-success" onClick={handleComplete} disabled={saving}>
             {saving ? (photoStatus.cvEnabled ? 'Проверка CV...' : 'Сохранение...') : 'Завершить'}
           </button>
         </div>
@@ -235,7 +235,7 @@ function TaskModal({
               </div>
             )}
             <PhotoUpload taskId={task.id} readOnly={task.status === 'completed' && !isManager} onChange={setPhotoStatus} />
-            {canComplete && task.status === 'in_progress' && (
+            {canComplete && (
               <div className="form-group" style={{ marginTop: '1rem' }}>
                 <label>Отчёт</label>
                 <textarea rows={3} value={report} onChange={(e) => setReport(e.target.value)} placeholder="Опишите выполненные работы..." />
@@ -254,7 +254,7 @@ function TaskModal({
             <button
               className="btn-success"
               onClick={handleComplete}
-              disabled={completing || saving || !canSubmitComplete}
+              disabled={completing || saving}
               title={!canSubmitComplete ? 'Загрузите все фото и дождитесь проверки CV' : ''}
             >
               {completing ? 'Завершение...' : 'Завершить'}
@@ -504,7 +504,7 @@ export default function Tasks() {
                       {executor && t.status === 'new' && !t.assigned_to && (
                         <button className="btn-primary btn-sm" onClick={() => handleAssignSelf(t)}>Взять</button>
                       )}
-                      {executor && t.assigned_to === user?.id && t.status === 'in_progress' && (
+                      {executor && canExecutorCompleteTask(t, user?.id) && (
                         <button className="btn-success btn-sm" onClick={() => setCompleteModal(t)}>Завершить</button>
                       )}
                       {manager && !bizAdmin && !['cancelled', 'completed'].includes(t.status) && (
@@ -527,7 +527,7 @@ export default function Tasks() {
           executors={executors}
           isManager={manager}
           canDelete={bizAdmin}
-          canComplete={executor && modal.id && modal.assigned_to === user?.id && modal.status === 'in_progress'}
+          canComplete={executor && modal.id && canExecutorCompleteTask(modal, user?.id)}
           onComplete={handleComplete}
           onDelete={performDelete}
           onClose={() => setModal(null)}
