@@ -151,7 +151,7 @@ function TaskModal({ task, atms, cleaners, onClose, onSave, isManager }) {
                 <p className="report-text">{task.report}</p>
               </div>
             )}
-            {manager && (
+            {isManager && (
               <div className="form-row">
                 <div className="form-group">
                   <label>Дата</label>
