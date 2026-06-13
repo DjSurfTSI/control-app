@@ -75,8 +75,19 @@ atm-cleaning-control/
 │       ├── components/         # Переиспользуемые UI-блоки
 │       ├── pages/              # Экраны (маршруты)
 │       │   ├── Settings.jsx    # Настройки CV (только bizadmin)
-│       ├── hooks/              # Бизнес-логика UI (уведомления)
-│       └── utils.js            # Константы, форматирование
+│       ├── hooks/
+│       │   ├── useCvStatus.js      # Статус CV (enabled) для UI
+│       │   └── useNotifications.js
+│       ├── utils/
+│       │   └── compressImage.js    # Сжатие фото в браузере
+│       └── utils.js                # Константы, роли, проверка фото
+│
+├── deploy/
+│   ├── setup-server.sh
+│   ├── build-client.sh         # Сборка фронта (мало-RAM VPS)
+│   ├── ensure-swap.sh          # Swap перед vite build
+│   ├── ecosystem.config.cjs
+│   └── nginx-control-app.conf
 │
 ├── server/                     # Backend
 │   ├── db.js                   # Схема БД, сиды, миграции
@@ -93,7 +104,7 @@ atm-cleaning-control/
 │   │   ├── settings.js         # Настройки CV (cv_settings в БД)
 │   │   └── validatePhotos.js   # Проверка ракурсов и сохранение результата
 │   ├── utils/
-│   │   └── optimizePhoto.js    # Сжатие и ресайз фото (sharp)
+│   │   └── optimizePhoto.js    # Сжатие на сервере (sharp) или passthrough
 │   ├── middleware/
 │   │   └── errorHandler.js     # Обработка ошибок API
 │   ├── routes/
@@ -339,7 +350,8 @@ flowchart LR
 | `DELETE /api/users/:id` | ✓ | ✓* | cleaner | — | Удаление / деактивация |
 | `POST /api/photos/:taskId` | ✓ | ✓ | ✓ | свои | Загрузка → сжатие → CV в фоне |
 | `GET /api/photos/:taskId` | ✓ | ✓ | ✓ | свои* | Список фото (`cv_detected`, `cv_confidence`) |
-| `GET/PATCH /api/settings/cv` | ✓ | — | — | — | Настройки CV-модели |
+| `GET/PATCH /api/settings/cv` | ✓ | — | — | — | Полные настройки CV (bizadmin) |
+| `GET /api/settings/cv/status` | ✓ | ✓ | ✓ | ✓ | Статус CV вкл/выкл (для UI) |
 | `POST /api/notifications/subscribe` | ✓ | ✓ | ✓ | ✓ | Подписка на push |
 
 \* admin не управляет учётными записями `bizadmin`
@@ -380,27 +392,35 @@ stateDiagram-v2
 
 ### 6.2.1 Сжатие и оптимизация разрешения
 
-Модуль `server/utils/optimizePhoto.js` (**sharp**) обрабатывает каждое загруженное фото **до** сохранения и CV-проверки:
+Двухэтапный пайплайн (v1.2.0):
+
+| Этап | Где | Описание |
+|------|-----|----------|
+| 1. Браузер | `client/src/utils/compressImage.js` | Ресайз до `PHOTO_MAX_EDGE` (1280px), JPEG ~82% **до** отправки на сервер |
+| 2. Сервер | `server/utils/optimizePhoto.js` | sharp — только если файл > `PHOTO_PASSTHROUGH_MAX_BYTES`; иначе **passthrough** (сохранение как есть) |
 
 | Параметр | По умолчанию | Описание |
 |----------|--------------|----------|
-| `PHOTO_MAX_EDGE` | `1280` | Макс. длинная сторона в пикселях |
-| `PHOTO_JPEG_QUALITY` | `82` | Качество JPEG (1–100) |
-| `PHOTO_UPLOAD_MAX_MB` | `12` | Лимит исходника с телефона (до сжатия) |
+| `PHOTO_MAX_EDGE` | `1280` | Макс. длинная сторона (браузер и sharp) |
+| `PHOTO_JPEG_QUALITY` | `82` | Качество JPEG |
+| `PHOTO_UPLOAD_MAX_MB` | `12` | Лимит multer до сжатия |
+| `PHOTO_PASSTHROUGH_MAX_BYTES` | `1800000` | Файлы меньше этого на сервере не обрабатываются sharp |
+| `PHOTO_SKIP_SHARP` | `false` | `true` — всегда passthrough (рекомендуется на VPS < 1 GB RAM) |
 
-Пайплайн: поворот по EXIF → ресайз `fit: inside` → JPEG → типичный размер **150–500 КБ** вместо 3–8 МБ с камеры.
+Типичный размер после сжатия в браузере: **150–500 КБ** вместо 3–8 МБ с камеры.
 
 ### 6.2.2 CV-проверка банкомата на фото
 
-Модуль `server/cv/` использует **CLIP zero-shot** (`Xenova/clip-vit-base-patch32`) для определения банкомата **Сбербанка** (зелёный или серый корпус). Отдельные метки отсекают пол, стены и прочие ложные срабатывания.
+Модуль `server/cv/` использует **CLIP zero-shot** (`Xenova/clip-vit-base-patch32`). Модель **не предзагружается** при старте — загрузка при первой проверке (экономия RAM на VPS).
 
 | Этап | Действие |
 |------|----------|
-| Загрузка фото | `POST /api/photos/:taskId` → сжатие → CV **в фоне** → `cv_detected`, `cv_confidence`, `cv_checked_at` |
-| Завершение заявки | `PATCH /api/tasks/:id` со `status=completed` → повторная синхронная проверка всех ракурсов |
-| CV не прошёл | Статус остаётся `in_progress`, push уборщику, ошибка `cv_rejected` |
+| Настройки | `cv_settings` в БД; UI bizadmin — `/settings`; статус для всех ролей — `GET /api/settings/cv/status` |
+| CV выключена | UI без текстов про CV; завершение заявки — только 3 фото; сервер не запускает CLIP |
+| CV включена | Загрузка фото → CV **в фоне** → `cv_detected`, `cv_confidence` |
+| Завершение (cleaner) | Синхронная проверка всех ракурсов; при отказе — `in_progress`, код `cv_rejected` |
 
-Проверка **обязательна только для роли `cleaner`**. Админ и супервайзер могут завершить заявку без CV.
+Проверка **обязательна только для роли `cleaner`** и **только если CV включена**. Менеджеры завершают заявку без CV.
 
 Переменные окружения задают **начальные** значения CV. Бизнес-администратор может изменить `enabled`, `threshold` и `margin` через UI — они сохраняются в `cv_settings` и применяются без перезапуска (приоритет у БД).
 
@@ -505,7 +525,9 @@ flowchart TB
 | `src/context/AuthContext.jsx` | JWT, текущий пользователь | Обычно не меняется |
 | `src/App.jsx` | Маршруты + `PrivateRoute` | Добавить страницы, роли |
 | `src/pages/Settings.jsx` | Вкл/выкл CV, порог и запас | Только роль `bizadmin` |
-| `src/components/PhotoUpload.jsx` | Слоты фото + бейджи CV | Изменить `PHOTO_TYPES`, стили проверки |
+| `src/hooks/useCvStatus.js` | Статус CV для PhotoUpload и завершения заявки | — |
+| `src/utils/compressImage.js` | Сжатие JPEG в браузере перед upload | `PHOTO_MAX_EDGE` |
+| `src/components/PhotoUpload.jsx` | Слоты фото, бейджи CV (если включена) | Зависит от `useCvStatus` |
 | `src/components/ImportTasksModal.jsx` | UI импорта Excel | Обновить описание столбцов |
 | `src/index.css` | Тема, анимации | Брендинг через CSS-переменные |
 
@@ -549,9 +571,11 @@ npm run start --prefix server   # Express отдаёт API + статику с :
 | Файл | Назначение |
 |------|------------|
 | `deploy/setup-server.sh` | Автонастройка: сборка, pm2, nginx |
+| `deploy/build-client.sh` | Сборка фронта с подсказками по swap |
+| `deploy/ensure-swap.sh` | Создание swap на мало-RAM VPS |
 | `deploy/ecosystem.config.cjs` | Конфиг pm2 для `control-app` |
-| `deploy/nginx-control-app.conf` | Nginx reverse proxy на `127.0.0.1:3001`, `client_max_body_size 12M` |
-| `server/.env.example` | Шаблон переменных окружения |
+| `deploy/nginx-control-app.conf` | Nginx reverse proxy, таймауты загрузки фото |
+| `server/.env.example` | Шаблон переменных (`PHOTO_SKIP_SHARP` и др.) |
 
 ```bash
 sudo bash deploy/setup-server.sh
@@ -685,6 +709,8 @@ flowchart LR
 | `PHOTO_MAX_EDGE` | `1280` | Макс. длинная сторона фото после сжатия (px) |
 | `PHOTO_JPEG_QUALITY` | `82` | Качество JPEG при сохранении |
 | `PHOTO_UPLOAD_MAX_MB` | `12` | Лимит исходника до сжатия (МБ) |
+| `PHOTO_PASSTHROUGH_MAX_BYTES` | `1800000` | Порог passthrough без sharp (~1.8 МБ) |
+| `PHOTO_SKIP_SHARP` | `false` | `true` — не использовать sharp на сервере |
 
 Шаблон для production: `server/.env.example` → скопировать в `server/.env`.
 
@@ -721,5 +747,6 @@ npx web-push generate-vapid-keys
 
 | Версия | Дата | Изменения |
 |--------|------|-----------|
-| v1.1.0 | 2026-06-12 | Роль `bizadmin`, настройки CV в UI (`/settings`, `cv_settings`), сжатие фото (sharp), улучшенная CLIP-проверка Сбербанка |
+| v1.2.0 | 2026-06-13 | Сжатие фото в браузере, `PHOTO_SKIP_SHARP`/passthrough, UI зависит от CV status, ленивая загрузка CLIP, `ensure-swap`/`build-client`, исправления 502 и модала заявок |
+| v1.1.0 | 2026-06-12 | Роль `bizadmin`, настройки CV в UI (`/settings`, `cv_settings`), CLIP-проверка Сбербанка |
 | v1.0.0 | 2026-06-10 | Первый релиз: заявки, банкоматы, Excel, push, Integration API v1 |

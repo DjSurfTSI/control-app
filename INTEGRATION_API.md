@@ -1,6 +1,6 @@
 # Integration API — контракт для внешних систем
 
-Версия: **v1.1.0** (Integration API **v1**)
+Версия: **v1.2.0** (Integration API **v1**)
 Базовый URL (dev): `http://localhost:3001/api/integration/v1`  
 Базовый URL (production): `https://<ваш-домен>/api/integration/v1`
 
@@ -558,7 +558,7 @@ GET /api/integration/logs?limit=50
 | Webhook timeout | 10 секунд |
 | Webhook retry | Не реализован (добавить очередь в production) |
 | CV-проверка | Только веб-UI уборщика; Integration API завершает заявки без CV; вкл/выкл и точность — `bizadmin` в Internal API |
-| Фото на диске | JPEG до 1280px, ~150–500 КБ; исходник до 12 МБ принимается до сжатия |
+| Фото на диске | Сжатие в браузере до 1280px JPEG; на сервере passthrough или sharp; типично 150–500 КБ |
 | Версионирование | URL-prefix `/v1/` |
 
 ---
@@ -567,5 +567,6 @@ GET /api/integration/logs?limit=50
 
 | Версия | Дата | Изменения |
 |--------|------|-----------|
-| v1.1.0 | 2026-06-12 | Роль `bizadmin`, настройки CV (Internal API), сжатие фото; контракт Integration API без изменений |
+| v1.2.0 | 2026-06-13 | Сжатие фото в браузере, оптимизация VPS; контракт Integration API без изменений |
+| v1.1.0 | 2026-06-12 | Роль `bizadmin`, настройки CV (Internal API); контракт Integration API без изменений |
 | v1.0.0 | 2026-06-10 | Первый релиз: tasks, atms, stats, webhooks, admin API |
