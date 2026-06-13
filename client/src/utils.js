@@ -1,4 +1,4 @@
-import { getCachedGeolocation, refreshGeolocationIfGranted } from './geolocation.js';
+import { getCachedGeolocation, refreshGeolocationIfGranted } from './utils/geolocation.js';
 
 export const STATUS_LABELS = {
   new: 'Новая',

@@ -84,8 +84,9 @@ atm-cleaning-control/
 │       │   ├── useOffline.js       # Статус сети и очереди
 │       │   └── useNotifications.js
 │       ├── utils/
-│       │   └── compressImage.js    # Сжатие фото в браузере
-│       └── utils.js                # Константы, роли, проверка фото
+│       │   ├── compressImage.js    # Сжатие фото в браузере
+│       │   └── geolocation.js      # Запрос гео при входе, кэш координат (v2.1.0)
+│       └── utils.js                # Константы, роли, проверка фото, getCloseMetadata
 │
 ├── deploy/
 │   ├── setup-server.sh
@@ -124,6 +125,7 @@ atm-cleaning-control/
 │   └── uploads/                # Фотоотчёты (файловое хранилище)
 │
 ├── package.json
+├── CHANGELOG.md                # История версий (детали релизов)
 ├── ARCHITECTURE.md             # Этот документ
 └── INTEGRATION_API.md          # Контракт для внешних систем
 ```
@@ -163,16 +165,23 @@ erDiagram
         string email UK
         string password_hash
         string full_name
-        string role "bizadmin | admin | supervisor | cleaner"
+        string role "bizadmin | admin | supervisor | executor | cleaner"
         string phone
         int active
-        datetime created_at
+        real rating
+        string territorial_bank
+        string position
+        string employee_number
     }
 
     atms {
         int id PK
         string serial_number UK
         string bank_name
+        string territorial_bank
+        string gosb
+        string accessibility_type
+        string installation_name
         string address
         string zone
         string notes
@@ -185,8 +194,17 @@ erDiagram
         int atm_id FK
         int assigned_to FK
         date scheduled_date
+        date deadline_date
+        string service_contract
         string status
         string priority
+        string report
+        datetime started_at
+        datetime completed_at
+        string closed_device
+        string closed_os
+        real closed_latitude
+        real closed_longitude
         string external_id UK
         string source_system
         datetime created_at
@@ -250,7 +268,7 @@ erDiagram
 |-----------------|----------------------|
 | `atms` | Объекты: офисы, магазины, оборудование |
 | `cleaning_tasks` | Заявки, наряды, тикеты |
-| `users` (cleaner) | Исполнители, техники, курьеры |
+| `users` (executor / cleaner) | Исполнители, техники, курьеры |
 | `task_photos` | Доказательства выполнения |
 | `push_subscriptions` | Подписки на события |
 | `api_clients` | Внешние системы с API-ключами |
@@ -340,8 +358,8 @@ flowchart LR
     Handler --> DB[(SQLite)]
 ```
 
-| Маршрут | bizadmin | admin | supervisor | cleaner | Описание |
-|---------|:--------:|:-----:|:----------:|:-------:|----------|
+| Маршрут | bizadmin | admin | supervisor | executor | Описание |
+|---------|:--------:|:-----:|:----------:|:--------:|----------|
 | `POST /api/auth/login` | ✓ | ✓ | ✓ | ✓ | Вход |
 | `GET /api/auth/me` | ✓ | ✓ | ✓ | ✓ | Текущий пользователь |
 | `GET /api/tasks` | все | все | все | только свои | Список заявок |
@@ -419,45 +437,79 @@ stateDiagram-v2
 
 ### 6.2.2 CV-проверка банкомата на фото
 
-Модуль `server/cv/` использует **CLIP zero-shot** (`Xenova/clip-vit-base-patch32`). Модель **не предзагружается** при старте — загрузка при первой проверке (экономия RAM на VPS).
+Модуль `server/cv/` использует **CLIP zero-shot** (`Xenova/clip-vit-base-patch32`).
 
 | Этап | Действие |
 |------|----------|
-| Настройки | `cv_settings` в БД; UI bizadmin — `/settings`; статус для всех ролей — `GET /api/settings/cv/status` |
-| CV выключена | UI без текстов про CV; завершение заявки — только 3 фото; сервер не запускает CLIP |
-| CV включена | Загрузка фото → CV **в фоне** → `cv_detected`, `cv_confidence` |
-| Завершение (cleaner) | Синхронная проверка всех ракурсов; при отказе — `in_progress`, код `cv_rejected` |
+| Старт сервера | `warmupCvModel()` — предзагрузка модели (v2.1.0) |
+| Настройки | `cv_settings` в БД; UI bizadmin — `/settings`; статус — `GET /api/settings/cv/status` |
+| CV выключена | UI без текстов про CV; завершение — только 3 фото; сервер не запускает CLIP |
+| CV включена | Загрузка фото → CV **синхронно в очереди** `runInCvQueue` → ответ с `cv_detected` |
+| Завершение (executor) | Повторная проверка всех ракурсов; при отказе — `in_progress`, код `cv_rejected` |
 
-Проверка **обязательна только для роли `cleaner`** и **только если CV включена**. Менеджеры завершают заявку без CV.
+Проверка **обязательна для роли `executor`/`cleaner`** и **только если CV включена**.
 
-Переменные окружения задают **начальные** значения CV. Бизнес-администратор может изменить `enabled`, `threshold` и `margin` через UI — они сохраняются в `cv_settings` и применяются без перезапуска (приоритет у БД).
+**Таймауты клиента (v2.1.0):** `uploadPhoto` и `PATCH` с `status=completed` — **120 с** (`REQUEST_TIMEOUT_MS` = 20 с для остальных запросов).
 
 ```mermaid
 sequenceDiagram
-    participant C as Уборщик
+    participant C as Исполнитель
     participant API as /api/photos
-    participant IMG as optimizePhoto.js
+    participant Q as runInCvQueue
     participant CV as atmDetector.js
-    participant FS as uploads/
     participant DB as SQLite
 
     C->>API: POST фото + photo_type
-    API->>IMG: resize + JPEG
-    IMG->>FS: Сохранить ~1280px
-    API-->>C: 201 OK (cv_pending)
-    API->>CV: detectAtmInPhoto() в фоне
+    API->>Q: validatePhoto (синхронно в очереди)
+    Q->>CV: detectAtmInPhoto()
     CV->>DB: cv_detected, cv_confidence
+    API-->>C: 201 + cv_detected
 
-    C->>API: PATCH /tasks/:id status=completed
-    API->>CV: validateTaskPhotos() — все ракурсы
+    C->>API: PATCH status=completed + closed_*
+    API->>CV: validateTaskPhotos()
     alt Банкомат на всех фото
-        API->>DB: status=completed
+        API->>DB: status=completed, closed_device, geo
         API-->>C: 200 OK
     else Банкомат не обнаружен
         API->>DB: status=in_progress
         API-->>C: 400 cv_rejected
     end
 ```
+
+### 6.2.3 Данные при закрытии заявки (v2.0.0+)
+
+При `PATCH /api/tasks/:id` с `status=completed` в БД сохраняются:
+
+| Поле | Источник | Описание |
+|------|----------|----------|
+| `closed_device` | Клиент / User-Agent | Тип устройства и браузер |
+| `closed_os` | Клиент | Платформа (Android, Windows, …) |
+| `closed_latitude` | Геолокация | Широта |
+| `closed_longitude` | Геолокация | Долгота |
+
+Клиент: `getCloseMetadata()` в `utils.js` + кэш `utils/geolocation.js`.
+
+**Геолокация (v2.1.0):**
+
+1. При клике **«Войти»** — `requestGeolocationAccess()` (диалог браузера в цепочке user gesture).
+2. Кэш в `localStorage` (`geo_position_cache`).
+3. При завершении заявки — `refreshGeolocationIfGranted()` без повторного диалога.
+4. Отображение в UI — блок **«Данные при закрытии»** в `TaskModal`.
+
+> Требуется **HTTPS** (или localhost). На HTTP `navigator.geolocation` недоступен.
+
+### 6.2.4 Завершение заявки в UI (v2.1.0)
+
+| Точка входа | Компонент | Условие показа «Завершить» |
+|-------------|-----------|------------------------------|
+| Список (desktop) | `Tasks.jsx` таблица | `canExecutorCompleteTask(task, userId)` |
+| Список (mobile) | `TaskCard.jsx` | то же |
+| Модалка | `CompleteModal` | Исполнитель, назначенная заявка |
+| Модалка «Открыть» | `TaskModal` | `canComplete` + фото и CV готовы |
+
+Статусы, при которых исполнитель может завершить: `in_progress`, `overdue`, `returned`, `emergency` (`EXECUTOR_COMPLETABLE_STATUSES` в `utils.js`).
+
+Просрочка: при загрузке списка `markOverdue()` переводит заявки с прошедшим контрольным сроком в `overdue` — кнопка «Завершить» остаётся доступной (v2.1.0).
 
 ### 6.3 Импорт заявок из Excel
 
@@ -529,8 +581,9 @@ flowchart TB
 | Файл | Назначение | При адаптации |
 |------|------------|---------------|
 | `src/api.js` | Все HTTP-запросы | Добавить/изменить endpoints |
-| `src/utils.js` | Статусы, роли, типы фото | Вынести в `domain.config.js` |
-| `src/context/AuthContext.jsx` | JWT, текущий пользователь | Обычно не меняется |
+| `src/utils.js` | Статусы, роли, типы фото, `canExecutorCompleteTask`, `getCloseMetadata` | Вынести в `domain.config.js` |
+| `src/utils/geolocation.js` | Запрос гео при входе, кэш, обновление при закрытии | v2.1.0 |
+| `src/context/AuthContext.jsx` | JWT, текущий пользователь, refresh geo при `api.me()` | Обычно не меняется |
 | `src/App.jsx` | Маршруты + `PrivateRoute` | Добавить страницы, роли |
 | `src/pages/Settings.jsx` | Вкл/выкл CV, порог и запас | Только роль `bizadmin` |
 | `src/hooks/useCvStatus.js` | Статус CV для PhotoUpload и завершения заявки | — |
@@ -543,6 +596,7 @@ flowchart TB
 
 - Пункт «Заявки» в нижней навигации на экранах < 768px (`Layout.jsx`)
 - Карточки заявок вместо таблицы (`TaskCard.jsx`)
+- **Сворачиваемые фильтры** (v2.1.0): на экранах &lt; 768px блок фильтров в `Tasks.jsx` по умолчанию скрыт; кнопка «Фильтры» с бейджем активных фильтров
 - `manifest.json` — установка на домашний экран (`display: standalone`)
 - `public/sw.js` — кэш app shell и статики, push-события
 - **iOS safe area** (v1.3.3): `viewport-fit=cover` + `env(safe-area-inset-*)` в `index.css` и нижней навигации — контент не перекрывает статус-бар
@@ -784,6 +838,7 @@ npx web-push generate-vapid-keys
 
 | Файл | Содержание |
 |------|------------|
+| [CHANGELOG.md](./CHANGELOG.md) | История версий, коммиты, инструкции проверки после деплоя |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Архитектура, модель данных, процессы |
 | [INTEGRATION_API.md](./INTEGRATION_API.md) | Контракт API, webhooks, примеры кода |
 
@@ -795,6 +850,8 @@ npx web-push generate-vapid-keys
 
 | Версия | Дата | Изменения |
 |--------|------|-----------|
+| v2.1.0 | 2026-06-13 | Геолокация при входе; сворачиваемые фильтры; завершение из TaskModal и для overdue; фиксы CV/502; блок «Данные при закрытии» — см. [CHANGELOG.md](./CHANGELOG.md) |
+| v2.0.0 | 2026-06-06 | Устройства СО, сотрудники, статусы v2, исполнитель, рейтинг, watermark, геополя при закрытии |
 | v1.4.0 | 2026-06-06 | Удаление заявок bizadmin: `DELETE /api/tasks/:id/permanent`, webhook `task.deleted` |
 | v1.3.9 | 2026-06-06 | `photo_blobs` в IndexedDB, `getMergedPhotosForTask`, исправление гонки UI при очереди |
 | v1.3.8 | 2026-06-06 | Визуальное обновление UI (v1.3.8): единая тема в `index.css`, mobile nav, карточки |
