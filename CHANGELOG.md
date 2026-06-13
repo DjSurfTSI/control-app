@@ -4,7 +4,30 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/).
 
-**Актуальная версия:** v2.4.1
+**Актуальная версия:** v2.4.2
+
+---
+
+## [v2.4.2] — 2026-06-06
+
+### Исправлено
+
+- **Push-уведомления** — убрана неверная проверка `PushManager in window`; поддержка определяется через `registration.pushManager` после регистрации Service Worker (Safari, iOS PWA).
+- Понятные сообщения об ошибках: нужен **HTTPS**, на iPhone/iPad — запуск с главного экрана (не из вкладки браузера).
+
+### Изменено
+
+- `manifest.json` — поля `id` и `scope` для iOS PWA.
+- Сервер отдаёт `sw.js` с `Cache-Control: no-cache`.
+- В `deploy/nginx-control-app.conf` — комментарий про SSL для push.
+
+### Технические детали
+
+| Элемент | Файл | Описание |
+|---------|------|----------|
+| `assertPushSupported` | `client/src/utils/pushSupport.js` | HTTPS, iOS standalone, `reg.pushManager` |
+| `useNotifications` | `client/src/hooks/` | Подписка через новую проверку |
+| `/sw.js` | `server/index.js` | Явная раздача без кэша |
 
 ---
 

@@ -544,6 +544,18 @@ sequenceDiagram
 
 ### 6.4 Push-уведомления
 
+**Требования браузера (v2.4.2):**
+
+| Условие | Детали |
+|---------|--------|
+| HTTPS | Secure context обязателен (кроме localhost) |
+| Service Worker | `sw.js`, проверка через `registration.pushManager` |
+| iOS/iPadOS | 16.4+, только PWA с главного экрана (`display-mode: standalone`) |
+| macOS Safari | 16+ в обычной вкладке |
+| VAPID | `VAPID_PUBLIC` / `VAPID_PRIVATE` в `.env` |
+
+Клиент: `pushSupport.js` → `assertPushSupported()`; подписка в `useNotifications.js`. Ошибки показываются в баннере `Layout.jsx`.
+
 | Событие | Кому | Триггер |
 |---------|------|---------|
 | Новая заявка | Уборщик | Создание / назначение |
@@ -585,6 +597,7 @@ client/src/
 ├── utils.js              # Константы, роли, getCloseMetadata, canExecutorCompleteTask
 ├── utils/
 │   ├── geolocation.js    # Геолокация: запрос при входе, кэш координат
+│   ├── pushSupport.js    # Проверка HTTPS, iOS PWA, registration.pushManager
 │   └── compressImage.js  # Сжатие JPEG перед upload
 ├── pages/
 ├── components/
@@ -863,6 +876,7 @@ pm2 logs control-app
 | **`Could not resolve "./geolocation.js"`** | Неверный импорт в `src/utils.js` | `./utils/geolocation.js` (v2.1.1+) |
 | Старый UI после `git pull` | Не пересобран `client/dist` | `bash deploy/build-client.sh` |
 | Геолокация не запрашивается | HTTP вместо HTTPS | Только HTTPS или localhost |
+| Push «не поддерживается» | HTTP или iOS из вкладки Safari | HTTPS + на iPhone — PWA с главного экрана (v2.4.2) |
 | `EADDRINUSE :3001` | Два процесса на порту | `pm2 delete control-app` → `pm2 start deploy/ecosystem.config.cjs` |
 
 **Проверка сборки локально:**

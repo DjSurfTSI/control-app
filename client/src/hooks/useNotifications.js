@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
+import { assertPushSupported } from '../utils/pushSupport';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -35,17 +36,12 @@ export function useNotifications(enabled) {
   const enablePush = async () => {
     setPushLoading(true);
     try {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        throw new Error('Push-уведомления не поддерживаются браузером');
-      }
+      const reg = await assertPushSupported();
 
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
         throw new Error('Разрешение на уведомления не получено');
       }
-
-      const reg = await navigator.serviceWorker.register('/sw.js');
-      await navigator.serviceWorker.ready;
 
       const { publicKey } = await api.getVapidKey();
       const sub = await reg.pushManager.subscribe({
@@ -61,15 +57,15 @@ export function useNotifications(enabled) {
 
       setPushEnabled(true);
       return true;
-    } catch (err) {
-      throw err;
     } finally {
       setPushLoading(false);
     }
   };
 
   const disablePush = async () => {
+    if (!('serviceWorker' in navigator)) return;
     const reg = await navigator.serviceWorker.ready;
+    if (!reg.pushManager) return;
     const sub = await reg.pushManager.getSubscription();
     if (sub) {
       await api.unsubscribePush({ endpoint: sub.endpoint });
@@ -81,8 +77,9 @@ export function useNotifications(enabled) {
   useEffect(() => {
     if (!enabled || !('serviceWorker' in navigator)) return;
     navigator.serviceWorker.ready.then((reg) => {
+      if (!reg.pushManager) return;
       reg.pushManager.getSubscription().then((sub) => setPushEnabled(!!sub));
-    });
+    }).catch(() => {});
   }, [enabled]);
 
   return { alerts, pushEnabled, pushLoading, enablePush, disablePush, fetchAlerts };

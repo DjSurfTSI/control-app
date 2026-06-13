@@ -41,7 +41,22 @@ app.use((err, req, res, next) => {
 });
 
 const clientDist = path.join(__dirname, '../client/dist');
-app.use(express.static(clientDist));
+
+app.get('/sw.js', (_req, res) => {
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.sendFile(path.join(clientDist, 'sw.js'), (err) => {
+    if (err) res.status(404).send('Service Worker не найден. Соберите клиент.');
+  });
+});
+
+app.use(express.static(clientDist, {
+  setHeaders(res, filePath) {
+    if (path.basename(filePath) === 'sw.js') {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  },
+}));
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api')) {
     return res.status(404).json({ error: 'Не найдено' });
