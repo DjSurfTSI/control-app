@@ -29,10 +29,10 @@ function findAtmByRef({ atm_id, serial_number, external_id }) {
 
 function findCleanerByRef({ assignee_id, assignee_email }) {
   if (assignee_id) {
-    return db.prepare("SELECT id FROM users WHERE id = ? AND role = 'cleaner' AND active = 1").get(assignee_id);
+    return db.prepare("SELECT id FROM users WHERE id = ? AND role = 'executor' AND active = 1").get(assignee_id);
   }
   if (assignee_email) {
-    return db.prepare("SELECT id FROM users WHERE email = ? AND role = 'cleaner' AND active = 1").get(assignee_email);
+    return db.prepare("SELECT id FROM users WHERE email = ? AND role = 'executor' AND active = 1").get(assignee_email);
   }
   return null;
 }
@@ -310,11 +310,11 @@ v1.get('/stats', requireScope('tasks:read'), (_req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const stats = db.prepare(`
     SELECT
-      SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+      SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END) as pending,
       SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
       SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
       SUM(CASE WHEN status = 'overdue' THEN 1 ELSE 0 END) as overdue,
-      SUM(CASE WHEN status = 'pending' AND scheduled_date = ? THEN 1 ELSE 0 END) as today_pending
+      SUM(CASE WHEN status = 'new' AND scheduled_date = ? THEN 1 ELSE 0 END) as today_pending
     FROM cleaning_tasks WHERE status != 'cancelled'
   `).get(today);
   res.json({ data: stats, meta: { date: today } });

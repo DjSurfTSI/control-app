@@ -63,7 +63,7 @@ export default function Dashboard() {
       {manager && stats && (
         <>
           <div className="stats-grid">
-            <StatCard label="Ожидают сегодня" value={stats.today_pending} color="#94a3b8" link="/tasks?status=pending" delay={0} />
+            <StatCard label="Новые сегодня" value={stats.today_pending} color="#94a3b8" link="/tasks?status=new" delay={0} />
             <StatCard label="В работе" value={stats.in_progress} color="#60a5fa" link="/tasks?status=in_progress" delay={0.08} />
             <StatCard label="Выполнено сегодня" value={stats.today_completed} color="#4ade80" link="/tasks?status=completed" delay={0.16} />
             <StatCard label="Просрочено" value={stats.overdue} color="#fca5a5" link="/tasks?status=overdue" delay={0.24} />

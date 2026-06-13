@@ -5,7 +5,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import db, { REQUIRED_PHOTO_TYPES } from '../db.js';
 import { authMiddleware } from '../middleware.js';
-import { isManager, isCleaner } from '../roles.js';
+import { isManager, isExecutor } from '../roles.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { validatePhoto } from '../cv/validatePhotos.js';
 import { isCvEnabled } from '../cv/atmDetector.js';
@@ -44,7 +44,7 @@ router.use(authMiddleware);
 
 function canAccessTask(task, user) {
   if (isManager(user)) return true;
-  if (isCleaner(user)) return task.assigned_to === user.id;
+  if (isExecutor(user)) return task.assigned_to === user.id || (task.status === 'new' && !task.assigned_to);
   return false;
 }
 
@@ -110,7 +110,9 @@ router.post('/:taskId', (req, res, next) => {
 
   let optimized;
   try {
-    optimized = await optimizePhoto(req.file.path);
+    optimized = await optimizePhoto(req.file.path, {
+      watermark: `Заявка #${task.id} · ${new Date().toLocaleString('ru-RU')}`,
+    });
   } catch (err) {
     if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     console.error(`Photo upload optimize failed (task ${req.params.taskId}):`, err.message);

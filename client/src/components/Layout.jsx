@@ -36,8 +36,8 @@ export default function Layout() {
   const navItems = [
     { to: '/', label: 'Дашборд', icon: '📊', end: true },
     { to: '/tasks', label: 'Заявки', icon: '📋' },
-    ...(manager ? [{ to: '/atms', label: 'Банкоматы', icon: '🏧' }] : []),
-    ...(manager ? [{ to: '/users', label: admin ? 'Люди' : 'Уборщики', icon: '👥' }] : []),
+    ...(manager ? [{ to: '/atms', label: 'Устройства', icon: '🏧' }] : []),
+    ...(manager ? [{ to: '/users', label: 'Сотрудники', icon: '👥' }] : []),
     ...(isBizAdmin(user) ? [{ to: '/settings', label: 'Настройки', icon: '⚙️' }] : []),
   ];
 
@@ -48,7 +48,7 @@ export default function Layout() {
           <span className="logo-wrap">🏧</span>
           <div>
             <h1>Контроль уборки</h1>
-            <p>Банкоматы</p>
+            <p>Устройства самообслуживания</p>
           </div>
         </div>
         <nav className="nav">

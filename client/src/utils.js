@@ -1,9 +1,13 @@
 export const STATUS_LABELS = {
-  pending: 'Ожидает',
+  new: 'Новая',
   in_progress: 'В работе',
   completed: 'Выполнено',
   overdue: 'Просрочено',
+  returned: 'Возврат',
   cancelled: 'Отменено',
+  no_access: 'Нет доступа',
+  emergency: 'Экстренная заявка',
+  pending: 'Новая',
 };
 
 export const PRIORITY_LABELS = {
@@ -16,7 +20,8 @@ export const ROLE_LABELS = {
   bizadmin: 'Бизнес-администратор',
   admin: 'Администратор',
   supervisor: 'Супервайзер',
-  cleaner: 'Уборщик',
+  executor: 'Исполнитель',
+  cleaner: 'Исполнитель',
 };
 
 export function isBizAdmin(user) {
@@ -31,10 +36,16 @@ export function isAdmin(user) {
   return isBizAdmin(user) || user?.role === 'admin';
 }
 
+export function isExecutor(user) {
+  return user?.role === 'executor' || user?.role === 'cleaner';
+}
+
 export function hasRouteAccess(user, roles) {
   if (!roles) return true;
   if (isBizAdmin(user)) return true;
-  return roles.includes(user?.role);
+  const normalized = roles.map((r) => (r === 'cleaner' ? 'executor' : r));
+  const userRole = user?.role === 'cleaner' ? 'executor' : user?.role;
+  return normalized.includes(userRole);
 }
 
 export const PHOTO_TYPES = ['left', 'right', 'front'];
@@ -82,5 +93,27 @@ export function formatDateTime(dateStr) {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+  });
+}
+
+export async function getCloseMetadata() {
+  const closed_os = navigator.userAgentData?.platform || navigator.platform || 'Unknown';
+  const closed_device = navigator.userAgent?.slice(0, 160) || 'Web';
+
+  if (!navigator.geolocation) {
+    return { closed_device, closed_os, closed_latitude: null, closed_longitude: null };
+  }
+
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({
+        closed_device,
+        closed_os,
+        closed_latitude: pos.coords.latitude,
+        closed_longitude: pos.coords.longitude,
+      }),
+      () => resolve({ closed_device, closed_os, closed_latitude: null, closed_longitude: null }),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
+    );
   });
 }

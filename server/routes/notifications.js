@@ -38,10 +38,10 @@ router.get('/pending', authMiddleware, (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const alerts = [];
 
-  if (req.user.role === 'cleaner') {
+  if (req.user.role === 'executor' || req.user.role === 'cleaner') {
     const pending = db.prepare(`
       SELECT COUNT(*) as c FROM cleaning_tasks
-      WHERE assigned_to = ? AND scheduled_date = ? AND status = 'pending'
+      WHERE (assigned_to = ? OR assigned_to IS NULL) AND scheduled_date = ? AND status = 'new'
     `).get(req.user.id, today).c;
 
     if (pending > 0) {

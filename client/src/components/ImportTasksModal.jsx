@@ -38,8 +38,8 @@ export default function ImportTasksModal({ onClose, onDone }) {
       <div className="modal animate-slide-up" onClick={(e) => e.stopPropagation()}>
         <h2>Импорт заявок из Excel</h2>
         <p className="import-desc">
-          Загрузите файл .xlsx со столбцами: <strong>Банкомат</strong>, <strong>Дата</strong>,
-          Email уборщика, Приоритет, Примечание.
+          Загрузите файл .xlsx со столбцами: <strong>ID УС</strong>, <strong>Плановая дата</strong>,
+          Контрольный срок, Email исполнителя, Услуга по договору, Примечание.
         </p>
 
         {error && <div className="error-msg">{error}</div>}

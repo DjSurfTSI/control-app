@@ -6,7 +6,7 @@ const DEMO_ACCOUNTS = [
   { email: 'bizadmin@bank.ru', role: 'Бизнес-администратор' },
   { email: 'admin@bank.ru', role: 'Администратор' },
   { email: 'supervisor@bank.ru', role: 'Супервайзер' },
-  { email: 'cleaner1@bank.ru', role: 'Уборщик' },
+  { email: 'cleaner1@bank.ru', role: 'Исполнитель' },
 ];
 
 export default function Login() {

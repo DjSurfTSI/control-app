@@ -2,15 +2,19 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { ROLE_LABELS, isAdmin, isBizAdmin } from '../utils';
+import ExcelImportModal from '../components/ExcelImportModal';
 
-function UserModal({ user, onClose, onSave, canEditRoles, assignableRoles }) {
+function EmployeeModal({ user, onClose, onSave, canEditRoles, assignableRoles }) {
   const isNew = !user?.id;
   const [form, setForm] = useState({
     email: user?.email || '',
     password: '',
     full_name: user?.full_name || '',
-    role: user?.role || 'cleaner',
+    role: user?.role === 'cleaner' ? 'executor' : (user?.role || 'executor'),
     phone: user?.phone || '',
+    territorial_bank: user?.territorial_bank || '',
+    position: user?.position || '',
+    employee_number: user?.employee_number || '',
     active: user?.active ?? 1,
   });
   const [error, setError] = useState('');
@@ -19,8 +23,9 @@ function UserModal({ user, onClose, onSave, canEditRoles, assignableRoles }) {
 
   const handleSave = async () => {
     setError('');
-    if (isNew && !form.password) {
-      setError('Укажите пароль');
+    if (isNew && !form.password) { setError('Укажите пароль'); return; }
+    if (!form.phone || !form.territorial_bank || !form.position || !form.employee_number) {
+      setError('Заполните все обязательные поля');
       return;
     }
     setSaving(true);
@@ -38,30 +43,48 @@ function UserModal({ user, onClose, onSave, canEditRoles, assignableRoles }) {
 
   return (
     <div className="modal-overlay animate-fade-in" onClick={onClose}>
-      <div className="modal animate-slide-up" onClick={(e) => e.stopPropagation()}>
-        <h2>{isNew ? 'Новый пользователь' : 'Редактировать пользователя'}</h2>
+      <div className="modal modal-wide animate-slide-up" onClick={(e) => e.stopPropagation()}>
+        <h2>{isNew ? 'Новый сотрудник' : 'Редактировать сотрудника'}</h2>
         {error && <div className="error-msg">{error}</div>}
         <div className="form-group">
           <label>ФИО *</label>
           <input value={form.full_name} onChange={(e) => set('full_name', e.target.value)} />
         </div>
-        <div className="form-group">
-          <label>Email *</label>
-          <input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} disabled={!isNew} />
-        </div>
-        {canEditRoles && (
+        <div className="form-row">
           <div className="form-group">
-            <label>Роль</label>
-            <select value={form.role} onChange={(e) => set('role', e.target.value)}>
-              {roleOptions.map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
-              ))}
-            </select>
+            <label>Email *</label>
+            <input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} disabled={!isNew} />
           </div>
-        )}
-        <div className="form-group">
-          <label>Телефон</label>
-          <input value={form.phone} onChange={(e) => set('phone', e.target.value)} />
+          <div className="form-group">
+            <label>Телефон *</label>
+            <input value={form.phone} onChange={(e) => set('phone', e.target.value)} />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Территориальный Банк *</label>
+            <input value={form.territorial_bank} onChange={(e) => set('territorial_bank', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label>Должность *</label>
+            <input value={form.position} onChange={(e) => set('position', e.target.value)} />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Табельный номер *</label>
+            <input value={form.employee_number} onChange={(e) => set('employee_number', e.target.value)} />
+          </div>
+          {canEditRoles && (
+            <div className="form-group">
+              <label>Роль *</label>
+              <select value={form.role} onChange={(e) => set('role', e.target.value)}>
+                {roleOptions.map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <div className="form-group">
           <label>{isNew ? 'Пароль *' : 'Новый пароль (оставьте пустым, чтобы не менять)'}</label>
@@ -70,14 +93,10 @@ function UserModal({ user, onClose, onSave, canEditRoles, assignableRoles }) {
         {!isNew && (
           <div className="form-group">
             <label>
-              <input
-                type="checkbox"
-                checked={!!form.active}
-                onChange={(e) => set('active', e.target.checked ? 1 : 0)}
-                style={{ width: 'auto', marginRight: '0.5rem' }}
-              />
+              <input type="checkbox" checked={!!form.active} onChange={(e) => set('active', e.target.checked ? 1 : 0)} style={{ width: 'auto', marginRight: '0.5rem' }} />
               Активен
             </label>
+            {user?.rating != null && <p className="modal-sub">Рейтинг: <strong>{Math.round(user.rating)}</strong></p>}
           </div>
         )}
         <div className="modal-actions">
@@ -97,34 +116,35 @@ export default function Users() {
   const bizadmin = isBizAdmin(user);
   const canEditRoles = admin;
   const assignableRoles = bizadmin
-    ? ['bizadmin', 'admin', 'supervisor', 'cleaner']
+    ? ['bizadmin', 'admin', 'supervisor', 'executor']
     : admin
-      ? ['admin', 'supervisor', 'cleaner']
-      : ['cleaner'];
+      ? ['admin', 'supervisor', 'executor']
+      : ['executor'];
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
+  const [importModal, setImportModal] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    try {
-      setUsers(await api.getUsers(admin ? undefined : 'cleaner'));
-    } finally {
-      setLoading(false);
-    }
+    try { setUsers(await api.getUsers(admin ? undefined : 'executor')); } finally { setLoading(false); }
   };
 
   useEffect(() => { load(); }, []);
 
   const handleSave = async (action, form) => {
     if (action === 'create') {
-      await api.createUser({
-        ...form,
-        role: canEditRoles ? form.role : 'cleaner',
-      });
+      await api.createUser({ ...form, role: canEditRoles ? form.role : 'executor' });
     } else {
-      const data = { full_name: form.full_name, phone: form.phone, active: form.active };
+      const data = {
+        full_name: form.full_name,
+        phone: form.phone,
+        territorial_bank: form.territorial_bank,
+        position: form.position,
+        employee_number: form.employee_number,
+        active: form.active,
+      };
       if (canEditRoles) data.role = form.role;
       if (form.password) data.password = form.password;
       await api.updateUser(modal.id, data);
@@ -132,10 +152,10 @@ export default function Users() {
     load();
   };
 
-  const canManage = (u) => admin || u.role === 'cleaner';
+  const canManage = (u) => admin || u.role === 'executor' || u.role === 'cleaner';
 
   const handleDelete = async (u) => {
-    if (!confirm(`Удалить учётную запись «${u.full_name}»?`)) return;
+    if (!confirm(`Удалить сотрудника «${u.full_name}»?`)) return;
     try {
       const res = await api.deleteUser(u.id);
       if (res.message) alert(res.message);
@@ -145,24 +165,24 @@ export default function Users() {
     }
   };
 
-  const title = admin ? 'Пользователи' : 'Уборщики';
-  const subtitle = admin ? 'Управление всеми сотрудниками' : 'Создание и управление уборщиками';
-
   return (
     <div className="page-enter">
       <div className="page-header">
         <div>
-          <h2 className="page-title">{title}</h2>
-          <p className="page-subtitle">{subtitle}</p>
+          <h2 className="page-title">Сотрудники</h2>
+          <p className="page-subtitle">Управление персоналом и исполнителями</p>
         </div>
-        <button className="btn-primary animate-pulse-once" onClick={() => setModal({})}>+ Добавить</button>
+        <div className="header-actions">
+          <button className="btn-secondary" onClick={() => setImportModal(true)}>📥 Импорт</button>
+          <button className="btn-primary" onClick={() => setModal({})}>+ Добавить</button>
+        </div>
       </div>
 
       <div className="card animate-slide-up">
         {loading ? (
           <p className="empty-state">Загрузка...</p>
         ) : users.length === 0 ? (
-          <p className="empty-state">Нет учётных записей</p>
+          <p className="empty-state">Нет сотрудников</p>
         ) : (
           <div className="table-wrap">
             <table>
@@ -172,17 +192,21 @@ export default function Users() {
                   <th>Email</th>
                   {admin && <th>Роль</th>}
                   <th>Телефон</th>
+                  <th>Таб. №</th>
+                  <th>Рейтинг</th>
                   <th>Статус</th>
                   <th>Действия</th>
                 </tr>
               </thead>
               <tbody>
-                {users.map((u, i) => (
-                  <tr key={u.id} className="animate-fade-in" style={{ animationDelay: `${i * 0.05}s` }}>
-                    <td><strong>{u.full_name}</strong></td>
+                {users.map((u) => (
+                  <tr key={u.id}>
+                    <td><strong>{u.full_name}</strong><br /><small>{u.position || '—'}</small></td>
                     <td>{u.email}</td>
-                    {admin && <td>{ROLE_LABELS[u.role]}</td>}
+                    {admin && <td>{ROLE_LABELS[u.role] || u.role}</td>}
                     <td>{u.phone || '—'}</td>
+                    <td>{u.employee_number || '—'}</td>
+                    <td>{u.rating != null ? Math.round(u.rating) : '—'}</td>
                     <td>
                       <span className={`badge ${u.active ? 'badge-completed' : 'badge-cancelled'}`}>
                         {u.active ? 'Активен' : 'Неактивен'}
@@ -205,7 +229,7 @@ export default function Users() {
       </div>
 
       {modal && (
-        <UserModal
+        <EmployeeModal
           user={modal.id ? modal : null}
           canEditRoles={canEditRoles}
           assignableRoles={assignableRoles}
@@ -213,13 +237,16 @@ export default function Users() {
           onSave={handleSave}
         />
       )}
-
-      <style>{`
-        .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; }
-        .page-title { font-size: 1.75rem; margin-bottom: 0.25rem; }
-        .page-subtitle { color: var(--text-muted); }
-        .actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-      `}</style>
+      {importModal && (
+        <ExcelImportModal
+          title="Импорт сотрудников из Excel"
+          description="Столбцы: ФИО, Email, Телефон, Территориальный Банк, Должность, Табельный номер, Роль, Пароль. Все поля обязательны."
+          onClose={() => setImportModal(false)}
+          onDone={load}
+          onImport={api.importUsers}
+          onDownloadTemplate={api.downloadUsersTemplate}
+        />
+      )}
     </div>
   );
 }

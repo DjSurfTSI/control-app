@@ -32,11 +32,20 @@ export async function sendPushToUser(userId, payload) {
   }
 }
 
+export function notifyTaskCancelled(task, assigneeId) {
+  if (!assigneeId) return;
+  sendPushToUser(assigneeId, {
+    title: 'Заявка отменена',
+    body: `Заявка №${task.id} (${task.serial_number || ''}) отменена`,
+    url: '/tasks?status=cancelled',
+  });
+}
+
 export function notifyTaskAssigned(task, assigneeId) {
   if (!assigneeId) return;
   sendPushToUser(assigneeId, {
     title: 'Новая заявка',
-    body: `Уборка ${task.serial_number} — ${task.address}`,
+    body: `Заявка №${task.id} — ${task.installation_name || task.serial_number} — ${task.address}`,
     url: '/tasks',
   });
 }
@@ -44,8 +53,8 @@ export function notifyTaskAssigned(task, assigneeId) {
 export function notifyTaskCompleted(task, supervisorIds) {
   for (const uid of supervisorIds) {
     sendPushToUser(uid, {
-      title: 'Уборка выполнена',
-      body: `${task.serial_number} — ${task.assignee_name || 'Уборщик'}`,
+      title: 'Заявка выполнена',
+      body: `№${task.id} — ${task.assignee_name || 'Исполнитель'}`,
       url: '/tasks?status=completed',
     });
   }

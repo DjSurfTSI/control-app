@@ -134,14 +134,32 @@ export const api = {
     }
   },
 
-  getUsers: (role) => request(`/users${role ? `?role=${role}` : ''}`),
+  getUsers: (role) => request(`/users${role ? `?role=${role === 'cleaner' ? 'executor' : role}` : ''}`),
   createUser: (data) => request('/users', { method: 'POST', body: JSON.stringify(data) }),
   updateUser: (id, data) => request(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
+  downloadUsersTemplate: async () => {
+    const blob = await request('/users/import-template');
+    downloadBlob(blob, 'shablon-sotrudniki.xlsx');
+  },
+  importUsers: (file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return request('/users/import', { method: 'POST', body: fd });
+  },
 
   getAtms: () => request('/atms'),
   createAtm: (data) => request('/atms', { method: 'POST', body: JSON.stringify(data) }),
   updateAtm: (id, data) => request(`/atms/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  downloadAtmsTemplate: async () => {
+    const blob = await request('/atms/import-template');
+    downloadBlob(blob, 'shablon-us.xlsx');
+  },
+  importAtms: (file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return request('/atms/import', { method: 'POST', body: fd });
+  },
 
   getTasks: async (params = {}) => {
     const q = new URLSearchParams(params).toString();
@@ -187,6 +205,8 @@ export const api = {
       throw err;
     }
   },
+
+  assignSelf: (id) => request(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify({ assign_self: true }) }),
 
   cancelTask: (id) => request(`/tasks/${id}`, { method: 'DELETE' }),
 
