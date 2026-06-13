@@ -649,14 +649,23 @@ client/src/
 
 Константы `TASK_FILTER_STATUSES`, `EXECUTOR_MOBILE_TABS` — `client/src/utils.js`; UI — `ExecutorStatusNav.jsx`.
 
-### 7.5 Массовое назначение заявок (v2.2.3)
+### 7.5 Массовое назначение и взятие заявок (v2.2.3, v2.2.4)
 
-Для **менеджеров** (admin, supervisor, bizadmin) при **активных фильтрах** (`activeFilterCount > 0`):
+При **активных фильтрах** (`activeFilterCount > 0`):
+
+**Менеджеры** (admin, supervisor, bizadmin):
 
 1. Панель `.bulk-assign-bar`: выбор исполнителя, «Выбрать все», «Сбросить», «Назначить (N)».
 2. Чекбоксы в `TaskCard` (мобильные) и в таблице (десктоп).
-3. Назначаются только заявки, проходящие `canBulkAssignTask` (не `completed` / `cancelled`).
-4. Назначение — параллельные `PATCH /api/tasks/:id` с `{ assigned_to }`.
+3. Назначаются заявки по `canBulkAssignTask` (не `completed` / `cancelled`).
+4. `PATCH /api/tasks/:id` с `{ assigned_to }`.
+
+**Исполнитель** (v2.2.4):
+
+1. Та же панель выбора при фильтрах; кнопка **«Взять на себя (N)»** вместо выбора исполнителя.
+2. Чекбоксы только у заявок `canBulkAssignSelfTask` (`new`, без `assigned_to`).
+3. На мобильных «Выбрать все» учитывает текущую вкладку статуса; смена вкладки сбрасывает выбор.
+4. Параллельный `PATCH` с `{ assign_self: true }` (`api.assignSelf`).
 
 ### 7.6 Фильтры заявок (десктоп, v2.2.2)
 
@@ -966,6 +975,7 @@ npx web-push generate-vapid-keys
 
 | Версия | Дата | Изменения |
 |--------|------|-----------|
+| v2.2.4 | 2026-06-13 | Массовое «Взять на себя» для исполнителя — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.2.3 | 2026-06-13 | 8 статусов в mobile-nav, массовое назначение — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.2.2 | 2026-06-13 | Статусы в mobile-nav, фикс ширины фильтров (десктоп) — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.2.1 | 2026-06-13 | Вкладки исполнителя внизу (3×2), фильтры восстановлены — см. [CHANGELOG.md](./CHANGELOG.md) |

@@ -72,6 +72,11 @@ export function canBulkAssignTask(task) {
   return task && BULK_ASSIGNABLE_STATUSES.includes(task.status);
 }
 
+/** Исполнитель может взять на себя только новую нераспределённую заявку */
+export function canBulkAssignSelfTask(task) {
+  return task?.status === 'new' && !task.assigned_to;
+}
+
 export function filterTasksByExecutorTab(tasks, tabId) {
   const tab = EXECUTOR_MOBILE_TABS.find((t) => t.id === tabId);
   if (!tab) return tasks;
