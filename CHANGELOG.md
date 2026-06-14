@@ -4,7 +4,29 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/).
 
-**Актуальная версия:** v2.4.6
+**Актуальная версия:** v2.4.7
+
+---
+
+## [v2.4.7] — 2026-06-06
+
+### Добавлено
+
+- **Домен control-app.ru и SSL** — nginx-конфиг для `control-app.ru` / `www`, скрипт `deploy/setup-ssl.sh` (Let's Encrypt через certbot, редирект HTTP → HTTPS, автообновление сертификата).
+
+### Изменено
+
+- **Express `trust proxy`** — корректные `X-Forwarded-*` за nginx при HTTPS.
+- `deploy/setup-server.sh` — подсказки по DNS и запуску SSL после первичной установки.
+
+### Технические детали
+
+| Элемент | Файл | Описание |
+|---------|------|----------|
+| `setup-ssl.sh` | `deploy/` | certbot, nginx deploy, `--redirect` |
+| `server_name` | `nginx-control-app.conf` | `control-app.ru`, `www.control-app.ru` |
+| acme-challenge | `nginx-control-app.conf` | `/.well-known/acme-challenge/` |
+| `trust proxy` | `server/index.js` | `app.set('trust proxy', 1)` |
 
 ---
 

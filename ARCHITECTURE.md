@@ -845,25 +845,30 @@ npm run start --prefix server   # Express отдаёт API + статику с :
 | `deploy/build-client.sh` | Сборка фронта с подсказками по swap |
 | `deploy/ensure-swap.sh` | Создание swap на мало-RAM VPS |
 | `deploy/ecosystem.config.cjs` | Конфиг pm2 для `control-app` |
-| `deploy/nginx-control-app.conf` | Nginx reverse proxy, таймауты загрузки фото |
+| `deploy/nginx-control-app.conf` | Nginx reverse proxy для `control-app.ru`, таймауты загрузки фото |
+| `deploy/setup-ssl.sh` | Let's Encrypt (certbot), HTTPS и редирект HTTP → HTTPS |
 | `server/.env.example` | Шаблон переменных (`PHOTO_SKIP_SHARP` и др.) |
 
 ```bash
 sudo bash deploy/setup-server.sh
+# После DNS A-записей на VPS:
+sudo CERTBOT_EMAIL=admin@control-app.ru bash deploy/setup-ssl.sh
 ```
 
-Схема на сервере:
+Схема на сервере (после SSL):
 
 ```mermaid
 flowchart LR
-    Browser["Браузер / IP / домен"] --> Nginx["Nginx :80"]
+    Browser["Браузер https://control-app.ru"] --> Nginx["Nginx :443 / :80→redirect"]
     Nginx --> PM2["pm2: control-app"]
-    PM2 --> Express["Express :3001"]
+    PM2 --> Express["Express :3001 trust proxy"]
     Express --> Static["client/dist/"]
     Express --> API["/api/*"]
     Express --> DB[(atm-cleaning.db)]
     Express --> Uploads[uploads/]
 ```
+
+Express включает `app.set('trust proxy', 1)` — nginx передаёт `X-Forwarded-Proto: https` для корректной работы за reverse proxy (Push, cookies, абсолютные URL).
 
 Управление процессом:
 

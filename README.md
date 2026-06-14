@@ -2,7 +2,7 @@
 
 Веб-приложение для планирования, исполнения и контроля уборки банкоматов.
 
-**Текущая версия:** v2.4.6 — дизайн вкладок статусов исполнителя на mobile.
+**Текущая версия:** v2.4.7 — домен control-app.ru, SSL (Let's Encrypt), nginx + certbot.
 
 Полная история: [CHANGELOG.md](./CHANGELOG.md)
 
@@ -70,7 +70,38 @@ cd control-app
 sudo bash deploy/setup-server.sh
 ```
 
-Скрипт установит зависимости, соберёт фронтенд, запустит **pm2** (`control-app` на порту `3001`) и настроит **nginx** как reverse proxy (в том числе по IP сервера).
+Скрипт установит зависимости, соберёт фронтенд, запустит **pm2** (`control-app` на порту `3001`) и настроит **nginx** как reverse proxy.
+
+### Домен control-app.ru и SSL
+
+**1. DNS в панели Reg.ru** (домен привязан к VPS):
+
+| Запись | Тип | Значение |
+|--------|-----|----------|
+| `@` или `control-app.ru` | A | IP вашего VPS |
+| `www` | A | тот же IP (или CNAME → `control-app.ru`) |
+
+Подождите 5–30 минут после сохранения DNS.
+
+**2. На сервере** (после `git pull`):
+
+```bash
+cd ~/control-app
+sudo CERTBOT_EMAIL=ваш@email.ru bash deploy/setup-ssl.sh
+```
+
+Скрипт установит **certbot**, обновит nginx для `control-app.ru` / `www`, выпустит **Let's Encrypt** и включит редирект HTTP → HTTPS. Сертификат обновляется автоматически.
+
+**3. Проверка:**
+
+```bash
+curl -I https://control-app.ru
+pm2 logs control-app --lines 10
+```
+
+Откройте https://control-app.ru в браузере. Для Push-уведомлений нужен именно HTTPS.
+
+Если порты закрыты файрволом: откройте **80** и **443** (Reg.ru → VPS → Сеть / firewall, или `sudo ufw allow 80,443/tcp`).
 
 Переменные окружения — `server/.env` (шаблон: `server/.env.example`):
 
@@ -147,7 +178,7 @@ npm run build --prefix client
 - Кнопка **🔕/🔔** в шапке (десктоп) или в нижней навигации (мобильные).
 - **HTTPS обязателен** — на `http://IP` браузер блокирует Service Worker и Push.
 - **iPhone/iPad:** добавьте на главный экран и откройте оттуда (не из вкладки Safari/Chrome); iOS/iPadOS 16.4+.
-- На сервере настройте SSL: `sudo certbot --nginx -d your-domain.ru` (см. комментарий в `deploy/nginx-control-app.conf`).
+- На сервере: `sudo CERTBOT_EMAIL=admin@control-app.ru bash deploy/setup-ssl.sh` (см. `deploy/setup-ssl.sh`)
 
 ### Геолокация
 
@@ -241,6 +272,7 @@ pm2 restart control-app
 
 | Версия | Дата | Основные изменения |
 |--------|------|-------------------|
+| v2.4.7 | 2026-06-06 | Домен control-app.ru, SSL (certbot), nginx HTTPS |
 | v2.4.6 | 2026-06-06 | Дизайн вкладок статусов исполнителя (mobile): цвета, иконки |
 | v2.4.5 | 2026-06-06 | Взятие просроченных заявок; камера mobile в ландшафте |
 | v2.4.4 | 2026-06-06 | Фото обязательны для менеджеров; CV по ролям (настройка bizadmin) |
