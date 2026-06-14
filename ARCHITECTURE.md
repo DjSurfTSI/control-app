@@ -602,6 +602,7 @@ client/src/
 ├── utils/
 │   ├── geolocation.js    # Геолокация: запрос при входе, кэш координат
 │   ├── pushSupport.js    # Проверка HTTPS, iOS PWA, registration.pushManager
+│   ├── isMobileDevice.js # Определение телефона/планшета (камера vs галерея)
 │   └── compressImage.js  # Сжатие JPEG перед upload
 ├── pages/
 ├── components/
