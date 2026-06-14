@@ -7,6 +7,7 @@ function rowToSettings(row) {
     enabled: row.enabled !== 0,
     threshold: Number(row.threshold),
     margin: Number(row.margin),
+    executor_mobile_camera_capture: row.executor_mobile_camera_capture !== 0,
     updated_at: row.updated_at,
     updated_by: row.updated_by,
   };
@@ -20,6 +21,7 @@ export function getCvSettings() {
       enabled: process.env.CV_ENABLED !== 'false',
       threshold: parseFloat(process.env.CV_ATM_THRESHOLD || '0.30'),
       margin: parseFloat(process.env.CV_ATM_MARGIN || '0.12'),
+      executor_mobile_camera_capture: true,
       updated_at: null,
       updated_by: null,
     };
@@ -29,12 +31,15 @@ export function getCvSettings() {
   return { ...cache };
 }
 
-export function updateCvSettings({ enabled, threshold, margin }, userId) {
+export function updateCvSettings({ enabled, threshold, margin, executor_mobile_camera_capture }, userId) {
   const current = db.prepare('SELECT * FROM cv_settings WHERE id = 1').get();
   const next = {
     enabled: enabled !== undefined ? (enabled ? 1 : 0) : (current?.enabled ?? 1),
     threshold: threshold !== undefined ? Number(threshold) : (current?.threshold ?? 0.30),
     margin: margin !== undefined ? Number(margin) : (current?.margin ?? 0.12),
+    executor_mobile_camera_capture: executor_mobile_camera_capture !== undefined
+      ? (executor_mobile_camera_capture ? 1 : 0)
+      : (current?.executor_mobile_camera_capture ?? 1),
   };
 
   if (next.threshold < 0.05 || next.threshold > 0.95) {
@@ -45,15 +50,16 @@ export function updateCvSettings({ enabled, threshold, margin }, userId) {
   }
 
   db.prepare(`
-    INSERT INTO cv_settings (id, enabled, threshold, margin, updated_at, updated_by)
-    VALUES (1, ?, ?, ?, datetime('now'), ?)
+    INSERT INTO cv_settings (id, enabled, threshold, margin, executor_mobile_camera_capture, updated_at, updated_by)
+    VALUES (1, ?, ?, ?, ?, datetime('now'), ?)
     ON CONFLICT(id) DO UPDATE SET
       enabled = excluded.enabled,
       threshold = excluded.threshold,
       margin = excluded.margin,
+      executor_mobile_camera_capture = excluded.executor_mobile_camera_capture,
       updated_at = excluded.updated_at,
       updated_by = excluded.updated_by
-  `).run(next.enabled, next.threshold, next.margin, userId ?? null);
+  `).run(next.enabled, next.threshold, next.margin, next.executor_mobile_camera_capture, userId ?? null);
 
   cache = null;
   return getCvSettings();

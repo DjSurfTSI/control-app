@@ -6,14 +6,24 @@ import { useCvStatus } from '../hooks/useCvStatus';
 import { useOffline } from '../hooks/useOffline';
 
 export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
-  const { cvEnabled, loading: cvLoading } = useCvStatus();
+  const { cvEnabled, executorMobileCameraCapture, loading: cvLoading } = useCvStatus();
   const { online } = useOffline();
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [photosError, setPhotosError] = useState('');
   const [uploading, setUploading] = useState(null);
   const [error, setError] = useState('');
+  const [isMobileView, setIsMobileView] = useState(() => window.matchMedia('(max-width: 768px)').matches);
   const inputRefs = useRef({});
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const onChangeMq = () => setIsMobileView(mq.matches);
+    mq.addEventListener('change', onChangeMq);
+    return () => mq.removeEventListener('change', onChangeMq);
+  }, []);
+
+  const useCameraCapture = executorMobileCameraCapture && isMobileView;
 
   const emitChange = useCallback((data, enabled = cvEnabled) => {
     const required = checkRequiredPhotos(data);
@@ -212,7 +222,7 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
                       ref={(el) => { inputRefs.current[type] = el; }}
                       type="file"
                       accept="image/*"
-                      capture="environment"
+                      {...(useCameraCapture ? { capture: 'environment' } : {})}
                       onChange={(e) => handleUpload(type, e)}
                       style={{ display: 'none' }}
                       id={`photo-${taskId}-${type}`}

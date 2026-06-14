@@ -304,7 +304,12 @@ export const api = {
       } catch {
         /* ignore IDB errors */
       }
-      if (!navigator.onLine || isNetworkError(err)) return { enabled: true };
+      if (!navigator.onLine || isNetworkError(err)) {
+        return {
+          enabled: true,
+          executor_mobile_camera_capture: true,
+        };
+      }
       throw err;
     }
   },

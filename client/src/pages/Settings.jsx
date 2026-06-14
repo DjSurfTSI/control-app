@@ -6,7 +6,7 @@ import ReferenceDirectoriesEditor from '../components/ReferenceDirectoriesEditor
 
 function CvSettingsPanel() {
   const [settings, setSettings] = useState(null);
-  const [form, setForm] = useState({ enabled: true, threshold: 0.3, margin: 0.12 });
+  const [form, setForm] = useState({ enabled: true, threshold: 0.3, margin: 0.12, executor_mobile_camera_capture: true });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -21,6 +21,7 @@ function CvSettingsPanel() {
           enabled: data.enabled,
           threshold: data.threshold,
           margin: data.margin,
+          executor_mobile_camera_capture: data.executor_mobile_camera_capture !== false,
         });
       } catch (e) {
         setError(e.message);
@@ -41,6 +42,7 @@ function CvSettingsPanel() {
         enabled: data.enabled,
         threshold: data.threshold,
         margin: data.margin,
+        executor_mobile_camera_capture: data.executor_mobile_camera_capture !== false,
       });
       setSuccess('Настройки сохранены');
       invalidateCvStatus();
@@ -109,6 +111,21 @@ function CvSettingsPanel() {
               Насколько сильнее должна быть метка «банкомат» по сравнению с полом, стеной и т.п. Выше — строже.
             </p>
           </div>
+        </div>
+
+        <div className="form-group toggle-row settings-mobile-photo">
+          <label className="toggle-label">
+            <input
+              type="checkbox"
+              checked={form.executor_mobile_camera_capture}
+              onChange={(e) => setForm((f) => ({ ...f, executor_mobile_camera_capture: e.target.checked }))}
+            />
+            <span>Камера на мобильных (исполнитель)</span>
+          </label>
+          <p className="hint">
+            Включено — при съёмке фотоотчёта на телефоне сразу открывается камера (нужно разрешение).
+            Выключено — выбор файла из галереи без запроса доступа к камере.
+          </p>
         </div>
 
         {settings?.updated_at && (

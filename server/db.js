@@ -152,6 +152,7 @@ const migrations = [
   { table: 'cleaning_tasks', column: 'closed_os', sql: 'ALTER TABLE cleaning_tasks ADD COLUMN closed_os TEXT' },
   { table: 'cleaning_tasks', column: 'closed_latitude', sql: 'ALTER TABLE cleaning_tasks ADD COLUMN closed_latitude REAL' },
   { table: 'cleaning_tasks', column: 'closed_longitude', sql: 'ALTER TABLE cleaning_tasks ADD COLUMN closed_longitude REAL' },
+  { table: 'cv_settings', column: 'executor_mobile_camera_capture', sql: 'ALTER TABLE cv_settings ADD COLUMN executor_mobile_camera_capture INTEGER NOT NULL DEFAULT 1' },
 ];
 
 for (const m of migrations) {

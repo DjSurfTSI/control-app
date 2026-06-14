@@ -8,7 +8,11 @@ const router = Router();
 router.use(authMiddleware);
 
 router.get('/cv/status', (_req, res) => {
-  res.json({ enabled: getCvSettings().enabled });
+  const settings = getCvSettings();
+  res.json({
+    enabled: settings.enabled,
+    executor_mobile_camera_capture: settings.executor_mobile_camera_capture,
+  });
 });
 
 router.get('/cv', requireBizAdmin, (_req, res) => {
@@ -16,9 +20,9 @@ router.get('/cv', requireBizAdmin, (_req, res) => {
 });
 
 router.patch('/cv', requireBizAdmin, asyncHandler(async (req, res) => {
-  const { enabled, threshold, margin } = req.body;
+  const { enabled, threshold, margin, executor_mobile_camera_capture } = req.body;
   try {
-    const settings = updateCvSettings({ enabled, threshold, margin }, req.user.id);
+    const settings = updateCvSettings({ enabled, threshold, margin, executor_mobile_camera_capture }, req.user.id);
     res.json(settings);
   } catch (err) {
     res.status(400).json({ error: err.message });

@@ -257,6 +257,7 @@ erDiagram
         int enabled
         real threshold
         real margin
+        int executor_mobile_camera_capture
         datetime updated_at
         int updated_by FK
     }
@@ -272,7 +273,7 @@ erDiagram
 | `task_photos` | Доказательства выполнения |
 | `push_subscriptions` | Подписки на события |
 | `api_clients` | Внешние системы с API-ключами |
-| `cv_settings` | Параметры CV (вкл/выкл, порог, запас) — управление через bizadmin |
+| `cv_settings` | Параметры CV (вкл/выкл, порог, запас, камера на mobile) — управление через bizadmin |
 | `external_id` | Связь записей между АС |
 
 ---
@@ -442,7 +443,7 @@ stateDiagram-v2
 | Этап | Действие |
 |------|----------|
 | Старт сервера | `warmupCvModel()` — предзагрузка модели (v2.1.0) |
-| Настройки | `cv_settings` в БД; UI bizadmin — `/settings`; статус — `GET /api/settings/cv/status` |
+| Настройки | `cv_settings` в БД; UI bizadmin — `/settings`; статус — `GET /api/settings/cv/status` (вкл. CV и `executor_mobile_camera_capture`) |
 | CV выключена | UI без текстов про CV; завершение — только 3 фото; сервер не запускает CLIP |
 | CV включена | Загрузка фото → CV **синхронно в очереди** `runInCvQueue` → ответ с `cv_detected` |
 | Завершение (executor) | Повторная проверка всех ракурсов; при отказе — `in_progress`, код `cv_rejected` |
@@ -498,16 +499,18 @@ sequenceDiagram
 
 > Требуется **HTTPS** (или localhost). На HTTP `navigator.geolocation` недоступен.
 
-### 6.2.4 Завершение заявки в UI (v2.1.0)
+### 6.2.4 Завершение заявки в UI (v2.1.0, v2.4.3)
 
 | Точка входа | Компонент | Условие показа «Завершить» |
 |-------------|-----------|------------------------------|
-| Список (desktop) | `Tasks.jsx` таблица | `canExecutorCompleteTask(task, userId)` |
+| Список (desktop) | `Tasks.jsx` таблица | `canUserCompleteTask(task, user)` |
 | Список (mobile) | `TaskCard.jsx` | то же |
-| Модалка | `CompleteModal` | Исполнитель, назначенная заявка |
-| Модалка «Открыть» | `TaskModal` | `canComplete` + фото и CV готовы |
+| Модалка | `CompleteModal` | Исполнитель или менеджер |
+| Модалка «Открыть» | `TaskModal` | `canComplete` + (фото/CV только для исполнителя) |
 
-Статусы, при которых исполнитель может завершить: `in_progress`, `overdue`, `returned`, `emergency` (`EXECUTOR_COMPLETABLE_STATUSES` в `utils.js`).
+**Исполнитель:** статусы `in_progress`, `overdue`, `returned`, `emergency`; заявка назначена на него; обязательны 3 фото (+ CV при включении).
+
+**Менеджер** (admin, supervisor, bizadmin, v2.4.3): те же статусы, без привязки к исполнителю; фото не обязательны (`userMustAttachPhotosToComplete`).
 
 Просрочка: при загрузке списка `markOverdue()` переводит заявки с прошедшим контрольным сроком в `overdue` — кнопка «Завершить» остаётся доступной (v2.1.0).
 
@@ -594,7 +597,7 @@ flowchart TB
 
 ```
 client/src/
-├── utils.js              # Константы, роли, getCloseMetadata, canExecutorCompleteTask
+├── utils.js              # Константы, роли, canUserCompleteTask, getCloseMetadata
 ├── utils/
 │   ├── geolocation.js    # Геолокация: запрос при входе, кэш координат
 │   ├── pushSupport.js    # Проверка HTTPS, iOS PWA, registration.pushManager
@@ -628,14 +631,17 @@ client/src/
 
 **Ограничения браузера:** геолокация только в secure context (HTTPS / localhost). Первый запрос разрешения — только из обработчика действия пользователя.
 
-### 7.3 Завершение заявки (исполнитель)
+### 7.3 Завершение заявки (v2.4.3)
 
-Хелпер `canExecutorCompleteTask(task, userId)` в `utils.js`:
+Хелперы в `utils.js`:
 
-- Назначение: `Number(task.assigned_to) === Number(userId)`.
+- `canUserCompleteTask(task, user)` — исполнитель (назначенная заявка) или менеджер (admin/supervisor/bizadmin).
+- `userMustAttachPhotosToComplete(user)` — `true` только для исполнителя.
 - Статусы: `in_progress`, `overdue`, `returned`, `emergency`.
 
 Точки UI: таблица/карточка (`Tasks.jsx`, `TaskCard.jsx`), `CompleteModal`, `TaskModal` (кнопка «Завершить» + поле «Отчёт»).
+
+**Фото на mobile (исполнитель):** `executor_mobile_camera_capture` в `cv_settings`; `PhotoUpload` ставит `capture="environment"` только при включённой настройке и ширине &lt; 768px.
 
 При `overdue` кнопка не скрывается — заявка могла перейти в просрочку автоматически (`markOverdue()` на сервере при `GET /api/tasks`).
 
@@ -738,11 +744,11 @@ client/src/
 | Файл | Назначение | При адаптации |
 |------|------------|---------------|
 | `src/api.js` | Все HTTP-запросы | Добавить/изменить endpoints |
-| `src/utils.js` | Статусы, роли, типы фото, `canExecutorCompleteTask`, `getCloseMetadata` | Вынести в `domain.config.js` |
+| `src/utils.js` | Статусы, роли, типы фото, `canUserCompleteTask`, `getCloseMetadata` | Вынести в `domain.config.js` |
 | `src/utils/geolocation.js` | Запрос гео при входе, кэш, обновление при закрытии | v2.1.0 |
 | `src/context/AuthContext.jsx` | JWT, текущий пользователь, refresh geo при `api.me()` | Обычно не меняется |
 | `src/App.jsx` | Маршруты + `PrivateRoute` | Добавить страницы, роли |
-| `src/pages/Settings.jsx` | Вкл/выкл CV, порог и запас | Только роль `bizadmin` |
+| `src/pages/Settings.jsx` | Вкл/выкл CV, порог, запас, камера на mobile (исполнитель) | Только роль `bizadmin` |
 | `src/hooks/useCvStatus.js` | Статус CV для PhotoUpload и завершения заявки | — |
 | `src/utils/compressImage.js` | Сжатие JPEG в браузере перед upload | `PHOTO_MAX_EDGE` |
 | `PhotoUpload.jsx` | Слоты фото, бейджи CV (если включена) | Не блокирует UI при загрузке CV/фото (v1.3.2) |

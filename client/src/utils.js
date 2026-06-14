@@ -96,6 +96,21 @@ export function canExecutorCompleteTask(task, userId) {
   return isTaskAssignedToUser(task, userId) && EXECUTOR_COMPLETABLE_STATUSES.includes(task.status);
 }
 
+export function canManagerCompleteTask(task) {
+  return task && EXECUTOR_COMPLETABLE_STATUSES.includes(task.status);
+}
+
+export function canUserCompleteTask(task, user) {
+  if (!task || !user) return false;
+  if (isManager(user)) return canManagerCompleteTask(task);
+  if (isExecutor(user)) return canExecutorCompleteTask(task, user.id);
+  return false;
+}
+
+export function userMustAttachPhotosToComplete(user) {
+  return isExecutor(user);
+}
+
 export function hasRouteAccess(user, roles) {
   if (!roles) return true;
   if (isBizAdmin(user)) return true;

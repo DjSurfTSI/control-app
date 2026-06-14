@@ -6,7 +6,8 @@ import { EXECUTOR_NAV_DEFAULT, useExecutorTasksNav } from '../context/ExecutorTa
 import {
   STATUS_LABELS, formatDate, formatDateTime, todayISO,
   isManager, isBizAdmin, isExecutor, getCloseMetadata, PHOTO_TYPE_LABELS, formatCloseLocation,
-  canExecutorCompleteTask,
+  canUserCompleteTask,
+  userMustAttachPhotosToComplete,
   EXECUTOR_MOBILE_TABS, filterTasksByExecutorTab, TASK_FILTER_STATUSES, canBulkAssignTask, canBulkAssignSelfTask,
 } from '../utils';
 import PhotoUpload from '../components/PhotoUpload';
@@ -23,7 +24,7 @@ const EMPTY_FILTERS = {
   completed_from: '', completed_to: '',
 };
 
-function CompleteModal({ task, onClose, onComplete }) {
+function CompleteModal({ task, onClose, onComplete, requirePhotos = true }) {
   const [report, setReport] = useState('');
   const [photoStatus, setPhotoStatus] = useState({
     complete: false, missing: ['left', 'right', 'front'], cvEnabled: true, cvPassed: false, cvFailed: [],
@@ -33,14 +34,16 @@ function CompleteModal({ task, onClose, onComplete }) {
 
   const handleComplete = async () => {
     const metaPromise = getCloseMetadata();
-    if (!photoStatus.complete) {
-      setError(`Прикрепите фото: ${photoStatus.missing.map((t) => PHOTO_TYPE_LABELS[t]).join(', ')}`);
-      return;
-    }
-    if (photoStatus.cvEnabled && !photoStatus.cvPassed) {
-      const failed = photoStatus.cvFailed?.map((t) => PHOTO_TYPE_LABELS[t]).join(', ') || 'не все ракурсы';
-      setError(`Банкомат не обнаружен на фото: ${failed}. Переснимите перед завершением.`);
-      return;
+    if (requirePhotos) {
+      if (!photoStatus.complete) {
+        setError(`Прикрепите фото: ${photoStatus.missing.map((t) => PHOTO_TYPE_LABELS[t]).join(', ')}`);
+        return;
+      }
+      if (photoStatus.cvEnabled && !photoStatus.cvPassed) {
+        const failed = photoStatus.cvFailed?.map((t) => PHOTO_TYPE_LABELS[t]).join(', ') || 'не все ракурсы';
+        setError(`Банкомат не обнаружен на фото: ${failed}. Переснимите перед завершением.`);
+        return;
+      }
     }
     setSaving(true);
     try {
@@ -61,6 +64,9 @@ function CompleteModal({ task, onClose, onComplete }) {
         <p><strong>№{task.id}</strong> — ID УС: {task.serial_number || '—'}{task.installation_name ? ` — ${task.installation_name}` : ''}</p>
         <p className="modal-sub">{task.address}</p>
         <p className="modal-sub">При закрытии будут сохранены данные устройства и геолокация (если разрешена).</p>
+        {!requirePhotos && (
+          <p className="modal-sub">Фото не обязательны — заявку можно закрыть по отчёту.</p>
+        )}
         {error && <div className="error-msg">{error}</div>}
         <div className="form-group">
           <label>Отчёт</label>
@@ -80,7 +86,7 @@ function CompleteModal({ task, onClose, onComplete }) {
 
 function TaskModal({
   task, atms, executors, onClose, onSave, isManager, canDelete, onDelete,
-  canComplete, onComplete,
+  canComplete, requirePhotosForComplete, onComplete,
 }) {
   const isNew = !task?.id;
   const [photoStatus, setPhotoStatus] = useState({
@@ -88,7 +94,8 @@ function TaskModal({
   });
   const [report, setReport] = useState('');
   const [completing, setCompleting] = useState(false);
-  const canSubmitComplete = photoStatus.complete && (photoStatus.cvEnabled ? photoStatus.cvPassed : true);
+  const canSubmitComplete = !requirePhotosForComplete
+    || (photoStatus.complete && (photoStatus.cvEnabled ? photoStatus.cvPassed : true));
   const [form, setForm] = useState({
     atm_id: task?.atm_id || '',
     assigned_to: task?.assigned_to || '',
@@ -115,14 +122,16 @@ function TaskModal({
 
   const handleComplete = async () => {
     const metaPromise = getCloseMetadata();
-    if (!canSubmitComplete) {
+    if (requirePhotosForComplete) {
       if (!photoStatus.complete) {
         setError(`Прикрепите фото: ${photoStatus.missing.map((t) => PHOTO_TYPE_LABELS[t]).join(', ')}`);
-      } else if (photoStatus.cvEnabled && !photoStatus.cvPassed) {
+        return;
+      }
+      if (photoStatus.cvEnabled && !photoStatus.cvPassed) {
         const failed = photoStatus.cvFailed?.map((t) => PHOTO_TYPE_LABELS[t]).join(', ') || 'не все ракурсы';
         setError(`Банкомат не обнаружен на фото: ${failed}. Переснимите перед завершением.`);
+        return;
       }
-      return;
     }
     setCompleting(true);
     setError('');
@@ -237,7 +246,7 @@ function TaskModal({
                 </div>
               </div>
             )}
-            <PhotoUpload taskId={task.id} readOnly={task.status === 'completed' && !isManager} onChange={setPhotoStatus} />
+            <PhotoUpload taskId={task.id} readOnly={task.status === 'completed'} onChange={setPhotoStatus} />
             {canComplete && (
               <div className="form-group" style={{ marginTop: '1rem' }}>
                 <label>Отчёт</label>
@@ -258,7 +267,7 @@ function TaskModal({
               className="btn-success"
               onClick={handleComplete}
               disabled={completing || saving}
-              title={!canSubmitComplete ? 'Загрузите все фото и дождитесь проверки CV' : ''}
+              title={requirePhotosForComplete && !canSubmitComplete ? 'Загрузите все фото и дождитесь проверки CV' : ''}
             >
               {completing ? 'Завершение...' : 'Завершить'}
             </button>
@@ -651,6 +660,7 @@ export default function Tasks() {
             <div className="mobile-tasks">
               {mobileFilteredTasks.map((t) => (
                 <TaskCard key={t.id} task={t} isManager={manager} isExecutor={executor} currentUserId={user?.id} canDelete={bizAdmin}
+                  canComplete={canUserCompleteTask(t, user)}
                   selectable={showBulkSelect && canSelectTask(t)}
                   selected={selectedIds.has(t.id)}
                   onSelectToggle={toggleSelect}
@@ -715,7 +725,7 @@ export default function Tasks() {
                       {executor && t.status === 'new' && !t.assigned_to && (
                         <button className="btn-primary btn-sm" onClick={() => handleAssignSelf(t)}>Взять</button>
                       )}
-                      {executor && canExecutorCompleteTask(t, user?.id) && (
+                      {canUserCompleteTask(t, user) && (
                         <button className="btn-success btn-sm" onClick={() => setCompleteModal(t)}>Завершить</button>
                       )}
                       {manager && !bizAdmin && !['cancelled', 'completed'].includes(t.status) && (
@@ -738,14 +748,22 @@ export default function Tasks() {
           executors={executors}
           isManager={manager}
           canDelete={bizAdmin}
-          canComplete={executor && modal.id && canExecutorCompleteTask(modal, user?.id)}
+          canComplete={modal.id && canUserCompleteTask(modal, user)}
+          requirePhotosForComplete={userMustAttachPhotosToComplete(user)}
           onComplete={handleComplete}
           onDelete={performDelete}
           onClose={() => setModal(null)}
           onSave={handleSave}
         />
       )}
-      {completeModal && <CompleteModal task={completeModal} onClose={() => setCompleteModal(null)} onComplete={handleComplete} />}
+      {completeModal && (
+        <CompleteModal
+          task={completeModal}
+          onClose={() => setCompleteModal(null)}
+          onComplete={handleComplete}
+          requirePhotos={userMustAttachPhotosToComplete(user)}
+        />
+      )}
       {importModal && <ImportTasksModal onClose={() => setImportModal(false)} onDone={load} />}
 
       <style>{`

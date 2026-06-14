@@ -4,7 +4,29 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/).
 
-**Актуальная версия:** v2.4.2
+**Актуальная версия:** v2.4.3
+
+---
+
+## [v2.4.3] — 2026-06-06
+
+### Добавлено
+
+- **Закрытие заявок менеджерами** — администратор, супервайзер и бизнес-администратор могут завершать заявки (В работе, Просрочено, Возврат, Экстренная) без обязательных фото.
+- **Настройка «Камера на мобильных (исполнитель)»** в Настройках (bizadmin) — камера сразу или выбор из галереи при фотоотчёте на телефоне.
+
+### Изменено
+
+- Хелперы `canUserCompleteTask`, `canManagerCompleteTask`, `userMustAttachPhotosToComplete` в `utils.js`.
+- `PhotoUpload` учитывает `executor_mobile_camera_capture` из API на экранах &lt; 768px.
+
+### Технические детали
+
+| Элемент | Файл | Описание |
+|---------|------|----------|
+| `executor_mobile_camera_capture` | `cv_settings`, `settings.js` | Миграция БД, GET/PATCH `/api/settings/cv` |
+| Завершение менеджером | `Tasks.jsx`, `TaskCard.jsx` | Кнопка «Завершить» без требования фото |
+| Камера / галерея | `PhotoUpload.jsx`, `useCvStatus.js` | `capture="environment"` по настройке |
 
 ---
 

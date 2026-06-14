@@ -1,7 +1,7 @@
-import { STATUS_LABELS, formatDate, canExecutorCompleteTask } from '../utils';
+import { STATUS_LABELS, formatDate } from '../utils';
 
 export default function TaskCard({
-  task, isManager, isExecutor, currentUserId, canDelete,
+  task, isManager, isExecutor, currentUserId, canDelete, canComplete,
   onStart, onComplete, onAssignSelf, onEdit, onCancel, onDelete, onView,
   selectable, selected, onSelectToggle,
 }) {
@@ -32,7 +32,7 @@ export default function TaskCard({
         {canTake && (
           <button type="button" className="btn-primary btn-sm" onClick={() => onAssignSelf(task)}>Взять заявку</button>
         )}
-        {isExecutor && canExecutorCompleteTask(task, currentUserId) && (
+        {canComplete && (
           <button type="button" className="btn-success btn-sm" onClick={() => onComplete(task)}>Завершить</button>
         )}
         {isManager && (
