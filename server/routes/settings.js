@@ -12,6 +12,7 @@ router.get('/cv/status', (_req, res) => {
   res.json({
     enabled: settings.enabled,
     executor_mobile_camera_capture: settings.executor_mobile_camera_capture,
+    cv_roles: settings.cv_roles,
   });
 });
 
@@ -20,9 +21,11 @@ router.get('/cv', requireBizAdmin, (_req, res) => {
 });
 
 router.patch('/cv', requireBizAdmin, asyncHandler(async (req, res) => {
-  const { enabled, threshold, margin, executor_mobile_camera_capture } = req.body;
+  const { enabled, threshold, margin, executor_mobile_camera_capture, cv_roles } = req.body;
   try {
-    const settings = updateCvSettings({ enabled, threshold, margin, executor_mobile_camera_capture }, req.user.id);
+    const settings = updateCvSettings({
+      enabled, threshold, margin, executor_mobile_camera_capture, cv_roles,
+    }, req.user.id);
     res.json(settings);
   } catch (err) {
     res.status(400).json({ error: err.message });

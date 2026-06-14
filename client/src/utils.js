@@ -108,7 +108,27 @@ export function canUserCompleteTask(task, user) {
 }
 
 export function userMustAttachPhotosToComplete(user) {
-  return isExecutor(user);
+  return isExecutor(user) || isManager(user);
+}
+
+export const CV_ASSIGNABLE_ROLES = [
+  { id: 'admin', label: 'Администратор' },
+  { id: 'supervisor', label: 'Супервайзер' },
+  { id: 'executor', label: 'Исполнитель' },
+];
+
+export function normalizeUserRole(user) {
+  if (!user?.role) return null;
+  return user.role === 'cleaner' ? 'executor' : user.role;
+}
+
+export function isCvEnabledForUser(cvStatus, user) {
+  if (!cvStatus?.enabled) return false;
+  if (isBizAdmin(user)) return false;
+  const role = normalizeUserRole(user);
+  if (!role) return false;
+  const roles = cvStatus?.cv_roles || ['executor'];
+  return roles.includes(role);
 }
 
 export function hasRouteAccess(user, roles) {

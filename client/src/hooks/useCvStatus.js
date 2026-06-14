@@ -1,5 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { api } from '../api';
+import { useAuth } from '../context/AuthContext';
+import { isCvEnabledForUser } from '../utils';
 
 let cachedStatus = null;
 const subscribers = new Set();
@@ -10,7 +12,9 @@ export function invalidateCvStatus() {
 }
 
 export function useCvStatus() {
-  const [cvEnabled, setCvEnabled] = useState(cachedStatus?.enabled ?? true);
+  const { user } = useAuth();
+  const [cvEnabledGlobal, setCvEnabledGlobal] = useState(cachedStatus?.enabled ?? true);
+  const [cvRoles, setCvRoles] = useState(cachedStatus?.cv_roles ?? ['executor']);
   const [executorMobileCameraCapture, setExecutorMobileCameraCapture] = useState(
     cachedStatus?.executor_mobile_camera_capture ?? true,
   );
@@ -28,7 +32,8 @@ export function useCvStatus() {
     let cancelled = false;
     (async () => {
       if (cachedStatus !== null && tick === 0) {
-        setCvEnabled(cachedStatus.enabled);
+        setCvEnabledGlobal(cachedStatus.enabled);
+        setCvRoles(cachedStatus.cv_roles);
         setExecutorMobileCameraCapture(cachedStatus.executor_mobile_camera_capture);
         return;
       }
@@ -38,14 +43,17 @@ export function useCvStatus() {
         if (!cancelled) {
           cachedStatus = {
             enabled: data.enabled,
+            cv_roles: data.cv_roles || ['executor'],
             executor_mobile_camera_capture: data.executor_mobile_camera_capture !== false,
           };
-          setCvEnabled(cachedStatus.enabled);
+          setCvEnabledGlobal(cachedStatus.enabled);
+          setCvRoles(cachedStatus.cv_roles);
           setExecutorMobileCameraCapture(cachedStatus.executor_mobile_camera_capture);
         }
       } catch {
         if (!cancelled && cachedStatus === null) {
-          setCvEnabled(true);
+          setCvEnabledGlobal(true);
+          setCvRoles(['executor']);
           setExecutorMobileCameraCapture(true);
         }
       } finally {
@@ -55,5 +63,16 @@ export function useCvStatus() {
     return () => { cancelled = true; };
   }, [tick]);
 
-  return { cvEnabled, executorMobileCameraCapture, loading };
+  const cvEnabled = useMemo(
+    () => isCvEnabledForUser({ enabled: cvEnabledGlobal, cv_roles: cvRoles }, user),
+    [cvEnabledGlobal, cvRoles, user],
+  );
+
+  return {
+    cvEnabled,
+    cvEnabledGlobal,
+    cvRoles,
+    executorMobileCameraCapture,
+    loading,
+  };
 }

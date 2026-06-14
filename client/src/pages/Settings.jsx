@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
-import { formatDateTime } from '../utils';
+import { formatDateTime, CV_ASSIGNABLE_ROLES } from '../utils';
 import { invalidateCvStatus } from '../hooks/useCvStatus';
 import ReferenceDirectoriesEditor from '../components/ReferenceDirectoriesEditor';
 
 function CvSettingsPanel() {
   const [settings, setSettings] = useState(null);
-  const [form, setForm] = useState({ enabled: true, threshold: 0.3, margin: 0.12, executor_mobile_camera_capture: true });
+  const [form, setForm] = useState({
+    enabled: true,
+    threshold: 0.3,
+    margin: 0.12,
+    executor_mobile_camera_capture: true,
+    cv_roles: ['executor'],
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -22,6 +28,7 @@ function CvSettingsPanel() {
           threshold: data.threshold,
           margin: data.margin,
           executor_mobile_camera_capture: data.executor_mobile_camera_capture !== false,
+          cv_roles: data.cv_roles?.length ? data.cv_roles : ['executor'],
         });
       } catch (e) {
         setError(e.message);
@@ -43,6 +50,7 @@ function CvSettingsPanel() {
         threshold: data.threshold,
         margin: data.margin,
         executor_mobile_camera_capture: data.executor_mobile_camera_capture !== false,
+        cv_roles: data.cv_roles?.length ? data.cv_roles : ['executor'],
       });
       setSuccess('Настройки сохранены');
       invalidateCvStatus();
@@ -51,6 +59,15 @@ function CvSettingsPanel() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const toggleCvRole = (roleId) => {
+    setForm((f) => {
+      const roles = f.cv_roles.includes(roleId)
+        ? f.cv_roles.filter((r) => r !== roleId)
+        : [...f.cv_roles, roleId];
+      return { ...f, cv_roles: roles };
+    });
   };
 
   if (loading) return <p className="empty-state">Загрузка...</p>;
@@ -73,6 +90,24 @@ function CvSettingsPanel() {
           <p className="hint">
             При отключении фото принимаются без распознавания банкомата Сбербанка.
           </p>
+        </div>
+
+        <div className={`form-group cv-roles-block ${!form.enabled ? 'disabled' : ''}`}>
+          <label>CV-проверка при завершении заявки — роли</label>
+          <p className="hint">Бизнес-администратор всегда завершает без CV. Для выбранных ролей при закрытии заявки фото проверяются моделью.</p>
+          <div className="cv-roles-list">
+            {CV_ASSIGNABLE_ROLES.map((role) => (
+              <label key={role.id} className="toggle-label cv-role-item">
+                <input
+                  type="checkbox"
+                  checked={form.cv_roles.includes(role.id)}
+                  disabled={!form.enabled}
+                  onChange={() => toggleCvRole(role.id)}
+                />
+                <span>{role.label}</span>
+              </label>
+            ))}
+          </div>
         </div>
 
         <div className={`cv-sliders ${!form.enabled ? 'disabled' : ''}`}>

@@ -308,6 +308,7 @@ export const api = {
         return {
           enabled: true,
           executor_mobile_camera_capture: true,
+          cv_roles: ['executor'],
         };
       }
       throw err;

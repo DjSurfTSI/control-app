@@ -258,6 +258,7 @@ erDiagram
         real threshold
         real margin
         int executor_mobile_camera_capture
+        string cv_roles "JSON: admin|supervisor|executor"
         datetime updated_at
         int updated_by FK
     }
@@ -273,7 +274,7 @@ erDiagram
 | `task_photos` | Доказательства выполнения |
 | `push_subscriptions` | Подписки на события |
 | `api_clients` | Внешние системы с API-ключами |
-| `cv_settings` | Параметры CV (вкл/выкл, порог, запас, камера на mobile) — управление через bizadmin |
+| `cv_settings` | Параметры CV (вкл/выкл, порог, запас, камера mobile, `cv_roles`) — bizadmin |
 | `external_id` | Связь записей между АС |
 
 ---
@@ -510,7 +511,7 @@ sequenceDiagram
 
 **Исполнитель:** статусы `in_progress`, `overdue`, `returned`, `emergency`; заявка назначена на него; обязательны 3 фото (+ CV при включении).
 
-**Менеджер** (admin, supervisor, bizadmin, v2.4.3): те же статусы, без привязки к исполнителю; фото не обязательны (`userMustAttachPhotosToComplete`).
+**Менеджер** (admin, supervisor, bizadmin, v2.4.3+): те же статусы, без привязки к исполнителю; **обязательны 3 фото** (v2.4.4); CV — если роль отмечена в `cv_settings.cv_roles` (bizadmin всегда без CV).
 
 Просрочка: при загрузке списка `markOverdue()` переводит заявки с прошедшим контрольным сроком в `overdue` — кнопка «Завершить» остаётся доступной (v2.1.0).
 
@@ -636,7 +637,8 @@ client/src/
 Хелперы в `utils.js`:
 
 - `canUserCompleteTask(task, user)` — исполнитель (назначенная заявка) или менеджер (admin/supervisor/bizadmin).
-- `userMustAttachPhotosToComplete(user)` — `true` только для исполнителя.
+- `userMustAttachPhotosToComplete(user)` — исполнитель и менеджер (v2.4.4).
+- `isCvEnabledForUser(cvStatus, user)` — глобальный CV + роль в `cv_roles`; bizadmin исключён.
 - Статусы: `in_progress`, `overdue`, `returned`, `emergency`.
 
 Точки UI: таблица/карточка (`Tasks.jsx`, `TaskCard.jsx`), `CompleteModal`, `TaskModal` (кнопка «Завершить» + поле «Отчёт»).
@@ -748,7 +750,7 @@ client/src/
 | `src/utils/geolocation.js` | Запрос гео при входе, кэш, обновление при закрытии | v2.1.0 |
 | `src/context/AuthContext.jsx` | JWT, текущий пользователь, refresh geo при `api.me()` | Обычно не меняется |
 | `src/App.jsx` | Маршруты + `PrivateRoute` | Добавить страницы, роли |
-| `src/pages/Settings.jsx` | Вкл/выкл CV, порог, запас, камера на mobile (исполнитель) | Только роль `bizadmin` |
+| `src/pages/Settings.jsx` | Вкл/выкл CV, порог, запас, роли CV, камера mobile | Только `bizadmin` |
 | `src/hooks/useCvStatus.js` | Статус CV для PhotoUpload и завершения заявки | — |
 | `src/utils/compressImage.js` | Сжатие JPEG в браузере перед upload | `PHOTO_MAX_EDGE` |
 | `PhotoUpload.jsx` | Слоты фото, бейджи CV (если включена) | Не блокирует UI при загрузке CV/фото (v1.3.2) |

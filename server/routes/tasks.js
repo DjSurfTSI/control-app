@@ -8,6 +8,7 @@ import { authMiddleware, requireRole, requireBizAdmin } from '../middleware.js';
 import {
   notifyTaskAssigned, notifyTaskCompleted, notifyOverdue, notifyCvRejected, notifyTaskCancelled,
 } from '../push.js';
+import { mustAttachPhotosOnComplete, isCvEnabledForUser } from '../cv/settings.js';
 import { validateTaskPhotos, PHOTO_TYPE_LABELS } from '../cv/validatePhotos.js';
 import { dispatchWebhooks } from '../integration/webhooks.js';
 import { formatTask, TASK_SELECT_INTEGRATION } from '../integration/schemas.js';
@@ -351,11 +352,11 @@ router.patch('/:id', asyncHandler(async (req, res) => {
 
   if (status) {
     const nextStatus = normalizeStatus(status) || status;
-    if (nextStatus === 'completed' && executor && !hasAllRequiredPhotos(req.params.id)) {
+    if (nextStatus === 'completed' && mustAttachPhotosOnComplete(req.user) && !hasAllRequiredPhotos(req.params.id)) {
       return res.status(400).json({ error: 'Прикрепите обязательные фото: Слева, Справа и Спереди' });
     }
 
-    if (nextStatus === 'completed' && executor) {
+    if (nextStatus === 'completed' && isCvEnabledForUser(req.user)) {
       const cv = await validateTaskPhotos(req.params.id);
       if (!cv.ok) {
         if (cv.pending?.length) {

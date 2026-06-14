@@ -64,9 +64,6 @@ function CompleteModal({ task, onClose, onComplete, requirePhotos = true }) {
         <p><strong>№{task.id}</strong> — ID УС: {task.serial_number || '—'}{task.installation_name ? ` — ${task.installation_name}` : ''}</p>
         <p className="modal-sub">{task.address}</p>
         <p className="modal-sub">При закрытии будут сохранены данные устройства и геолокация (если разрешена).</p>
-        {!requirePhotos && (
-          <p className="modal-sub">Фото не обязательны — заявку можно закрыть по отчёту.</p>
-        )}
         {error && <div className="error-msg">{error}</div>}
         <div className="form-group">
           <label>Отчёт</label>
