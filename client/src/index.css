@@ -1128,31 +1128,87 @@ td small {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     grid-template-rows: repeat(2, auto);
-    gap: 0.25rem;
+    gap: 0.35rem;
     justify-content: stretch;
-    padding: 0.3rem max(0.3rem, env(safe-area-inset-right, 0px))
-      calc(0.3rem + env(safe-area-inset-bottom, 0px))
-      max(0.3rem, env(safe-area-inset-left, 0px));
+    padding: 0.45rem max(0.35rem, env(safe-area-inset-right, 0px))
+      calc(0.45rem + env(safe-area-inset-bottom, 0px))
+      max(0.35rem, env(safe-area-inset-left, 0px));
+    background: linear-gradient(180deg, rgba(15, 20, 30, 0.97) 0%, rgba(21, 29, 43, 0.95) 100%);
   }
 
   .layout-executor-tasks .main {
-    padding-bottom: 8rem;
+    padding-bottom: 8.5rem;
   }
 
   .executor-status-tab {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     min-width: 0;
-    min-height: 2.55rem;
-    padding: 0.2rem 0.1rem;
-    gap: 0.1rem;
-    border: 1px solid var(--border);
-    background: var(--bg);
+    min-height: 3.1rem;
+    padding: 0.35rem 0.2rem 0.3rem;
+    gap: 0.12rem;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(15, 20, 30, 0.65);
     cursor: pointer;
+    overflow: hidden;
+    transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  .executor-status-tab::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--tab-accent, var(--primary));
+    opacity: 0.55;
+    transition: opacity 0.18s ease, height 0.18s ease;
+  }
+
+  .executor-status-tab:active {
+    transform: scale(0.96);
   }
 
   .executor-status-tab.active {
-    background: rgba(59, 130, 246, 0.12);
-    border-color: var(--primary);
-    color: var(--primary);
+    background: var(--tab-bg-active, rgba(59, 130, 246, 0.14));
+    border-color: var(--tab-accent, var(--primary));
+    box-shadow: 0 2px 14px var(--tab-shadow, rgba(59, 130, 246, 0.22));
+    color: var(--tab-accent, var(--primary));
+  }
+
+  .executor-status-tab.active::before {
+    opacity: 1;
+    height: 4px;
+  }
+
+  .executor-status-tab.has-items:not(.active) {
+    border-color: color-mix(in srgb, var(--tab-accent, var(--primary)) 35%, transparent);
+  }
+
+  .executor-status-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1;
+    background: var(--tab-icon-bg, rgba(255, 255, 255, 0.06));
+    color: var(--tab-accent, var(--text-muted));
+    transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  }
+
+  .executor-status-tab.active .executor-status-icon {
+    background: var(--tab-accent, var(--primary));
+    color: #0f1419;
+    transform: scale(1.05);
   }
 
   .executor-status-label {
@@ -1161,38 +1217,116 @@ td small {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.52rem;
+    font-size: 0.58rem;
     font-weight: 600;
     line-height: 1.15;
     text-align: center;
+    color: var(--text-muted);
+    transition: color 0.18s ease;
+  }
+
+  .executor-status-tab.active .executor-status-label {
+    color: var(--tab-accent, var(--primary));
+    font-weight: 700;
   }
 
   .executor-status-count {
-    min-width: 1.1rem;
-    height: 1.1rem;
-    padding: 0 0.25rem;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.3rem;
     border-radius: 999px;
-    background: var(--surface-hover);
+    background: rgba(255, 255, 255, 0.06);
     color: var(--text-muted);
-    font-size: 0.58rem;
+    font-size: 0.6rem;
     font-weight: 700;
-    line-height: 1.1rem;
+    line-height: 1.25rem;
     text-align: center;
+    transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
   }
 
   .executor-status-count.has-items {
-    background: rgba(59, 130, 246, 0.2);
-    color: var(--primary);
-  }
-
-  .executor-status-tab.active .executor-status-count {
-    background: rgba(59, 130, 246, 0.25);
-    color: var(--primary);
+    background: var(--tab-count-bg, rgba(59, 130, 246, 0.18));
+    color: var(--tab-accent, var(--primary));
   }
 
   .executor-status-tab.active .executor-status-count.has-items {
-    background: var(--primary);
-    color: white;
+    background: var(--tab-accent, var(--primary));
+    color: #0f1419;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--tab-accent, var(--primary)) 30%, transparent);
+  }
+
+  .executor-status-tab--new {
+    --tab-accent: #94a3b8;
+    --tab-bg-active: rgba(148, 163, 184, 0.14);
+    --tab-shadow: rgba(148, 163, 184, 0.2);
+    --tab-icon-bg: rgba(148, 163, 184, 0.12);
+    --tab-count-bg: rgba(148, 163, 184, 0.18);
+  }
+
+  .executor-status-tab--in_progress {
+    --tab-accent: #60a5fa;
+    --tab-bg-active: rgba(96, 165, 250, 0.16);
+    --tab-shadow: rgba(96, 165, 250, 0.25);
+    --tab-icon-bg: rgba(96, 165, 250, 0.14);
+    --tab-count-bg: rgba(96, 165, 250, 0.2);
+  }
+
+  .executor-status-tab--completed {
+    --tab-accent: #4ade80;
+    --tab-bg-active: rgba(74, 222, 128, 0.14);
+    --tab-shadow: rgba(74, 222, 128, 0.22);
+    --tab-icon-bg: rgba(74, 222, 128, 0.12);
+    --tab-count-bg: rgba(74, 222, 128, 0.18);
+  }
+
+  .executor-status-tab--overdue {
+    --tab-accent: #fca5a5;
+    --tab-bg-active: rgba(252, 165, 165, 0.14);
+    --tab-shadow: rgba(252, 165, 165, 0.22);
+    --tab-icon-bg: rgba(252, 165, 165, 0.12);
+    --tab-count-bg: rgba(252, 165, 165, 0.18);
+  }
+
+  .executor-status-tab--returned {
+    --tab-accent: #fbbf24;
+    --tab-bg-active: rgba(251, 191, 36, 0.14);
+    --tab-shadow: rgba(251, 191, 36, 0.2);
+    --tab-icon-bg: rgba(251, 191, 36, 0.12);
+    --tab-count-bg: rgba(251, 191, 36, 0.18);
+  }
+
+  .executor-status-tab--cancelled {
+    --tab-accent: #a8a29e;
+    --tab-bg-active: rgba(168, 162, 158, 0.12);
+    --tab-shadow: rgba(168, 162, 158, 0.18);
+    --tab-icon-bg: rgba(168, 162, 158, 0.1);
+    --tab-count-bg: rgba(168, 162, 158, 0.15);
+  }
+
+  .executor-status-tab--no_access {
+    --tab-accent: #c084fc;
+    --tab-bg-active: rgba(192, 132, 252, 0.14);
+    --tab-shadow: rgba(192, 132, 252, 0.2);
+    --tab-icon-bg: rgba(192, 132, 252, 0.12);
+    --tab-count-bg: rgba(192, 132, 252, 0.18);
+  }
+
+  .executor-status-tab--emergency {
+    --tab-accent: #f87171;
+    --tab-bg-active: rgba(248, 113, 113, 0.16);
+    --tab-shadow: rgba(248, 113, 113, 0.28);
+    --tab-icon-bg: rgba(248, 113, 113, 0.14);
+    --tab-count-bg: rgba(248, 113, 113, 0.2);
+  }
+
+  .executor-status-tab--emergency.has-items:not(.active) .executor-status-count.has-items,
+  .executor-status-tab--overdue.has-items:not(.active) .executor-status-count.has-items {
+    animation: executor-tab-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes executor-tab-pulse {
+    0%, 100% { box-shadow: none; }
+    50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--tab-accent) 25%, transparent); }
   }
 
   .mobile-nav-item {

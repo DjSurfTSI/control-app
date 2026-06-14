@@ -58,11 +58,23 @@ const EXECUTOR_STATUS_SHORT = {
   emergency: 'Срочная',
 };
 
+const EXECUTOR_STATUS_ICONS = {
+  new: '✦',
+  in_progress: '⚙',
+  completed: '✓',
+  overdue: '⏱',
+  returned: '↩',
+  cancelled: '✕',
+  no_access: '⊘',
+  emergency: '!',
+};
+
 /** Вкладки мобильного списка заявок для исполнителя — по одному статусу из фильтра */
 export const EXECUTOR_MOBILE_TABS = TASK_FILTER_STATUSES.map((id) => ({
   id,
   label: STATUS_LABELS[id],
   shortLabel: EXECUTOR_STATUS_SHORT[id] ?? STATUS_LABELS[id],
+  icon: EXECUTOR_STATUS_ICONS[id] ?? '•',
   statuses: [id],
 }));
 
