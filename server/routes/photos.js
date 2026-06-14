@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import db, { REQUIRED_PHOTO_TYPES } from '../db.js';
 import { authMiddleware } from '../middleware.js';
 import { isManager, isExecutor } from '../roles.js';
+import { canExecutorSelfAssignTask } from '../constants.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { validatePhoto } from '../cv/validatePhotos.js';
 import { isCvEnabled } from '../cv/atmDetector.js';
@@ -44,7 +45,9 @@ router.use(authMiddleware);
 
 function canAccessTask(task, user) {
   if (isManager(user)) return true;
-  if (isExecutor(user)) return task.assigned_to === user.id || (task.status === 'new' && !task.assigned_to);
+  if (isExecutor(user)) {
+    return task.assigned_to === user.id || canExecutorSelfAssignTask(task);
+  }
   return false;
 }
 

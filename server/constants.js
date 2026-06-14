@@ -13,6 +13,14 @@ export const STATUS_LABELS = {
   emergency: 'Экстренная заявка',
 };
 
+export const EXECUTOR_SELF_ASSIGNABLE_STATUSES = ['new', 'overdue'];
+
+export function canExecutorSelfAssignTask(task) {
+  return task
+    && EXECUTOR_SELF_ASSIGNABLE_STATUSES.includes(task.status)
+    && !task.assigned_to;
+}
+
 export const STATUS_ALIASES = {
   pending: 'new',
   новая: 'new',

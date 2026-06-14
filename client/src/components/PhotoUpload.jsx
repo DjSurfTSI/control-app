@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '../api';
 import { PHOTO_TYPES, PHOTO_TYPE_LABELS, checkRequiredPhotos, checkPhotoCv } from '../utils';
 import { compressImageForUpload } from '../utils/compressImage';
+import { isMobileDevice } from '../utils/isMobileDevice';
 import { useCvStatus } from '../hooks/useCvStatus';
 import { useOffline } from '../hooks/useOffline';
 
@@ -13,17 +14,21 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
   const [photosError, setPhotosError] = useState('');
   const [uploading, setUploading] = useState(null);
   const [error, setError] = useState('');
-  const [isMobileView, setIsMobileView] = useState(() => window.matchMedia('(max-width: 768px)').matches);
+  const [isMobile, setIsMobile] = useState(() => isMobileDevice());
   const inputRefs = useRef({});
 
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 768px)');
-    const onChangeMq = () => setIsMobileView(mq.matches);
-    mq.addEventListener('change', onChangeMq);
-    return () => mq.removeEventListener('change', onChangeMq);
+    const refresh = () => setIsMobile(isMobileDevice());
+    refresh();
+    window.addEventListener('orientationchange', refresh);
+    window.addEventListener('resize', refresh);
+    return () => {
+      window.removeEventListener('orientationchange', refresh);
+      window.removeEventListener('resize', refresh);
+    };
   }, []);
 
-  const useCameraCapture = executorMobileCameraCapture && isMobileView;
+  const useCameraCapture = executorMobileCameraCapture && isMobile;
 
   const emitChange = useCallback((data, enabled = cvEnabled) => {
     const required = checkRequiredPhotos(data);

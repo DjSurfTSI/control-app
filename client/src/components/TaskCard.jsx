@@ -1,11 +1,11 @@
-import { STATUS_LABELS, formatDate } from '../utils';
+import { STATUS_LABELS, formatDate, canExecutorTakeTask } from '../utils';
 
 export default function TaskCard({
   task, isManager, isExecutor, currentUserId, canDelete, canComplete,
   onStart, onComplete, onAssignSelf, onEdit, onCancel, onDelete, onView,
   selectable, selected, onSelectToggle,
 }) {
-  const canTake = isExecutor && task.status === 'new' && !task.assigned_to;
+  const canTake = isExecutor && canExecutorTakeTask(task);
 
   const card = (
     <div className={`task-card card status-${task.status}${selected ? ' task-card-selected' : ''}`}>

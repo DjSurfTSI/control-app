@@ -8,6 +8,7 @@ import {
   isManager, isBizAdmin, isExecutor, getCloseMetadata, PHOTO_TYPE_LABELS, formatCloseLocation,
   canUserCompleteTask,
   userMustAttachPhotosToComplete,
+  canExecutorTakeTask,
   EXECUTOR_MOBILE_TABS, filterTasksByExecutorTab, TASK_FILTER_STATUSES, canBulkAssignTask, canBulkAssignSelfTask,
 } from '../utils';
 import PhotoUpload from '../components/PhotoUpload';
@@ -719,7 +720,7 @@ export default function Tasks() {
                     <td>{t.assignee_name || '—'}</td>
                     <td className="actions">
                       <button className="btn-secondary btn-sm" onClick={() => setModal(t)}>Открыть</button>
-                      {executor && t.status === 'new' && !t.assigned_to && (
+                      {executor && canExecutorTakeTask(t) && (
                         <button className="btn-primary btn-sm" onClick={() => handleAssignSelf(t)}>Взять</button>
                       )}
                       {canUserCompleteTask(t, user) && (

@@ -643,7 +643,7 @@ client/src/
 
 Точки UI: таблица/карточка (`Tasks.jsx`, `TaskCard.jsx`), `CompleteModal`, `TaskModal` (кнопка «Завершить» + поле «Отчёт»).
 
-**Фото на mobile (исполнитель):** `executor_mobile_camera_capture` в `cv_settings`; `PhotoUpload` ставит `capture="environment"` только при включённой настройке и ширине &lt; 768px.
+**Фото на mobile (исполнитель):** `executor_mobile_camera_capture` в `cv_settings`; `PhotoUpload` использует `isMobileDevice()` (не ширину экрана) — `capture="environment"` при включённой настройке, в т.ч. в ландшафте (v2.4.5).
 
 При `overdue` кнопка не скрывается — заявка могла перейти в просрочку автоматически (`markOverdue()` на сервере при `GET /api/tasks`).
 
@@ -684,7 +684,7 @@ client/src/
 **Исполнитель** (v2.2.4):
 
 1. Та же панель выбора при фильтрах; кнопка **«Взять на себя (N)»** вместо выбора исполнителя.
-2. Чекбоксы только у заявок `canBulkAssignSelfTask` (`new`, без `assigned_to`).
+2. Чекбоксы только у заявок `canBulkAssignSelfTask` (`new` или `overdue`, без `assigned_to`, v2.4.5).
 3. На мобильных «Выбрать все» учитывает текущую вкладку статуса; смена вкладки сбрасывает выбор.
 4. Параллельный `PATCH` с `{ assign_self: true }` (`api.assignSelf`).
 

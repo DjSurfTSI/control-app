@@ -13,7 +13,7 @@ import { validateTaskPhotos, PHOTO_TYPE_LABELS } from '../cv/validatePhotos.js';
 import { dispatchWebhooks } from '../integration/webhooks.js';
 import { formatTask, TASK_SELECT_INTEGRATION } from '../integration/schemas.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
-import { STATUS_LABELS, normalizeStatus } from '../constants.js';
+import { STATUS_LABELS, normalizeStatus, canExecutorSelfAssignTask } from '../constants.js';
 import { isExecutor } from '../roles.js';
 import { readExcelRows, writeExcelBuffer, pickColumn, parseDate } from '../utils/excelImport.js';
 import { recalculateUserRating } from '../utils/rating.js';
@@ -334,8 +334,8 @@ router.patch('/:id', asyncHandler(async (req, res) => {
   const params = [];
 
   if (assign_self && executor) {
-    if (task.status !== 'new' || task.assigned_to) {
-      return res.status(400).json({ error: 'Можно взять только новую нераспределённую заявку' });
+    if (!canExecutorSelfAssignTask(task)) {
+      return res.status(400).json({ error: 'Можно взять только новую или просроченную нераспределённую заявку' });
     }
     updates.push('assigned_to = ?', 'status = ?', "started_at = datetime('now')");
     params.push(req.user.id, 'in_progress');
