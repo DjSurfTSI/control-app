@@ -4,17 +4,10 @@ import { api } from '../api';
 import { mergeWorkspaceConfig } from '../config/workspaceCatalog';
 import { useAuth } from '../context/AuthContext';
 import { requestGeolocationAccess } from '../utils/geolocation';
-const DEMO_ACCOUNTS = [
-  { email: 'bizadmin@bank.ru', role: 'Бизнес-администратор' },
-  { email: 'admin@bank.ru', role: 'Администратор' },
-  { email: 'supervisor@bank.ru', role: 'Супервайзер' },
-  { email: 'cleaner1@bank.ru', role: 'Исполнитель' },
-];
 
 export default function Login() {
-  const [email, setEmail] = useState('supervisor@bank.ru');
-  const [password, setPassword] = useState('admin123');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -79,23 +72,6 @@ export default function Login() {
             {loading ? 'Вход...' : 'Войти'}
           </button>
         </form>
-
-        <div className="demo-accounts">
-          <p>Демо-аккаунты (пароль: <code>admin123</code>)</p>
-          <ul>
-            {DEMO_ACCOUNTS.map((a) => (
-              <li key={a.email}>
-                <button
-                  type="button"
-                  className="demo-btn"
-                  onClick={() => { setEmail(a.email); setPassword('admin123'); }}
-                >
-                  {a.role} — {a.email}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
       </div>
     </div>
   );

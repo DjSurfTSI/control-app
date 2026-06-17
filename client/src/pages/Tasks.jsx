@@ -669,7 +669,7 @@ export default function Tasks() {
           )
         ) : (
           <div className="table-wrap table-scroll">
-            <table>
+            <table className="tasks-table">
               <thead>
                 <tr>
                   {showBulkSelect && (
@@ -683,9 +683,10 @@ export default function Tasks() {
                       />
                     </th>
                   )}
-                  <th>№</th><th>ID УС</th><th>Статус</th><th>Доступность</th><th>Терр. Банк</th><th>ГОСБ</th>
-                  <th>Адрес</th><th>Место</th><th>План</th><th>Контроль</th><th>Начало</th><th>Завершение</th>
-                  <th>Услуга</th><th>Исполнитель</th><th>Действия</th>
+                  <th>№</th><th>ID УС</th><th>Статус</th><th>Доступн.</th><th>Терр. Банк</th><th>ГОСБ</th>
+                  <th>Адрес</th><th>Место</th><th>План</th><th>Контроль</th>
+                  <th className="tasks-table-col-optional">Начало</th><th className="tasks-table-col-optional">Конец</th>
+                  <th className="tasks-table-col-optional">Услуга</th><th>Исполнитель</th><th>Действия</th>
                 </tr>
               </thead>
               <tbody>
@@ -705,31 +706,31 @@ export default function Tasks() {
                       </td>
                     )}
                     <td><strong>{t.id}</strong></td>
-                    <td><strong>{t.serial_number || '—'}</strong></td>
+                    <td className="tasks-table-cell-mono">{t.serial_number || '—'}</td>
                     <td><span className={`badge badge-${t.status}`}>{STATUS_LABELS[t.status]}</span></td>
-                    <td>{t.accessibility_type || '—'}</td>
-                    <td>{t.territorial_bank || t.bank_name}</td>
-                    <td>{t.gosb || t.zone || '—'}</td>
-                    <td>{t.address}</td>
-                    <td>{t.installation_name || '—'}</td>
-                    <td>{formatDate(t.scheduled_date)}</td>
-                    <td>{formatDate(t.deadline_date)}</td>
-                    <td>{formatDateTime(t.started_at)}</td>
-                    <td>{formatDateTime(t.completed_at)}</td>
-                    <td>{t.service_contract || '—'}</td>
-                    <td>{t.assignee_name || '—'}</td>
+                    <td className="tasks-table-cell-muted">{t.accessibility_type || '—'}</td>
+                    <td className="tasks-table-cell-truncate" title={t.territorial_bank || t.bank_name}>{t.territorial_bank || t.bank_name}</td>
+                    <td className="tasks-table-cell-muted">{t.gosb || t.zone || '—'}</td>
+                    <td className="tasks-table-cell-address" title={t.address}>{t.address}</td>
+                    <td className="tasks-table-cell-truncate" title={t.installation_name}>{t.installation_name || '—'}</td>
+                    <td className="tasks-table-cell-nowrap">{formatDate(t.scheduled_date)}</td>
+                    <td className="tasks-table-cell-nowrap">{formatDate(t.deadline_date)}</td>
+                    <td className="tasks-table-col-optional tasks-table-cell-nowrap">{formatDateTime(t.started_at)}</td>
+                    <td className="tasks-table-col-optional tasks-table-cell-nowrap">{formatDateTime(t.completed_at)}</td>
+                    <td className="tasks-table-col-optional tasks-table-cell-truncate" title={t.service_contract}>{t.service_contract || '—'}</td>
+                    <td className="tasks-table-cell-truncate" title={t.assignee_name}>{t.assignee_name || '—'}</td>
                     <td className="actions">
-                      <button className="btn-secondary btn-sm" onClick={() => setModal(t)}>Открыть</button>
+                      <button className="btn-secondary btn-xs" onClick={() => setModal(t)}>Открыть</button>
                       {executor && canExecutorTakeTask(t) && (
-                        <button className="btn-primary btn-sm" onClick={() => handleAssignSelf(t)}>Взять</button>
+                        <button className="btn-primary btn-xs" onClick={() => handleAssignSelf(t)}>Взять</button>
                       )}
                       {canUserCompleteTask(t, user) && (
-                        <button className="btn-success btn-sm" onClick={() => setCompleteModal(t)}>Завершить</button>
+                        <button className="btn-success btn-xs" onClick={() => setCompleteModal(t)}>Завершить</button>
                       )}
                       {manager && !bizAdmin && !['cancelled', 'completed'].includes(t.status) && (
-                        <button className="btn-danger btn-sm" onClick={() => handleCancel(t.id)}>Отмена</button>
+                        <button className="btn-danger btn-xs" onClick={() => handleCancel(t.id)}>Отмена</button>
                       )}
-                      {bizAdmin && <button className="btn-danger btn-sm" onClick={() => handleDelete(t.id)}>Удалить</button>}
+                      {bizAdmin && <button className="btn-danger btn-xs" onClick={() => handleDelete(t.id)}>Удалить</button>}
                     </td>
                   </tr>
                 ))}

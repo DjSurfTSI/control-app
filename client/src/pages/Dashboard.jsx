@@ -125,11 +125,17 @@ export default function Dashboard() {
             <div className="task-list">
               {tasks.map((t) => (
                 <div key={t.id} className="task-item">
-                  <div>
-                    <strong>{t.serial_number}</strong> — {t.bank_name}
-                    <p className="task-address">{t.address}</p>
+                  <div className="task-item-main">
+                    <span className="task-item-head">
+                      <strong>№{t.id}</strong>
+                      <span className="task-item-sep">·</span>
+                      <span>{t.serial_number || '—'}</span>
+                      <span className="task-item-sep">·</span>
+                      <span>{t.bank_name}</span>
+                    </span>
+                    <p className="task-address" title={t.address}>{t.address}</p>
                     {manager && t.assignee_name && (
-                      <p className="task-assignee">👤 {t.assignee_name}</p>
+                      <span className="task-assignee">👤 {t.assignee_name}</span>
                     )}
                   </div>
                   <span className={`badge badge-${t.status}`}>{STATUS_LABELS[t.status]}</span>
