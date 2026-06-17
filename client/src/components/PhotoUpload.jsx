@@ -8,7 +8,7 @@ import { useOffline } from '../hooks/useOffline';
 
 export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
   const { cvEnabled, executorMobileCameraCapture, executorPhotoMaxEdge, executorPhotoJpegQuality, loading: cvLoading } = useCvStatus();
-  const { online } = useOffline();
+  const { effectiveOffline, networkOnline } = useOffline();
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [photosError, setPhotosError] = useState('');
@@ -78,7 +78,7 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
   }, [cvEnabled, loading, photos]);
 
   useEffect(() => {
-    if (!cvEnabled || !online || !taskId) return undefined;
+    if (!cvEnabled || !networkOnline || !taskId) return undefined;
     const hasPending = photos.some((p) => p.cv_detected == null && !p.offline);
     if (!hasPending) return undefined;
 
@@ -96,7 +96,7 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
     };
     const id = setInterval(tick, 2000);
     return () => { cancelled = true; clearInterval(id); };
-  }, [photos, cvEnabled, online, taskId, emitChange]);
+  }, [photos, cvEnabled, networkOnline, taskId, emitChange]);
 
   const getPhotoForType = (type) => photos.find((p) => p.photo_type === type);
 
@@ -110,7 +110,7 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
         maxEdge: executorPhotoMaxEdge,
         jpegQuality: executorPhotoJpegQuality,
       });
-      const result = await api.uploadPhoto(taskId, compressed, type, { preferOffline: !online });
+      const result = await api.uploadPhoto(taskId, compressed, type, { preferOffline: effectiveOffline });
       if (result?.offline_queued || result?.offline) {
         setPhotos((prev) => {
           const next = [
@@ -182,7 +182,7 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
           CV-проверка отключена. Достаточно трёх фото с разных ракурсов.
         </p>
       )}
-      {!online && !readOnly && (
+      {effectiveOffline && !readOnly && (
         <p className="photo-offline-hint">Фото сохранятся на устройстве и отправятся при появлении сети.</p>
       )}
 

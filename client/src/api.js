@@ -15,6 +15,7 @@ import {
   setMeta,
   getMeta,
 } from './offline/store.js';
+import { isEffectiveOffline, isNetworkOnline } from './offline/mode.js';
 
 const API = '/api';
 const REQUEST_TIMEOUT_MS = 20000;
@@ -133,7 +134,7 @@ export const api = {
       return u;
     } catch (err) {
       const cached = localStorage.getItem('offline_user');
-      if (cached && (!navigator.onLine || isNetworkError(err))) {
+      if (cached && (isEffectiveOffline() || isNetworkError(err))) {
         return JSON.parse(cached);
       }
       throw err;
@@ -170,6 +171,13 @@ export const api = {
   getTasks: async (params = {}) => {
     const q = new URLSearchParams(params).toString();
     const cacheKey = q || '_all';
+
+    if (isEffectiveOffline()) {
+      const cached = await getCachedTasks(cacheKey);
+      if (cached) return cached;
+      throw new Error('Нет кэшированных заявок. Отключите офлайн-режим или подключите сеть.');
+    }
+
     try {
       const data = await request(`/tasks${q ? `?${q}` : ''}`);
       void cacheTasks(cacheKey, data).catch(() => {});
@@ -189,7 +197,7 @@ export const api = {
     try {
       return await request('/tasks/stats');
     } catch (err) {
-      if (!navigator.onLine || isNetworkError(err)) return null;
+      if (isEffectiveOffline() || isNetworkError(err)) return null;
       throw err;
     }
   },
@@ -203,7 +211,7 @@ export const api = {
       notifyQueueChange();
       return { id, ...data, offline: true };
     };
-    if (!navigator.onLine) return applyOffline();
+    if (isEffectiveOffline()) return applyOffline();
     try {
       return await request(`/tasks/${id}`, {
         method: 'PATCH',
@@ -246,7 +254,7 @@ export const api = {
   getPhotos: async (taskId) => {
     const merged = async () => getMergedPhotosForTask(taskId);
 
-    if (!navigator.onLine) {
+    if (isEffectiveOffline()) {
       return merged();
     }
 
@@ -279,7 +287,7 @@ export const api = {
       fd.append('photo_type', photoType);
       return request(`/photos/${taskId}`, { method: 'POST', body: fd, timeoutMs: 120000 });
     };
-    if (preferOffline || !navigator.onLine) return queuePhoto(taskId, file, photoType);
+    if (preferOffline || isEffectiveOffline()) return queuePhoto(taskId, file, photoType);
     try {
       return await upload();
     } catch (err) {
@@ -310,7 +318,7 @@ export const api = {
       return { ok: true, offline: true };
     };
 
-    if (!navigator.onLine) return deleteOffline();
+    if (isEffectiveOffline()) return deleteOffline();
 
     if (idStr.startsWith('offline-')) {
       return deleteOffline();
@@ -357,7 +365,7 @@ export const api = {
       } catch {
         /* ignore IDB errors */
       }
-      if (!navigator.onLine || isNetworkError(err)) {
+      if (isEffectiveOffline() || isNetworkError(err)) {
         return {
           enabled: true,
           executor_mobile_camera_capture: true,

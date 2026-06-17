@@ -78,10 +78,14 @@ atm-cleaning-control/
 │       ├── offline/
 │       │   ├── store.js            # IndexedDB: кэш заявок/фото, очередь
 │       │   ├── sync.js             # Синхронизация очереди при online
+│       │   ├── mode.js             # Ручной офлайн-режим (localStorage)
+│       │   ├── prefetch.js         # Предзагрузка кэша перед офлайном
 │       │   └── registerSw.js       # Регистрация Service Worker
+│       ├── components/
+│       │   └── OfflineStatusBar.jsx # Статус-бар: сеть, кэш, очередь, кнопки
 │       ├── hooks/
 │       │   ├── useCvStatus.js      # Статус CV (enabled) для UI
-│       │   ├── useOffline.js       # Статус сети и очереди
+│       │   ├── useOffline.js       # Статус сети, кэша, очереди (singleton)
 │       │   └── useNotifications.js
 │       ├── utils/
 │       │   ├── compressImage.js    # Сжатие фото в браузере
@@ -779,21 +783,38 @@ client/src/
 
 ```mermaid
 flowchart LR
+    Bar[OfflineStatusBar] --> useOffline[useOffline]
+    useOffline --> mode[offline/mode.js]
     UI[Tasks / Dashboard] --> API[api.js]
-    API -->|online| REST["/api/*"]
+    API --> mode
+    API -->|effective online| REST["/api/*"]
     API -->|cache read| IDB[(IndexedDB)]
     API -->|cache write| IDB
     API -->|offline ops| Queue[очередь sync]
-    Queue -->|online| REST
+    Queue -->|network online| REST
+    prefetch[prefetch.js] -->|перед офлайном| IDB
     SW[Service Worker] -->|shell| UI
 ```
 
 | Компонент | Назначение |
 |-----------|------------|
-| `offline/store.js` | Кэш заявок и фото, очередь PATCH/upload/delete |
+| `offline/mode.js` | `isEffectiveOffline()`, ручной режим в `localStorage` |
+| `offline/prefetch.js` | Загрузка заявок в кэш при включении офлайна |
+| `offline/store.js` | Кэш заявок и фото, очередь PATCH/upload/delete, `getCacheStats` |
 | `offline/sync.js` | Сброс очереди при `online`, событие `offline-synced` |
-| `api.js` | Офлайн-fallback: при ошибке сети — данные из IndexedDB; фото в очереди хранятся как `blobData`; `deletePhoto` удаляет `offline-*` локально |
+| `OfflineStatusBar.jsx` | Панель: статус сети, счётчики кэша/очереди, кнопки «Офлайн» и «Синхр.» |
+| `useOffline.js` | Общее состояние (singleton), подписки компонентов |
+| `api.js` | При `isEffectiveOffline()` — чтение кэша без сети; очередь записей |
 | `AuthContext.jsx` | Кэш `offline_user` в localStorage при сетевых сбоях |
+
+**v2.5.0 — ручной офлайн и статус-бар:**
+
+| Действие | Поведение |
+|----------|-----------|
+| Кнопка «📡 Офлайн» | `prefetchOfflineData()` → `setManualOfflineMode(true)` |
+| Выключение офлайна | `setManualOfflineMode(false)` → синхронизация очереди |
+| Статус-бар | 📋 заявки в кэше, 📷 заявки с фото, ⏳ очередь, время кэша |
+| `isEffectiveOffline()` | `!network \|\| manualOffline` — API не ходит на сервер за чтением |
 
 **v1.3.1 — защита от зависания UI:**
 

@@ -1,4 +1,5 @@
-import { api } from '../api';
+import { api } from '../api.js';
+import { isNetworkOnline } from './mode.js';
 import {
   getQueue,
   removeQueueItem,
@@ -32,7 +33,7 @@ async function blobFromQueueItem(item) {
 }
 
 async function runFlush() {
-  if (!navigator.onLine) return { synced: 0, failed: 0, error: 'Нет подключения к интернету' };
+  if (!isNetworkOnline()) return { synced: 0, failed: 0, error: 'Нет подключения к интернету' };
 
   let synced = 0;
   let failed = 0;
@@ -84,7 +85,7 @@ async function runFlush() {
       console.warn('Offline sync item failed:', item.op, msg);
       errors.push(msg);
       failed += 1;
-      if (!navigator.onLine) break;
+      if (!isNetworkOnline()) break;
     }
   }
 
@@ -116,10 +117,10 @@ export function setupAutoSync(onSynced) {
   const onOnline = () => { run(); };
   window.addEventListener('online', onOnline);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && navigator.onLine) run();
+    if (document.visibilityState === 'visible' && isNetworkOnline()) run();
   });
 
-  if (navigator.onLine) setTimeout(run, 2000);
+  if (isNetworkOnline()) setTimeout(run, 2000);
 
   return () => window.removeEventListener('online', onOnline);
 }

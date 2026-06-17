@@ -5,7 +5,7 @@ import { WorkspaceProvider, useWorkspace } from '../context/WorkspaceContext';
 import ExecutorStatusNav from './ExecutorStatusNav';
 import { ROLE_LABELS } from '../utils';
 import { useNotifications } from '../hooks/useNotifications';
-import { useOffline } from '../hooks/useOffline';
+import OfflineStatusBar from './OfflineStatusBar';
 import { useState } from 'react';
 
 function LayoutShell() {
@@ -16,12 +16,7 @@ function LayoutShell() {
   const { navItems, homeRoute } = useWorkspace();
   const showExecutorStatusNav = executorNav.enabled && location.pathname === '/tasks';
   const { alerts, pushEnabled, pushLoading, enablePush, disablePush } = useNotifications(true);
-  const { online, pending, syncing, syncNow, lastSyncMessage } = useOffline();
   const [notifError, setNotifError] = useState('');
-
-  const handleSync = async () => {
-    await syncNow();
-  };
 
   const handleLogout = () => {
     logout();
@@ -80,23 +75,7 @@ function LayoutShell() {
 
       {notifError && <div className="notif-error">{notifError}</div>}
 
-      {(!online || pending > 0) && (
-        <div className={`offline-banner ${online ? 'sync-pending' : 'offline'}`}>
-          {!online ? (
-            <span>📡 Нет сети — показаны сохранённые данные. Действия будут отправлены при подключении.</span>
-          ) : (
-            <span>⏳ Ожидает отправки: {pending} {pending === 1 ? 'действие' : 'действий'}</span>
-          )}
-          {online && pending > 0 && (
-            <button type="button" className="btn-sm btn-secondary" onClick={handleSync} disabled={syncing}>
-              {syncing ? 'Синхронизация…' : 'Синхронизировать'}
-            </button>
-          )}
-          {lastSyncMessage && online && (
-            <span className="sync-feedback">{lastSyncMessage}</span>
-          )}
-        </div>
-      )}
+      <OfflineStatusBar />
 
       <main className="main">
         <Outlet />

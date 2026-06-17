@@ -294,3 +294,34 @@ export async function getMergedPhotosForTask(taskId) {
 
   return Array.from(byType.values());
 }
+
+export async function getCacheStats() {
+  try {
+    const db = await openDb();
+    const taskRows = await idbRequest(
+      db.transaction('tasks_cache', 'readonly').objectStore('tasks_cache').getAll()
+    );
+    let taskCount = 0;
+    let cachedAt = null;
+    taskRows.forEach((row) => {
+      if (row?.tasks?.length) {
+        taskCount += row.tasks.length;
+        if (row.at && (!cachedAt || row.at > cachedAt)) cachedAt = row.at;
+      }
+    });
+
+    const photoTaskCount = await idbRequest(
+      db.transaction('photos_cache', 'readonly').objectStore('photos_cache').count()
+    );
+    const queueSize = await getQueueCount();
+
+    return {
+      taskCount,
+      photoTaskCount,
+      queueSize,
+      cachedAt: cachedAt ? new Date(cachedAt).toISOString() : null,
+    };
+  } catch {
+    return { taskCount: 0, photoTaskCount: 0, queueSize: 0, cachedAt: null };
+  }
+}

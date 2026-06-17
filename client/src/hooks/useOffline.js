@@ -1,7 +1,13 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { flushOfflineQueue } from '../offline/sync.js';
-import { getQueueCount } from '../offline/store.js';
-import { api } from '../api';
+import { getQueueCount, getCacheStats } from '../offline/store.js';
+import { prefetchOfflineData } from '../offline/prefetch.js';
+import {
+  isManualOfflineMode,
+  isNetworkOnline,
+  isEffectiveOffline,
+  setManualOfflineMode,
+} from '../offline/mode.js';
 
 function formatSyncMessage(result) {
   if (result.error) return result.error;
@@ -17,7 +23,7 @@ function formatSyncMessage(result) {
 async function autoSyncWithRetry(maxAttempts = 6) {
   let lastResult = { synced: 0, failed: 0 };
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    if (!navigator.onLine) break;
+    if (!isNetworkOnline()) break;
     if (attempt > 0) {
       await new Promise((r) => setTimeout(r, 1000 * attempt));
     }
@@ -34,86 +40,172 @@ async function autoSyncWithRetry(maxAttempts = 6) {
   return lastResult;
 }
 
-export function useOffline() {
-  const [online, setOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
-  const [pending, setPending] = useState(0);
-  const [syncing, setSyncing] = useState(false);
-  const [lastSyncMessage, setLastSyncMessage] = useState('');
-  const autoSyncingRef = useRef(false);
+const EMPTY_CACHE = { taskCount: 0, photoTaskCount: 0, queueSize: 0, cachedAt: null };
 
-  const refreshPending = useCallback(async () => {
-    try {
-      setPending(await getQueueCount());
-    } catch {
-      setPending(0);
+let sharedState = {
+  networkOnline: isNetworkOnline(),
+  manualOffline: isManualOfflineMode(),
+  pending: 0,
+  syncing: false,
+  caching: false,
+  cacheStats: EMPTY_CACHE,
+  lastSyncMessage: '',
+};
+
+const subscribers = new Set();
+let listenersBound = false;
+let autoSyncingRef = false;
+
+function notify() {
+  subscribers.forEach((fn) => fn());
+}
+
+function patchState(patch) {
+  sharedState = { ...sharedState, ...patch };
+  notify();
+}
+
+async function refreshCacheStatsShared() {
+  const stats = await getCacheStats();
+  patchState({ cacheStats: stats, pending: stats.queueSize });
+  return stats;
+}
+
+async function runSyncShared({ manual = false, retry = false } = {}) {
+  if (!isNetworkOnline()) {
+    const msg = 'Нет подключения к интернету';
+    if (manual) patchState({ lastSyncMessage: msg });
+    return { synced: 0, failed: 0, error: msg };
+  }
+
+  patchState({ syncing: true });
+  try {
+    const result = retry || !manual
+      ? await autoSyncWithRetry(manual ? 3 : 5)
+      : await flushOfflineQueue();
+
+    await refreshCacheStatsShared();
+
+    const msg = formatSyncMessage(result);
+    if (manual) {
+      patchState({
+        lastSyncMessage: msg || (sharedState.pending > 0
+          ? 'Не удалось синхронизировать. Повторите позже.'
+          : 'Очередь пуста'),
+      });
+    } else if (msg) {
+      patchState({ lastSyncMessage: msg });
     }
-  }, []);
 
-  const runSync = useCallback(async ({ manual = false, retry = false } = {}) => {
-    if (!navigator.onLine) {
-      const msg = 'Нет подключения к интернету';
-      if (manual) setLastSyncMessage(msg);
-      return { synced: 0, failed: 0, error: msg };
-    }
+    return result;
+  } finally {
+    patchState({ syncing: false });
+  }
+}
 
-    setSyncing(true);
+async function toggleOfflineModeShared() {
+  const enabling = !sharedState.manualOffline;
+  if (enabling) {
+    patchState({ caching: true, lastSyncMessage: '' });
     try {
-      const result = retry || !manual
-        ? await autoSyncWithRetry(manual ? 3 : 5)
-        : await flushOfflineQueue();
-
-      await refreshPending();
-      const remaining = await getQueueCount().catch(() => 0);
-
-      const msg = formatSyncMessage(result);
-      if (manual) {
-        setLastSyncMessage(msg || (remaining > 0 ? 'Не удалось синхронизировать. Повторите позже.' : 'Очередь пуста'));
-      } else if (msg) {
-        setLastSyncMessage(msg);
-      }
-
-      return result;
+      const stats = await prefetchOfflineData();
+      setManualOfflineMode(true);
+      patchState({
+        manualOffline: true,
+        cacheStats: stats,
+        pending: stats.queueSize,
+        lastSyncMessage: stats.taskCount > 0
+          ? `Кэш обновлён: ${stats.taskCount} заявок`
+          : 'Офлайн-режим включён. Кэш пуст — обновите список при наличии сети.',
+      });
+    } catch (err) {
+      setManualOfflineMode(true);
+      patchState({
+        manualOffline: true,
+        lastSyncMessage: err.message || 'Не удалось обновить кэш',
+      });
+      await refreshCacheStatsShared();
     } finally {
-      setSyncing(false);
+      patchState({ caching: false });
     }
-  }, [refreshPending]);
+    return;
+  }
 
-  const syncNow = useCallback(() => runSync({ manual: true }), [runSync]);
+  setManualOfflineMode(false);
+  patchState({ manualOffline: false, lastSyncMessage: 'Офлайн-режим выключен' });
+  if (isNetworkOnline()) {
+    await runSyncShared({ manual: true, retry: true });
+  }
+}
+
+function bindGlobalListeners() {
+  if (listenersBound || typeof window === 'undefined') return;
+  listenersBound = true;
+
+  const triggerAutoSync = async () => {
+    if (autoSyncingRef || isManualOfflineMode()) return;
+    autoSyncingRef = true;
+    try {
+      await runSyncShared({ manual: false, retry: true });
+    } finally {
+      autoSyncingRef = false;
+    }
+  };
+
+  window.addEventListener('online', () => {
+    patchState({ networkOnline: true });
+    triggerAutoSync();
+  });
+  window.addEventListener('offline', () => patchState({ networkOnline: false }));
+  window.addEventListener('offline-mode-changed', (e) => {
+    patchState({ manualOffline: !!e.detail?.enabled });
+  });
+  window.addEventListener('offline-queue-changed', async () => {
+    try {
+      patchState({ pending: await getQueueCount() });
+    } catch {
+      patchState({ pending: 0 });
+    }
+  });
+  window.addEventListener('offline-synced', () => { refreshCacheStatsShared(); });
+
+  refreshCacheStatsShared();
+  if (isNetworkOnline() && !isManualOfflineMode()) triggerAutoSync();
+  setInterval(() => { refreshCacheStatsShared(); }, 15000);
+}
+
+export function useOffline() {
+  const [, setTick] = useState(0);
+  const reload = useCallback(() => setTick((t) => t + 1), []);
 
   useEffect(() => {
-    const triggerAutoSync = async () => {
-      if (autoSyncingRef.current) return;
-      autoSyncingRef.current = true;
+    bindGlobalListeners();
+    subscribers.add(reload);
+    return () => subscribers.delete(reload);
+  }, [reload]);
+
+  const networkOnline = sharedState.networkOnline;
+  const manualOffline = sharedState.manualOffline;
+
+  return {
+    online: networkOnline && !manualOffline,
+    networkOnline,
+    manualOffline,
+    effectiveOffline: isEffectiveOffline(),
+    pending: sharedState.pending,
+    syncing: sharedState.syncing,
+    caching: sharedState.caching,
+    cacheStats: sharedState.cacheStats,
+    syncNow: () => runSyncShared({ manual: true, retry: true }),
+    toggleOfflineMode: toggleOfflineModeShared,
+    refreshPending: async () => {
       try {
-        await runSync({ manual: false, retry: true });
-      } finally {
-        autoSyncingRef.current = false;
+        patchState({ pending: await getQueueCount() });
+      } catch {
+        patchState({ pending: 0 });
       }
-    };
-
-    const onOnline = () => {
-      setOnline(true);
-      triggerAutoSync();
-    };
-    const onOffline = () => setOnline(false);
-
-    window.addEventListener('online', onOnline);
-    window.addEventListener('offline', onOffline);
-    window.addEventListener('offline-queue-changed', refreshPending);
-    window.addEventListener('offline-synced', refreshPending);
-    refreshPending();
-
-    if (navigator.onLine) triggerAutoSync();
-
-    const interval = setInterval(refreshPending, 10000);
-    return () => {
-      window.removeEventListener('online', onOnline);
-      window.removeEventListener('offline', onOffline);
-      window.removeEventListener('offline-queue-changed', refreshPending);
-      window.removeEventListener('offline-synced', refreshPending);
-      clearInterval(interval);
-    };
-  }, [runSync, refreshPending]);
-
-  return { online, pending, syncing, syncNow, refreshPending, lastSyncMessage };
+    },
+    refreshCacheStats: refreshCacheStatsShared,
+    lastSyncMessage: sharedState.lastSyncMessage,
+  };
 }
