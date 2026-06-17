@@ -7,7 +7,7 @@ import { useCvStatus } from '../hooks/useCvStatus';
 import { useOffline } from '../hooks/useOffline';
 
 export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
-  const { cvEnabled, executorMobileCameraCapture, loading: cvLoading } = useCvStatus();
+  const { cvEnabled, executorMobileCameraCapture, executorPhotoMaxEdge, executorPhotoJpegQuality, loading: cvLoading } = useCvStatus();
   const { online } = useOffline();
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -106,7 +106,10 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
     setError('');
     setUploading(type);
     try {
-      const compressed = await compressImageForUpload(file);
+      const compressed = await compressImageForUpload(file, {
+        maxEdge: executorPhotoMaxEdge,
+        jpegQuality: executorPhotoJpegQuality,
+      });
       const result = await api.uploadPhoto(taskId, compressed, type, { preferOffline: !online });
       if (result?.offline_queued || result?.offline) {
         setPhotos((prev) => {

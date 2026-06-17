@@ -259,6 +259,8 @@ erDiagram
         real margin
         int executor_mobile_camera_capture
         string cv_roles "JSON: admin|supervisor|executor"
+        int executor_photo_max_edge
+        int executor_photo_jpeg_quality
         datetime updated_at
         int updated_by FK
     }
@@ -274,7 +276,7 @@ erDiagram
 | `task_photos` | Доказательства выполнения |
 | `push_subscriptions` | Подписки на события |
 | `api_clients` | Внешние системы с API-ключами |
-| `cv_settings` | Параметры CV (вкл/выкл, порог, запас, камера mobile, `cv_roles`) — bizadmin |
+| `cv_settings` | Параметры CV (вкл/выкл, порог, запас, камера mobile, `cv_roles`, разрешение/качество фото исполнителя) — bizadmin |
 | `external_id` | Связь записей между АС |
 
 ---
@@ -424,7 +426,7 @@ stateDiagram-v2
 
 | Этап | Где | Описание |
 |------|-----|----------|
-| 1. Браузер | `client/src/utils/compressImage.js` | Ресайз до `PHOTO_MAX_EDGE` (1280px), JPEG ~82% **до** отправки на сервер |
+| 1. Браузер | `client/src/utils/compressImage.js` | Ресайз по `executor_photo_max_edge` и JPEG по `executor_photo_jpeg_quality` из `GET /api/settings/cv/status` **до** отправки |
 | 2. Сервер | `server/utils/optimizePhoto.js` | sharp — только если файл > `PHOTO_PASSTHROUGH_MAX_BYTES`; иначе **passthrough** (сохранение как есть) |
 
 | Параметр | По умолчанию | Описание |
@@ -444,7 +446,7 @@ stateDiagram-v2
 | Этап | Действие |
 |------|----------|
 | Старт сервера | `warmupCvModel()` — предзагрузка модели (v2.1.0) |
-| Настройки | `cv_settings` в БД; UI bizadmin — `/settings`; статус — `GET /api/settings/cv/status` (вкл. CV и `executor_mobile_camera_capture`) |
+| Настройки | `cv_settings` в БД; UI bizadmin — `/settings`; статус — `GET /api/settings/cv/status` (CV, камера mobile, разрешение/качество фото) |
 | CV выключена | UI без текстов про CV; завершение — только 3 фото; сервер не запускает CLIP |
 | CV включена | Загрузка фото → CV **синхронно в очереди** `runInCvQueue` → ответ с `cv_detected` |
 | Завершение (executor) | Повторная проверка всех ракурсов; при отказе — `in_progress`, код `cv_rejected` |
@@ -645,6 +647,8 @@ client/src/
 Точки UI: таблица/карточка (`Tasks.jsx`, `TaskCard.jsx`), `CompleteModal`, `TaskModal` (кнопка «Завершить» + поле «Отчёт»).
 
 **Фото на mobile (исполнитель):** `executor_mobile_camera_capture` в `cv_settings`; `PhotoUpload` использует `isMobileDevice()` (не ширину экрана) — `capture="environment"` при включённой настройке, в т.ч. в ландшафте (v2.4.5).
+
+**v2.4.9 — разрешение фото:** `executor_photo_max_edge` (640–2560 px) и `executor_photo_jpeg_quality` (50–95%) в `cv_settings`; bizadmin — слайдеры в `/settings`; `useCvStatus` → `PhotoUpload` → `compressImageForUpload`; сервер — `getExecutorPhotoCompressOptions()` в `photos.js` для исполнителя.
 
 При `overdue` кнопка не скрывается — заявка могла перейти в просрочку автоматически (`markOverdue()` на сервере при `GET /api/tasks`).
 

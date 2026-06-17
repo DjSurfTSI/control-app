@@ -10,6 +10,7 @@ import { canExecutorSelfAssignTask } from '../constants.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { validatePhoto } from '../cv/validatePhotos.js';
 import { isCvEnabled } from '../cv/atmDetector.js';
+import { getExecutorPhotoCompressOptions } from '../cv/settings.js';
 import { optimizePhoto, applyWatermark } from '../utils/optimizePhoto.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -107,7 +108,8 @@ router.post('/:taskId', (req, res, next) => {
 
   let optimized;
   try {
-    optimized = await optimizePhoto(req.file.path);
+    const compressOpts = isExecutor(req.user) ? getExecutorPhotoCompressOptions() : {};
+    optimized = await optimizePhoto(req.file.path, compressOpts);
   } catch (err) {
     if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     console.error(`Photo upload optimize failed (task ${req.params.taskId}):`, err.message);

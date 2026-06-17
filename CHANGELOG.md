@@ -4,7 +4,29 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/).
 
-**Актуальная версия:** v2.4.8
+**Актуальная версия:** v2.4.9
+
+---
+
+## [v2.4.9] — 2026-06-17
+
+### Добавлено
+
+- **Разрешение фото исполнителя** — в Настройках (bizadmin): длинная сторона (640–2560 px, пресеты) и качество JPEG (50–95%). Параметры `executor_photo_max_edge` и `executor_photo_jpeg_quality` в `cv_settings`.
+
+### Изменено
+
+- Сжатие в браузере (`compressImage.js`) и на сервере (`optimizePhoto`) для загрузок исполнителя используют настройки из API.
+- `GET /api/settings/cv/status` отдаёт параметры фото; кэш в IndexedDB для офлайна.
+
+### Технические детали
+
+| Элемент | Файл | Описание |
+|---------|------|----------|
+| `executor_photo_max_edge` | `cv_settings`, миграция | DEFAULT 1280 |
+| `executor_photo_jpeg_quality` | `cv_settings` | DEFAULT 82 |
+| UI | `Settings.jsx` | Пресеты + слайдеры |
+| `useCvStatus` | хук | `executorPhotoMaxEdge`, `executorPhotoJpegQuality` |
 
 ---
 

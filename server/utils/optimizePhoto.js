@@ -27,7 +27,9 @@ function passthrough(inputPath) {
  * @param {{ watermark?: string }} [options]
  */
 export async function optimizePhoto(inputPath, options = {}) {
-  const { watermark } = options;
+  const { watermark, maxEdge, jpegQuality } = options;
+  const edge = maxEdge > 0 ? Math.round(maxEdge) : MAX_EDGE;
+  const quality = jpegQuality > 0 ? Math.round(jpegQuality) : JPEG_QUALITY;
   const stats = fs.statSync(inputPath);
 
   if ((SKIP_SHARP || stats.size <= PASSTHROUGH_MAX_BYTES) && !watermark) {
@@ -51,11 +53,11 @@ export async function optimizePhoto(inputPath, options = {}) {
       animated: false,
     })
       .rotate()
-      .resize(MAX_EDGE, MAX_EDGE, { fit: 'inside', withoutEnlargement: true });
+      .resize(edge, edge, { fit: 'inside', withoutEnlargement: true });
 
     if (watermark) {
       const meta = await sharp(inputPath).metadata();
-      const width = Math.min(meta.width || MAX_EDGE, MAX_EDGE);
+      const width = Math.min(meta.width || edge, edge);
       const fontSize = Math.max(14, Math.round(width / 28));
       const svg = `
         <svg width="${width}" height="${fontSize + 16}">
@@ -67,7 +69,7 @@ export async function optimizePhoto(inputPath, options = {}) {
     }
 
     await pipeline
-      .jpeg({ quality: JPEG_QUALITY, mozjpeg: false })
+      .jpeg({ quality, mozjpeg: false })
       .toFile(tempPath);
 
     if (fs.existsSync(outputPath) && outputPath !== tempPath) {

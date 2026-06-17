@@ -337,11 +337,23 @@ export const api = {
     try {
       const data = await request('/settings/cv/status');
       void setMeta('cv_enabled', data.enabled).catch(() => {});
+      void setMeta('cv_photo_max_edge', data.executor_photo_max_edge).catch(() => {});
+      void setMeta('cv_photo_jpeg_quality', data.executor_photo_jpeg_quality).catch(() => {});
       return data;
     } catch (err) {
       try {
-        const cached = await getMeta('cv_enabled');
-        if (cached !== undefined) return { enabled: !!cached };
+        const cachedEnabled = await getMeta('cv_enabled');
+        const cachedMaxEdge = await getMeta('cv_photo_max_edge');
+        const cachedQuality = await getMeta('cv_photo_jpeg_quality');
+        if (cachedEnabled !== undefined) {
+          return {
+            enabled: !!cachedEnabled,
+            executor_mobile_camera_capture: true,
+            cv_roles: ['executor'],
+            executor_photo_max_edge: cachedMaxEdge || 1280,
+            executor_photo_jpeg_quality: cachedQuality || 82,
+          };
+        }
       } catch {
         /* ignore IDB errors */
       }
@@ -350,6 +362,8 @@ export const api = {
           enabled: true,
           executor_mobile_camera_capture: true,
           cv_roles: ['executor'],
+          executor_photo_max_edge: 1280,
+          executor_photo_jpeg_quality: 82,
         };
       }
       throw err;

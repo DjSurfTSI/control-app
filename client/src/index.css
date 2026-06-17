@@ -1442,6 +1442,24 @@ td small {
   margin: 0;
 }
 
+.photo-edge-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.photo-edge-presets .btn-sm.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.settings-photo-compress input[type="range"] {
+  width: 100%;
+  margin-top: 0.35rem;
+}
+
 .settings-card .meta {
   font-size: 0.8rem;
   color: var(--text-muted);

@@ -12,6 +12,8 @@ function CvSettingsPanel() {
     margin: 0.12,
     executor_mobile_camera_capture: true,
     cv_roles: ['executor'],
+    executor_photo_max_edge: 1280,
+    executor_photo_jpeg_quality: 82,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -29,6 +31,8 @@ function CvSettingsPanel() {
           margin: data.margin,
           executor_mobile_camera_capture: data.executor_mobile_camera_capture !== false,
           cv_roles: data.cv_roles?.length ? data.cv_roles : ['executor'],
+          executor_photo_max_edge: data.executor_photo_max_edge ?? 1280,
+          executor_photo_jpeg_quality: data.executor_photo_jpeg_quality ?? 82,
         });
       } catch (e) {
         setError(e.message);
@@ -51,6 +55,8 @@ function CvSettingsPanel() {
         margin: data.margin,
         executor_mobile_camera_capture: data.executor_mobile_camera_capture !== false,
         cv_roles: data.cv_roles?.length ? data.cv_roles : ['executor'],
+        executor_photo_max_edge: data.executor_photo_max_edge ?? 1280,
+        executor_photo_jpeg_quality: data.executor_photo_jpeg_quality ?? 82,
       });
       setSuccess('Настройки сохранены');
       invalidateCvStatus();
@@ -160,6 +166,51 @@ function CvSettingsPanel() {
           <p className="hint">
             Включено — при съёмке фотоотчёта на телефоне сразу открывается камера (нужно разрешение).
             Выключено — выбор файла из галереи без запроса доступа к камере.
+          </p>
+        </div>
+
+        <div className="form-group settings-photo-compress">
+          <label>Разрешение фото исполнителя (длинная сторона)</label>
+          <div className="photo-edge-presets">
+            {[960, 1280, 1600, 1920, 2560].map((edge) => (
+              <button
+                key={edge}
+                type="button"
+                className={`btn-secondary btn-sm${form.executor_photo_max_edge === edge ? ' active' : ''}`}
+                onClick={() => setForm((f) => ({ ...f, executor_photo_max_edge: edge }))}
+              >
+                {edge}px
+              </button>
+            ))}
+          </div>
+          <input
+            type="range"
+            min="640"
+            max="2560"
+            step="80"
+            value={form.executor_photo_max_edge}
+            onChange={(e) => setForm((f) => ({ ...f, executor_photo_max_edge: parseInt(e.target.value, 10) }))}
+          />
+          <p className="hint">
+            Текущее: <strong>{form.executor_photo_max_edge} px</strong>. Сжатие в браузере и на сервере перед сохранением.
+            Меньше — быстрее загрузка и меньше трафик; больше — детальнее снимок для CV.
+          </p>
+        </div>
+
+        <div className="form-group settings-photo-compress">
+          <label>
+            Качество JPEG: <strong>{form.executor_photo_jpeg_quality}%</strong>
+          </label>
+          <input
+            type="range"
+            min="50"
+            max="95"
+            step="1"
+            value={form.executor_photo_jpeg_quality}
+            onChange={(e) => setForm((f) => ({ ...f, executor_photo_jpeg_quality: parseInt(e.target.value, 10) }))}
+          />
+          <p className="hint">
+            Степень сжатия JPEG при загрузке фотоотчёта исполнителем. 82% — баланс качества и размера файла.
           </p>
         </div>
 

@@ -3,6 +3,9 @@ import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { isCvEnabledForUser } from '../utils';
 
+const PHOTO_MAX_EDGE_DEFAULT = 1280;
+const PHOTO_JPEG_QUALITY_DEFAULT = 82;
+
 let cachedStatus = null;
 const subscribers = new Set();
 
@@ -11,12 +14,27 @@ export function invalidateCvStatus() {
   subscribers.forEach((fn) => fn());
 }
 
+function applyCachedStatus(setters) {
+  if (!cachedStatus) return;
+  setters.setCvEnabledGlobal(cachedStatus.enabled);
+  setters.setCvRoles(cachedStatus.cv_roles);
+  setters.setExecutorMobileCameraCapture(cachedStatus.executor_mobile_camera_capture);
+  setters.setExecutorPhotoMaxEdge(cachedStatus.executor_photo_max_edge);
+  setters.setExecutorPhotoJpegQuality(cachedStatus.executor_photo_jpeg_quality);
+}
+
 export function useCvStatus() {
   const { user } = useAuth();
   const [cvEnabledGlobal, setCvEnabledGlobal] = useState(cachedStatus?.enabled ?? true);
   const [cvRoles, setCvRoles] = useState(cachedStatus?.cv_roles ?? ['executor']);
   const [executorMobileCameraCapture, setExecutorMobileCameraCapture] = useState(
     cachedStatus?.executor_mobile_camera_capture ?? true,
+  );
+  const [executorPhotoMaxEdge, setExecutorPhotoMaxEdge] = useState(
+    cachedStatus?.executor_photo_max_edge ?? PHOTO_MAX_EDGE_DEFAULT,
+  );
+  const [executorPhotoJpegQuality, setExecutorPhotoJpegQuality] = useState(
+    cachedStatus?.executor_photo_jpeg_quality ?? PHOTO_JPEG_QUALITY_DEFAULT,
   );
   const [loading, setLoading] = useState(false);
   const [tick, setTick] = useState(0);
@@ -32,9 +50,13 @@ export function useCvStatus() {
     let cancelled = false;
     (async () => {
       if (cachedStatus !== null && tick === 0) {
-        setCvEnabledGlobal(cachedStatus.enabled);
-        setCvRoles(cachedStatus.cv_roles);
-        setExecutorMobileCameraCapture(cachedStatus.executor_mobile_camera_capture);
+        applyCachedStatus({
+          setCvEnabledGlobal,
+          setCvRoles,
+          setExecutorMobileCameraCapture,
+          setExecutorPhotoMaxEdge,
+          setExecutorPhotoJpegQuality,
+        });
         return;
       }
       setLoading(true);
@@ -45,16 +67,24 @@ export function useCvStatus() {
             enabled: data.enabled,
             cv_roles: data.cv_roles || ['executor'],
             executor_mobile_camera_capture: data.executor_mobile_camera_capture !== false,
+            executor_photo_max_edge: data.executor_photo_max_edge || PHOTO_MAX_EDGE_DEFAULT,
+            executor_photo_jpeg_quality: data.executor_photo_jpeg_quality || PHOTO_JPEG_QUALITY_DEFAULT,
           };
-          setCvEnabledGlobal(cachedStatus.enabled);
-          setCvRoles(cachedStatus.cv_roles);
-          setExecutorMobileCameraCapture(cachedStatus.executor_mobile_camera_capture);
+          applyCachedStatus({
+            setCvEnabledGlobal,
+            setCvRoles,
+            setExecutorMobileCameraCapture,
+            setExecutorPhotoMaxEdge,
+            setExecutorPhotoJpegQuality,
+          });
         }
       } catch {
         if (!cancelled && cachedStatus === null) {
           setCvEnabledGlobal(true);
           setCvRoles(['executor']);
           setExecutorMobileCameraCapture(true);
+          setExecutorPhotoMaxEdge(PHOTO_MAX_EDGE_DEFAULT);
+          setExecutorPhotoJpegQuality(PHOTO_JPEG_QUALITY_DEFAULT);
         }
       } finally {
         setLoading(false);
@@ -73,6 +103,8 @@ export function useCvStatus() {
     cvEnabledGlobal,
     cvRoles,
     executorMobileCameraCapture,
+    executorPhotoMaxEdge,
+    executorPhotoJpegQuality,
     loading,
   };
 }

@@ -154,6 +154,8 @@ const migrations = [
   { table: 'cleaning_tasks', column: 'closed_longitude', sql: 'ALTER TABLE cleaning_tasks ADD COLUMN closed_longitude REAL' },
   { table: 'cv_settings', column: 'executor_mobile_camera_capture', sql: 'ALTER TABLE cv_settings ADD COLUMN executor_mobile_camera_capture INTEGER NOT NULL DEFAULT 1' },
   { table: 'cv_settings', column: 'cv_roles', sql: `ALTER TABLE cv_settings ADD COLUMN cv_roles TEXT NOT NULL DEFAULT '["executor"]'` },
+  { table: 'cv_settings', column: 'executor_photo_max_edge', sql: 'ALTER TABLE cv_settings ADD COLUMN executor_photo_max_edge INTEGER NOT NULL DEFAULT 1280' },
+  { table: 'cv_settings', column: 'executor_photo_jpeg_quality', sql: 'ALTER TABLE cv_settings ADD COLUMN executor_photo_jpeg_quality INTEGER NOT NULL DEFAULT 82' },
 ];
 
 for (const m of migrations) {

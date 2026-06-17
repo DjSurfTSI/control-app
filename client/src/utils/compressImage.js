@@ -1,16 +1,21 @@
-const MAX_EDGE = parseInt(
-  typeof import.meta !== 'undefined' && import.meta.env?.VITE_PHOTO_MAX_EDGE
-    ? import.meta.env.VITE_PHOTO_MAX_EDGE
-    : '1280',
-  10,
-);
-const JPEG_QUALITY = 0.82;
-
 /**
  * Сжимает фото в браузере до JPEG перед отправкой на сервер (снижает нагрузку на VPS).
+ * @param {File} file
+ * @param {{ maxEdge?: number, jpegQuality?: number }} [options]
  */
-export async function compressImageForUpload(file) {
+export async function compressImageForUpload(file, options = {}) {
   if (!file?.type?.startsWith('image/')) return file;
+
+  const defaultMaxEdge = parseInt(
+    typeof import.meta !== 'undefined' && import.meta.env?.VITE_PHOTO_MAX_EDGE
+      ? import.meta.env.VITE_PHOTO_MAX_EDGE
+      : '1280',
+    10,
+  );
+  const maxEdge = options.maxEdge > 0 ? Math.round(options.maxEdge) : defaultMaxEdge;
+  const jpegQuality = options.jpegQuality > 0
+    ? Math.min(0.95, Math.max(0.5, options.jpegQuality / 100))
+    : 0.82;
 
   try {
     let width;
@@ -32,7 +37,7 @@ export async function compressImageForUpload(file) {
       draw = (ctx, w, h) => ctx.drawImage(img, 0, 0, w, h);
     }
 
-    const scale = Math.min(1, MAX_EDGE / Math.max(width, height));
+    const scale = Math.min(1, maxEdge / Math.max(width, height));
     const w = Math.max(1, Math.round(width * scale));
     const h = Math.max(1, Math.round(height * scale));
 
@@ -44,7 +49,7 @@ export async function compressImageForUpload(file) {
     draw(ctx, w, h);
 
     const blob = await new Promise((resolve) => {
-      canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY);
+      canvas.toBlob(resolve, 'image/jpeg', jpegQuality);
     });
     if (!blob) return file;
 
