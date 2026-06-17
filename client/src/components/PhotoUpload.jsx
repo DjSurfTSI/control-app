@@ -137,8 +137,17 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
 
   const handleDelete = async (photoId) => {
     if (!confirm('Удалить фото?')) return;
-    await api.deletePhoto(taskId, photoId);
-    await load();
+    setError('');
+    try {
+      await api.deletePhoto(taskId, photoId);
+      setPhotos((prev) => {
+        const next = prev.filter((p) => p.id !== photoId && String(p.id) !== String(photoId));
+        emitChange(next);
+        return next;
+      });
+    } catch (err) {
+      setError(err.message || 'Не удалось удалить фото');
+    }
   };
 
   const check = checkRequiredPhotos(photos);

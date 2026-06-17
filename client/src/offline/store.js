@@ -203,6 +203,40 @@ export async function addPendingPhotoToCache(taskId, photo) {
   return next;
 }
 
+export async function removeCachedPhoto(taskId, { photoId, photoType } = {}) {
+  const cached = (await getCachedPhotos(taskId)) || [];
+  const next = cached.filter((p) => {
+    if (photoId != null && (p.id === photoId || String(p.id) === String(photoId))) return false;
+    if (photoType && p.photo_type === photoType) return false;
+    return true;
+  });
+  await cachePhotos(taskId, next);
+  return next;
+}
+
+export async function removeOfflineQueuedPhoto(taskId, queueId) {
+  const queue = await getQueue();
+  const item = queue.find((i) => i.id === queueId);
+  if (item?.blobUrl?.startsWith('blob:')) {
+    try { URL.revokeObjectURL(item.blobUrl); } catch { /* ignore */ }
+  }
+  previewUrlCache.delete(`${queueId}-${item?.photoType}`);
+  await removeQueueItem(queueId);
+  await removeCachedPhoto(taskId, { photoType: item?.photoType, photoId: `offline-${queueId}` });
+}
+
+export async function removeQueuedPhotosForType(taskId, photoType) {
+  const queue = await getQueue();
+  const items = queue.filter(
+    (i) => i.op === 'upload_photo'
+      && Number(i.taskId) === Number(taskId)
+      && i.photoType === photoType
+  );
+  for (const item of items) {
+    await removeOfflineQueuedPhoto(taskId, item.id);
+  }
+}
+
 const previewUrlCache = new Map();
 
 export async function getQueuePhotoPreview(item) {

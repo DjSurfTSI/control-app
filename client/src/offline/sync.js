@@ -42,7 +42,7 @@ async function runFlush() {
   if (queue.length === 0) return { synced: 0, failed: 0 };
 
   const sorted = [...queue].sort((a, b) => {
-    const priority = { upload_photo: 0, patch_task: 1 };
+    const priority = { upload_photo: 0, delete_photo: 0, patch_task: 1 };
     return (priority[a.op] ?? 2) - (priority[b.op] ?? 2);
   });
 
@@ -68,6 +68,10 @@ async function runFlush() {
         if (item.blobUrl?.startsWith('blob:')) {
           try { URL.revokeObjectURL(item.blobUrl); } catch { /* ignore */ }
         }
+        const photos = await api._requestOnline(`/photos/${item.taskId}`);
+        void cachePhotos(item.taskId, photos).catch(() => {});
+      } else if (item.op === 'delete_photo') {
+        await api._requestOnline(`/photos/${item.taskId}/${item.photoId}`, { method: 'DELETE' });
         const photos = await api._requestOnline(`/photos/${item.taskId}`);
         void cachePhotos(item.taskId, photos).catch(() => {});
       } else {

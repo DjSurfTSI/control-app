@@ -9,6 +9,9 @@ import {
   addPendingPhotoToCache,
   savePhotoBlob,
   getMergedPhotosForTask,
+  removeCachedPhoto,
+  removeOfflineQueuedPhoto,
+  removeQueuedPhotosForType,
   setMeta,
   getMeta,
 } from './offline/store.js';
@@ -85,6 +88,8 @@ async function queuePhoto(taskId, file, photoType) {
   const blobUrl = URL.createObjectURL(file);
   const blobData = await file.arrayBuffer();
   const normalizedTaskId = Number(taskId);
+
+  await removeQueuedPhotosForType(normalizedTaskId, photoType);
 
   const queueId = await enqueue({
     op: 'upload_photo',
@@ -283,7 +288,43 @@ export const api = {
     }
   },
 
-  deletePhoto: (taskId, photoId) => request(`/photos/${taskId}/${photoId}`, { method: 'DELETE' }),
+  deletePhoto: async (taskId, photoId) => {
+    const idStr = String(photoId);
+    const normalizedTaskId = Number(taskId);
+
+    const deleteOffline = async () => {
+      if (idStr.startsWith('offline-')) {
+        const queueId = Number(idStr.slice('offline-'.length));
+        if (!Number.isNaN(queueId)) {
+          await removeOfflineQueuedPhoto(normalizedTaskId, queueId);
+          notifyQueueChange();
+          return { ok: true, offline: true };
+        }
+      }
+      await removeCachedPhoto(normalizedTaskId, { photoId });
+      const numericId = Number(photoId);
+      if (!Number.isNaN(numericId) && !idStr.startsWith('offline')) {
+        await enqueue({ op: 'delete_photo', taskId: normalizedTaskId, photoId: numericId });
+        notifyQueueChange();
+      }
+      return { ok: true, offline: true };
+    };
+
+    if (!navigator.onLine) return deleteOffline();
+
+    if (idStr.startsWith('offline-')) {
+      return deleteOffline();
+    }
+
+    try {
+      const result = await request(`/photos/${taskId}/${photoId}`, { method: 'DELETE' });
+      await removeCachedPhoto(normalizedTaskId, { photoId }).catch(() => {});
+      return result;
+    } catch (err) {
+      if (isNetworkError(err)) return deleteOffline();
+      throw err;
+    }
+  },
 
   getVapidKey: () => request('/notifications/vapid-public-key'),
   subscribePush: (data) => request('/notifications/subscribe', { method: 'POST', body: JSON.stringify(data) }),

@@ -786,9 +786,9 @@ flowchart LR
 
 | Компонент | Назначение |
 |-----------|------------|
-| `offline/store.js` | Кэш заявок и фото, очередь PATCH/upload |
+| `offline/store.js` | Кэш заявок и фото, очередь PATCH/upload/delete |
 | `offline/sync.js` | Сброс очереди при `online`, событие `offline-synced` |
-| `api.js` | Офлайн-fallback: при ошибке сети — данные из IndexedDB; фото в очереди хранятся как `blobData` |
+| `api.js` | Офлайн-fallback: при ошибке сети — данные из IndexedDB; фото в очереди хранятся как `blobData`; `deletePhoto` удаляет `offline-*` локально |
 | `AuthContext.jsx` | Кэш `offline_user` в localStorage при сетевых сбоях |
 
 **v1.3.1 — защита от зависания UI:**
@@ -808,6 +808,14 @@ flowchart LR
 | `useCvStatus` без блокирующего `loading` | Статус CV подгружается в фоне |
 | `getCvStatus` / `getPhotos` | `setMeta` и кэш фото — в фоне; при сетевой ошибке — пустой список, можно загрузить фото |
 | `PhotoUpload.jsx` | Слоты 📷 видны сразу; полная блокировка только в режиме просмотра (`readOnly`) |
+
+**v2.4.8 — удаление фото офлайн:**
+
+| Операция очереди | Поведение |
+|------------------|-----------|
+| `upload_photo` | Blob в IndexedDB; при повторной загрузке того же `photo_type` старая запись заменяется |
+| `delete_photo` | Локальное удаление из кэша офлайн; при `online` — `DELETE /api/photos/:taskId/:photoId` |
+| `PhotoUpload` `handleDelete` | Сразу обновляет state; для `offline-{queueId}` — `removeOfflineQueuedPhoto` |
 
 ---
 
