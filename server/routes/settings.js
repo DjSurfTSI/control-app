@@ -7,15 +7,6 @@ const router = Router();
 
 router.use(authMiddleware);
 
-import { Router } from 'express';
-import { authMiddleware, requireBizAdmin } from '../middleware.js';
-import { getCvSettings, updateCvSettings } from '../cv/settings.js';
-import { asyncHandler } from '../middleware/errorHandler.js';
-
-const router = Router();
-
-router.use(authMiddleware);
-
 router.get('/cv/status', (_req, res) => {
   const settings = getCvSettings();
   res.json({

@@ -4,7 +4,15 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/).
 
-**Актуальная версия:** v2.5.1
+**Актуальная версия:** v2.5.2
+
+---
+
+## [v2.5.2] — 2026-06-17
+
+### Исправлено
+
+- **502 Bad Gateway на production** — удалён дублированный `import { Router }` в `server/routes/settings.js`, из‑за которого Node.js не стартовал и nginx отдавал 502.
 
 ---
 
