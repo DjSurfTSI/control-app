@@ -507,7 +507,7 @@ export default function Tasks() {
         <>
           <button className="btn-secondary btn-xs" type="button" onClick={() => setModal(t)}>Открыть</button>
           {executor && canExecutorTakeTask(t) && (
-            <button className="btn-primary btn-xs" type="button" onClick={() => handleAssignSelf(t)}>Взять</button>
+            <button className="btn-primary btn-xs" type="button" onClick={() => handleAssignSelf(t)}>Взять в работу</button>
           )}
           {canUserCompleteTask(t, user) && (
             <button className="btn-success btn-xs" type="button" onClick={() => setCompleteModal(t)}>Завершить</button>

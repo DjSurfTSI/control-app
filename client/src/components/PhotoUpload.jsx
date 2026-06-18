@@ -312,6 +312,8 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
       {cameraType && (
         <CameraCaptureModal
           photoType={cameraType}
+          stepIndex={PHOTO_TYPES.indexOf(cameraType) + 1}
+          totalSteps={PHOTO_TYPES.length}
           onCapture={handleCameraCapture}
           onClose={() => setCameraType(null)}
         />
@@ -339,7 +341,7 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
         .photo-slot.cv-pending { border-style: solid; border-color: var(--warning); background: #78350f22; }
         .photo-slot.empty { border-color: var(--warning); }
         .photo-slot-empty { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; width: 100%; }
-        .photo-slot-guide { width: 100%; max-width: 100px; opacity: 0.85; }
+        .photo-slot-guide { width: 100%; max-width: 88px; opacity: 0.92; }
         .photo-slot-label { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-muted); }
         .photo-slot-preview { position: relative; width: 100%; aspect-ratio: 1; border-radius: 8px; overflow: hidden; }
         .photo-slot-preview img { width: 100%; height: 100%; object-fit: cover; }

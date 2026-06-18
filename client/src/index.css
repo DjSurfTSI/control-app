@@ -2282,22 +2282,96 @@ input[type="range"] {
 
 /* ——— ATM photo guide overlay ——— */
 .atm-photo-guide {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
   pointer-events: none;
   user-select: none;
 }
 
-.atm-photo-guide-compact .atm-photo-guide-caption {
-  display: none;
+.atm-photo-guide-full {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
 }
 
-.atm-photo-guide-svg {
+.atm-guide-hud-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem 0.35rem;
+  z-index: 2;
+}
+
+.atm-guide-mission {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  color: #fff;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.85);
+}
+
+.atm-guide-mission-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(250, 204, 21, 0.22);
+  border: 1px solid rgba(250, 204, 21, 0.65);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.atm-guide-mission strong {
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.atm-guide-angle-inline {
+  display: inline-block;
+  margin-right: 0.25rem;
+  animation: atm-angle-bounce 1.4s ease-in-out infinite;
+}
+
+.atm-guide-step-pill {
+  flex-shrink: 0;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.atm-guide-viewfinder {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.atm-photo-guide-full .atm-photo-guide-svg {
   width: 100%;
-  max-width: 200px;
-  height: auto;
+  height: 100%;
+  max-width: none;
+}
+
+.atm-guide-vignette {
+  fill: rgba(0, 0, 0, 0.28);
+}
+
+.atm-guide-shape-main {
+  fill: none;
+  stroke: rgba(34, 197, 94, 0.95);
+  stroke-width: 4;
+  filter: drop-shadow(0 0 12px rgba(34, 197, 94, 0.55));
+  animation: atm-guide-pulse 2s ease-in-out infinite;
 }
 
 .atm-guide-frame {
@@ -2314,15 +2388,25 @@ input[type="range"] {
 }
 
 .atm-guide-screen {
-  fill: rgba(59, 130, 246, 0.25);
-  stroke: rgba(59, 130, 246, 0.9);
-  stroke-width: 1.5;
+  fill: rgba(59, 130, 246, 0.28);
+  stroke: rgba(96, 165, 250, 0.95);
+  stroke-width: 2.5;
 }
 
 .atm-guide-keypad {
-  fill: rgba(34, 197, 94, 0.15);
-  stroke: rgba(34, 197, 94, 0.85);
-  stroke-width: 1.5;
+  fill: rgba(34, 197, 94, 0.12);
+  stroke: rgba(34, 197, 94, 0.9);
+  stroke-width: 2;
+}
+
+.atm-guide-slot {
+  fill: rgba(255, 255, 255, 0.35);
+  stroke: none;
+}
+
+.atm-guide-key {
+  fill: rgba(34, 197, 94, 0.55);
+  stroke: none;
 }
 
 .atm-guide-flip {
@@ -2331,32 +2415,140 @@ input[type="range"] {
 }
 
 .atm-guide-corner {
-  stroke: rgba(250, 204, 21, 0.95);
-  stroke-width: 3;
+  stroke: rgba(250, 204, 21, 0.98);
+  stroke-width: 5;
   stroke-linecap: round;
+  animation: atm-corner-pulse 1.6s ease-in-out infinite;
 }
 
-.atm-photo-guide-caption {
+.atm-guide-target-ring {
+  fill: none;
+  stroke: rgba(250, 204, 21, 0.35);
+  stroke-width: 2;
+  stroke-dasharray: 8 6;
+  animation: atm-ring-spin 8s linear infinite;
+  transform-origin: 180px 320px;
+}
+
+.atm-guide-scan-line {
+  fill: rgba(34, 197, 94, 0.75);
+  animation: atm-scan 2.8s ease-in-out infinite;
+}
+
+@keyframes atm-guide-pulse {
+  0%, 100% { stroke-opacity: 0.75; stroke-width: 4; }
+  50% { stroke-opacity: 1; stroke-width: 5; }
+}
+
+@keyframes atm-corner-pulse {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 1; }
+}
+
+@keyframes atm-angle-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes atm-scan {
+  0% { transform: translateY(48px); opacity: 0; }
+  8% { opacity: 0.85; }
+  92% { opacity: 0.85; }
+  100% { transform: translateY(580px); opacity: 0; }
+}
+
+@keyframes atm-ring-spin {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -100; }
+}
+
+.atm-guide-hud-bottom {
+  padding: 0.65rem 1rem 0.85rem;
   text-align: center;
-  max-width: 240px;
+  z-index: 2;
+}
+
+.atm-guide-main-text {
+  margin: 0 0 0.25rem;
   color: #fff;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
-  font-size: 0.78rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+}
+
+.atm-guide-sub-text {
+  margin: 0 0 0.65rem;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.82rem;
   line-height: 1.35;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
 }
 
-.atm-photo-guide-caption strong {
-  display: block;
-  font-size: 0.9rem;
-  margin-bottom: 0.2rem;
+.atm-guide-progress {
+  display: flex;
+  justify-content: center;
+  gap: 0.45rem;
+  margin-bottom: 0.4rem;
 }
 
-html[data-theme='light'] .atm-photo-guide-compact .atm-guide-frame {
-  stroke: rgba(0, 0, 0, 0.35);
+.atm-guide-progress-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.45);
 }
 
-html[data-theme='light'] .atm-photo-guide-compact .atm-guide-shape {
-  stroke: rgba(22, 163, 74, 0.9);
+.atm-guide-progress-dot.active {
+  background: rgba(34, 197, 94, 0.95);
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.75);
+  transform: scale(1.25);
+}
+
+.atm-guide-progress-dot.done {
+  background: rgba(34, 197, 94, 0.55);
+}
+
+.atm-guide-xp-hint {
+  margin: 0;
+  color: rgba(250, 204, 21, 0.95);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* Compact — ячейка фотоотчёта */
+.atm-photo-guide-compact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.atm-photo-guide-compact .atm-photo-guide-svg {
+  width: 100%;
+  max-width: 88px;
+  height: auto;
+}
+
+.atm-photo-guide-compact-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.atm-photo-guide-compact .atm-guide-shape-main {
+  stroke-width: 3;
+  animation: none;
+}
+
+html[data-theme='light'] .atm-photo-guide-compact .atm-guide-shape-main {
+  stroke: rgba(22, 163, 74, 0.95);
+}
+
+html[data-theme='light'] .atm-photo-guide-compact-label {
+  color: #1a1a1a;
 }
 
 /* ——— In-app camera capture ——— */
@@ -2376,8 +2568,9 @@ html[data-theme='light'] .atm-photo-guide-compact .atm-guide-shape {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 520px;
-  margin: 0 auto;
+  max-width: none;
+  height: 100%;
+  margin: 0;
 }
 
 .camera-capture-close {
@@ -2398,7 +2591,7 @@ html[data-theme='light'] .atm-photo-guide-compact .atm-guide-shape {
 .camera-capture-viewport {
   position: relative;
   flex: 1;
-  min-height: 55vh;
+  min-height: 0;
   background: #000;
   overflow: hidden;
 }
@@ -2413,10 +2606,14 @@ html[data-theme='light'] .atm-photo-guide-compact .atm-guide-shape {
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem 1rem 3rem;
-  background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.45) 100%);
+  flex-direction: column;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.35) 0%,
+    rgba(0, 0, 0, 0.08) 35%,
+    rgba(0, 0, 0, 0.08) 65%,
+    rgba(0, 0, 0, 0.45) 100%
+  );
 }
 
 .camera-capture-actions {

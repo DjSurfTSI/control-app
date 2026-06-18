@@ -50,7 +50,7 @@ export default function TaskCard({
       <div className="task-card-actions">
         <button type="button" className="btn-secondary btn-xs" onClick={() => onView(task)}>Открыть</button>
         {canTake && (
-          <button type="button" className="btn-primary btn-xs" onClick={() => onAssignSelf(task)}>Взять</button>
+          <button type="button" className="btn-primary btn-xs" onClick={() => onAssignSelf(task)}>Взять в работу</button>
         )}
         {canComplete && (
           <button type="button" className="btn-success btn-xs" onClick={() => onComplete(task)}>Завершить</button>

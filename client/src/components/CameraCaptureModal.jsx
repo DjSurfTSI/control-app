@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import AtmPhotoGuideOverlay from './AtmPhotoGuideOverlay';
 
-export default function CameraCaptureModal({ photoType, onCapture, onClose }) {
+export default function CameraCaptureModal({ photoType, stepIndex, totalSteps = 4, onCapture, onClose }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const [error, setError] = useState('');
@@ -66,7 +66,11 @@ export default function CameraCaptureModal({ photoType, onCapture, onClose }) {
             <div className="camera-capture-viewport">
               <video ref={videoRef} className="camera-capture-video" playsInline muted />
               <div className="camera-capture-guide-layer">
-                <AtmPhotoGuideOverlay photoType={photoType} />
+                <AtmPhotoGuideOverlay
+                  photoType={photoType}
+                  stepIndex={stepIndex}
+                  totalSteps={totalSteps}
+                />
               </div>
             </div>
             <div className="camera-capture-actions">
@@ -76,7 +80,7 @@ export default function CameraCaptureModal({ photoType, onCapture, onClose }) {
                 onClick={handleCapture}
                 disabled={!ready}
               >
-                📷 Сделать снимок
+                🎯 Зафиксировать ракурс
               </button>
               <button type="button" className="btn-secondary" onClick={onClose}>Отмена</button>
             </div>

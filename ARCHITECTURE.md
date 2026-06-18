@@ -654,7 +654,7 @@ client/src/
 
 **Фото на mobile (исполнитель):** `executor_mobile_camera_capture` в `cv_settings`; `PhotoUpload` использует `isMobileDevice()` (не ширину экрана) — `capture="environment"` при включённой настройке, в т.ч. в ландшафте (v2.4.5).
 
-**v2.7.2 — overlay при съёмке:** `executor_photo_overlay` в `cv_settings`; `AtmPhotoGuideOverlay` + `CameraCaptureModal` (getUserMedia) с контуром банкомата по ракурсу; мини-шаблон в пустых ячейках фотоотчёта; переключатель в `/settings` (bizadmin).
+**v2.7.2 — overlay при съёмке:** `executor_photo_overlay` в `cv_settings`; `AtmPhotoGuideOverlay` + `CameraCaptureModal` (getUserMedia) с контуром банкомата по ракурсу; мини-шаблон в пустых ячейках фотоотчёта; переключатель в `/settings` (bizadmin). **v2.7.4:** полноэкранный HUD (миссия, шаги 1–4, XP), крупный SVG-силуэт, «Зафиксировать ракурс».
 
 **v2.4.9 — разрешение фото:** `executor_photo_max_edge` (640–2560 px) и `executor_photo_jpeg_quality` (50–95%) в `cv_settings`; bizadmin — слайдеры в `/settings`; `useCvStatus` → `PhotoUpload` → `compressImageForUpload`; сервер — `getExecutorPhotoCompressOptions()` в `photos.js` для исполнителя.
 
@@ -1118,6 +1118,7 @@ npx web-push generate-vapid-keys
 
 | Версия | Дата | Изменения |
 |--------|------|-----------|
+| v2.7.4 | 2026-06-17 | Overlay fullscreen, «Взять в работу» — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.7.3 | 2026-06-17 | Fix загрузки «Поля интерфейса» — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.7.2 | 2026-06-17 | Overlay фото, светлая тема — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.7.1 | 2026-06-17 | Конструктор полей в Настройках, fix Settings — см. [CHANGELOG.md](./CHANGELOG.md) |
