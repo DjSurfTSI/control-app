@@ -117,7 +117,7 @@ function FieldEditorList({ fields, onChange, onRemoveCustom }) {
 }
 
 export default function FieldBuilderPanel({ initialEntity = 'tasks' }) {
-  const { config, loading, save, reset } = useEntityFields();
+  const { config, loading, error: loadError, reload, save, reset } = useEntityFields();
   const [entity, setEntity] = useState(
     ENTITY_TYPES.includes(initialEntity) ? initialEntity : 'tasks',
   );
@@ -133,14 +133,30 @@ export default function FieldBuilderPanel({ initialEntity = 'tasks' }) {
   }, [config]);
 
   useEffect(() => {
+    if (!config && !loading) reload();
+  }, [config, loading, reload]);
+
+  useEffect(() => {
     if (ENTITY_TYPES.includes(initialEntity)) setEntity(initialEntity);
   }, [initialEntity]);
 
-  if (loading || !draft) {
+  if (loading && !draft) {
     return (
       <div className="loading-state loading-state-inline">
         <div className="loading-spinner" />
         <span>Загрузка полей...</span>
+      </div>
+    );
+  }
+
+  if (!draft) {
+    return (
+      <div className="card">
+        {loadError && <div className="error-msg">{loadError}</div>}
+        <p className="empty-state">Не удалось загрузить конфигурацию полей.</p>
+        <button type="button" className="btn-secondary" onClick={reload}>
+          Повторить
+        </button>
       </div>
     );
   }

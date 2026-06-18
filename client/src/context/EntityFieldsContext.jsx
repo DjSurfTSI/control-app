@@ -1,10 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
+import { useAuth } from './AuthContext';
 import { getVisibleFields } from '../utils/entityFields';
 
 const EntityFieldsContext = createContext(null);
 
 export function EntityFieldsProvider({ children }) {
+  const { user, loading: authLoading } = useAuth();
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -16,13 +18,23 @@ export function EntityFieldsProvider({ children }) {
       const data = await api.getEntityFields();
       setConfig(data);
     } catch (e) {
+      setConfig(null);
       setError(e.message);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setConfig(null);
+      setError('');
+      setLoading(false);
+      return;
+    }
+    load();
+  }, [authLoading, user, load]);
 
   const save = useCallback(async (nextConfig) => {
     const data = await api.updateEntityFields(nextConfig);
