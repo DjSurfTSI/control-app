@@ -13,6 +13,9 @@ import {
 } from '../utils';
 import PhotoUpload from '../components/PhotoUpload';
 import TaskCard from '../components/TaskCard';
+import FieldBuilderLink from '../components/FieldBuilderLink';
+import { useEntityColumns } from '../context/EntityFieldsContext';
+import { getEntityFieldValue } from '../utils/entityFields';
 import ImportTasksModal from '../components/ImportTasksModal';
 import DateInput from '../components/DateInput';
 import DateRangeInput from '../components/DateRangeInput';
@@ -319,6 +322,7 @@ export default function Tasks() {
   const canSelectTask = (task) => (manager ? canBulkAssignTask(task) : canBulkAssignSelfTask(task));
   const selectableTasks = bulkListTasks.filter(canSelectTask);
   const activeExecutorTab = EXECUTOR_MOBILE_TABS.find((t) => t.id === executorMobileTab);
+  const { fields: taskTableFields } = useEntityColumns('tasks', 'table', user?.role);
 
   const handleExecutorTabChange = useCallback((tabId) => {
     setExecutorMobileTab(tabId);
@@ -467,6 +471,7 @@ export default function Tasks() {
         deadline_date: form.deadline_date || null,
         service_contract: form.service_contract || null,
         notes: form.notes,
+        custom_fields: form.custom_fields,
       });
     } else {
       await api.updateTask(modal.id, {
@@ -475,6 +480,7 @@ export default function Tasks() {
         service_contract: form.service_contract,
         assigned_to: form.assigned_to ? Number(form.assigned_to) : null,
         notes: form.notes,
+        custom_fields: form.custom_fields,
       });
     }
     load();
@@ -494,6 +500,62 @@ export default function Tasks() {
     await api.deleteTask(id);
     if (modal?.id === id) setModal(null);
     load();
+  };
+
+  const renderTaskCell = (field, t) => {
+    if (field.type === 'actions') {
+      return (
+        <>
+          <button className="btn-secondary btn-xs" type="button" onClick={() => setModal(t)}>Открыть</button>
+          {executor && canExecutorTakeTask(t) && (
+            <button className="btn-primary btn-xs" type="button" onClick={() => handleAssignSelf(t)}>Взять</button>
+          )}
+          {canUserCompleteTask(t, user) && (
+            <button className="btn-success btn-xs" type="button" onClick={() => setCompleteModal(t)}>Завершить</button>
+          )}
+          {manager && !bizAdmin && !['cancelled', 'completed'].includes(t.status) && (
+            <button className="btn-danger btn-xs" type="button" onClick={() => handleCancel(t.id)}>Отмена</button>
+          )}
+          {bizAdmin && <button className="btn-danger btn-xs" type="button" onClick={() => handleDelete(t.id)}>Удалить</button>}
+        </>
+      );
+    }
+    if (field.type === 'status') {
+      return <span className={`badge badge-${t.status}`}>{STATUS_LABELS[t.status]}</span>;
+    }
+    if (field.type === 'photo_count') {
+      return (
+        <span className={`task-photo-count${(t.photo_count ?? 0) > 0 ? ' has-photos' : ''}`} title="Фото в заявке">
+          📷 {t.photo_count ?? 0}
+        </span>
+      );
+    }
+    if (field.type === 'geo') {
+      const geo = formatCloseLocation(t.closed_latitude, t.closed_longitude, { provider: '2gis' });
+      if (!geo) return '—';
+      return (
+        <a href={geo.mapsUrl} target="_blank" rel="noopener noreferrer" className="geo-link" title="Открыть в 2GIS">
+          📍
+        </a>
+      );
+    }
+    if (field.type === 'date') {
+      return <span className="tasks-table-cell-nowrap">{formatDate(t[field.key])}</span>;
+    }
+    if (field.type === 'datetime') {
+      return <span className="tasks-table-cell-nowrap">{formatDateTime(t[field.key])}</span>;
+    }
+    const val = getEntityFieldValue(t, field);
+    if (field.key === 'id') return <strong>{val}</strong>;
+    if (field.key === 'serial_number') return <span className="tasks-table-cell-mono">{val}</span>;
+    if (field.key === 'address') return <span className="tasks-table-cell-address">{val}</span>;
+    if (['territorial_bank', 'installation_name', 'service_contract', 'assignee_name'].includes(field.key)) {
+      return <span className="tasks-table-cell-truncate">{val}</span>;
+    }
+    if (field.key === 'accessibility_type' || field.key === 'gosb') {
+      return <span className="tasks-table-cell-muted">{val}</span>;
+    }
+    return val;
   };
 
   const handleDelete = async (id) => {
@@ -518,6 +580,7 @@ export default function Tasks() {
           <p className="page-subtitle">Планирование и контроль исполнения работ</p>
         </div>
         <div className="header-actions">
+          {bizAdmin && <FieldBuilderLink entity="tasks" />}
           {manager && (
             <>
               <button className="btn-secondary" onClick={() => setImportModal(true)}>📥 Импорт</button>
@@ -683,12 +746,20 @@ export default function Tasks() {
                       />
                     </th>
                   )}
-                  <th>№</th><th>ID УС</th><th>Статус</th><th className="tasks-table-cell-photo">📷</th><th>Доступн.</th><th>Терр. Банк</th><th>ГОСБ</th>
-                  <th>Адрес</th><th>Место</th><th>План</th><th>Контроль</th>
-                  <th className="tasks-table-col-optional">Начало</th><th className="tasks-table-col-optional">Конец</th>
-                  <th className="tasks-table-col-optional">Услуга</th><th>Исполнитель</th>
-                  {manager && <th>Гео</th>}
-                  <th>Действия</th>
+                  {taskTableFields.map((field) => (
+                    <th
+                      key={field.id}
+                      className={
+                        field.type === 'photo_count' ? 'tasks-table-cell-photo'
+                          : field.type === 'geo' ? 'tasks-table-cell-geo'
+                            : ['started_at', 'completed_at', 'service_contract'].includes(field.key)
+                              ? 'tasks-table-col-optional'
+                              : undefined
+                      }
+                    >
+                      {field.type === 'photo_count' ? '📷' : field.label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -707,51 +778,21 @@ export default function Tasks() {
                         ) : null}
                       </td>
                     )}
-                    <td><strong>{t.id}</strong></td>
-                    <td className="tasks-table-cell-mono">{t.serial_number || '—'}</td>
-                    <td><span className={`badge badge-${t.status}`}>{STATUS_LABELS[t.status]}</span></td>
-                    <td className="tasks-table-cell-photo">
-                      <span className={`task-photo-count${(t.photo_count ?? 0) > 0 ? ' has-photos' : ''}`} title="Фото в заявке">
-                        📷 {t.photo_count ?? 0}
-                      </span>
-                    </td>
-                    <td className="tasks-table-cell-muted">{t.accessibility_type || '—'}</td>
-                    <td className="tasks-table-cell-truncate" title={t.territorial_bank || t.bank_name}>{t.territorial_bank || t.bank_name}</td>
-                    <td className="tasks-table-cell-muted">{t.gosb || t.zone || '—'}</td>
-                    <td className="tasks-table-cell-address" title={t.address}>{t.address}</td>
-                    <td className="tasks-table-cell-truncate" title={t.installation_name}>{t.installation_name || '—'}</td>
-                    <td className="tasks-table-cell-nowrap">{formatDate(t.scheduled_date)}</td>
-                    <td className="tasks-table-cell-nowrap">{formatDate(t.deadline_date)}</td>
-                    <td className="tasks-table-col-optional tasks-table-cell-nowrap">{formatDateTime(t.started_at)}</td>
-                    <td className="tasks-table-col-optional tasks-table-cell-nowrap">{formatDateTime(t.completed_at)}</td>
-                    <td className="tasks-table-col-optional tasks-table-cell-truncate" title={t.service_contract}>{t.service_contract || '—'}</td>
-                    <td className="tasks-table-cell-truncate" title={t.assignee_name}>{t.assignee_name || '—'}</td>
-                    {manager && (
-                      <td className="tasks-table-cell-geo">
-                        {(() => {
-                          const geo = formatCloseLocation(t.closed_latitude, t.closed_longitude, { provider: '2gis' });
-                          if (!geo) return '—';
-                          return (
-                            <a href={geo.mapsUrl} target="_blank" rel="noopener noreferrer" className="geo-link" title="Открыть в 2GIS">
-                              📍
-                            </a>
-                          );
-                        })()}
+                    {taskTableFields.map((field) => (
+                      <td
+                        key={field.id}
+                        className={
+                          field.type === 'actions' ? 'actions'
+                            : field.type === 'photo_count' ? 'tasks-table-cell-photo'
+                              : field.type === 'geo' ? 'tasks-table-cell-geo'
+                                : ['started_at', 'completed_at', 'service_contract'].includes(field.key)
+                                  ? 'tasks-table-col-optional'
+                                  : undefined
+                        }
+                      >
+                        {renderTaskCell(field, t)}
                       </td>
-                    )}
-                    <td className="actions">
-                      <button className="btn-secondary btn-xs" onClick={() => setModal(t)}>Открыть</button>
-                      {executor && canExecutorTakeTask(t) && (
-                        <button className="btn-primary btn-xs" onClick={() => handleAssignSelf(t)}>Взять</button>
-                      )}
-                      {canUserCompleteTask(t, user) && (
-                        <button className="btn-success btn-xs" onClick={() => setCompleteModal(t)}>Завершить</button>
-                      )}
-                      {manager && !bizAdmin && !['cancelled', 'completed'].includes(t.status) && (
-                        <button className="btn-danger btn-xs" onClick={() => handleCancel(t.id)}>Отмена</button>
-                      )}
-                      {bizAdmin && <button className="btn-danger btn-xs" onClick={() => handleDelete(t.id)}>Удалить</button>}
-                    </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>

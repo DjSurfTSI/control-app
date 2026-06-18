@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import FieldBuilderLink from '../components/FieldBuilderLink';
 import { api } from '../api';
 import { formatDateTime, CV_ASSIGNABLE_ROLES } from '../utils';
 import { invalidateCvStatus } from '../hooks/useCvStatus';
@@ -237,6 +237,9 @@ export default function Settings() {
         <div>
           <h2 className="page-title">Настройки</h2>
           <p className="page-subtitle">Параметры системы и справочники устройств</p>
+        </div>
+        <div className="header-actions">
+          <FieldBuilderLink entity="tasks" />
         </div>
       </div>
 

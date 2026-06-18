@@ -752,6 +752,32 @@ client/src/
 
 **Виджеты дашборда:** `stats_*` (менеджеры), `cleaner_table`, `today_tasks` (все роли).
 
+### 7.9 Конструктор полей (v2.7.0)
+
+Глобальная конфигурация отображения полей сущностей (только **bizadmin**).
+
+Таблица `entity_field_config`:
+
+| Поле | Описание |
+|------|----------|
+| `id` | Всегда `1` (singleton) |
+| `config` | JSON: `{ tasks: FieldDef[], atms: FieldDef[], users: FieldDef[] }` |
+| `updated_at`, `updated_by` | Аудит |
+
+**FieldDef:** `id`, `key`, `label`, `kind` (`system` \| `custom`), `type`, `visible`, `order`, `showIn` (`table`, `card`, `form`, `detail`), опционально `roles`.
+
+**Пользовательские значения:** колонка `custom_data` (JSON) в `cleaning_tasks`, `atms`, `users`.
+
+**API:**
+
+| Метод | Путь | Назначение |
+|-------|------|------------|
+| GET | `/api/entity-fields` | Текущая конфигурация (все роли) |
+| PUT | `/api/entity-fields` | Сохранить (bizadmin) |
+| POST | `/api/entity-fields/reset` | Сброс (весь конфиг или `{ entity }`) |
+
+**Клиент:** `EntityFieldsProvider` → `EntityFieldTable`, `EntityCustomFormFields`, `FieldBuilder.jsx` (`/fields`). Кнопка 🧩 «Поля» в Заявках, Устройствах, Сотрудниках, Настройках.
+
 ### Ключевые файлы
 
 | Файл | Назначение | При адаптации |
@@ -1089,6 +1115,8 @@ npx web-push generate-vapid-keys
 
 | Версия | Дата | Изменения |
 |--------|------|-----------|
+| v2.7.0 | 2026-06-17 | Конструктор полей, тема mobile-nav — см. [CHANGELOG.md](./CHANGELOG.md) |
+| v2.6.0 | 2026-06-17 | Светлая/тёмная тема, 4 фото, 2GIS — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.4.0 | 2026-06-13 | Конструктор рабочего пространства — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.3.0 | 2026-06-13 | Справочники устройств (bizadmin) — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.2.4 | 2026-06-13 | Массовое «Взять на себя» для исполнителя — см. [CHANGELOG.md](./CHANGELOG.md) |

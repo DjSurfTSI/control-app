@@ -17,6 +17,12 @@ import { STATUS_LABELS, normalizeStatus, canExecutorSelfAssignTask } from '../co
 import { isExecutor } from '../roles.js';
 import { readExcelRows, writeExcelBuffer, pickColumn, parseDate } from '../utils/excelImport.js';
 import { recalculateUserRating } from '../utils/rating.js';
+import {
+  attachCustomFields,
+  extractCustomFieldsFromBody,
+  serializeCustomData,
+  parseCustomData,
+} from '../utils/entityFields.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -125,6 +131,10 @@ function markOverdue() {
   }
 }
 
+function mapTaskRow(row) {
+  return attachCustomFields(row);
+}
+
 router.get('/', (req, res) => {
   markOverdue();
 
@@ -138,7 +148,7 @@ router.get('/', (req, res) => {
 
   const built = applyTaskFilters(req.query, sql, params, req.user);
   built.sql += ' ORDER BY t.scheduled_date DESC, t.id DESC';
-  res.json(db.prepare(built.sql).all(...built.params));
+  res.json(db.prepare(built.sql).all(...built.params).map(mapTaskRow));
 });
 
 router.get('/stats', requireRole('admin', 'supervisor'), (req, res) => {
@@ -295,8 +305,8 @@ router.post('/', requireRole('admin', 'supervisor'), (req, res) => {
   }
 
   const result = db.prepare(`
-    INSERT INTO cleaning_tasks (atm_id, assigned_to, scheduled_date, deadline_date, service_contract, priority, notes, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO cleaning_tasks (atm_id, assigned_to, scheduled_date, deadline_date, service_contract, priority, notes, created_by, custom_data)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     atm_id,
     assigned_to || null,
@@ -306,9 +316,10 @@ router.post('/', requireRole('admin', 'supervisor'), (req, res) => {
     priority || 'normal',
     notes || null,
     req.user.id,
+    serializeCustomData(extractCustomFieldsFromBody(req.body, 'tasks')),
   );
 
-  const task = db.prepare(TASK_SELECT + ' WHERE t.id = ?').get(result.lastInsertRowid);
+  const task = mapTaskRow(db.prepare(TASK_SELECT + ' WHERE t.id = ?').get(result.lastInsertRowid));
   if (assigned_to) notifyTaskAssigned(task, assigned_to);
   const full = db.prepare(TASK_SELECT_INTEGRATION + ' WHERE t.id = ?').get(result.lastInsertRowid);
   dispatchWebhooks('task.created', formatTask(full));
@@ -350,10 +361,17 @@ router.patch('/:id', asyncHandler(async (req, res) => {
     if (notes !== undefined) { updates.push('notes = ?'); params.push(notes); }
   }
 
+  if (req.body.custom_fields !== undefined) {
+    const existing = parseCustomData(task.custom_data);
+    const merged = { ...existing, ...extractCustomFieldsFromBody(req.body, 'tasks') };
+    updates.push('custom_data = ?');
+    params.push(serializeCustomData(merged));
+  }
+
   if (status) {
     const nextStatus = normalizeStatus(status) || status;
     if (nextStatus === 'completed' && mustAttachPhotosOnComplete(req.user) && !hasAllRequiredPhotos(req.params.id)) {
-      return res.status(400).json({ error: 'Прикрепите обязательные фото: Слева, Справа и Спереди' });
+      return res.status(400).json({ error: 'Прикрепите обязательные фото: Слева, Справа, Спереди и Сверху' });
     }
 
     if (nextStatus === 'completed' && isCvEnabledForUser(req.user)) {
@@ -435,7 +453,7 @@ router.patch('/:id', asyncHandler(async (req, res) => {
     : norm === 'cancelled' ? 'task.cancelled' : 'task.updated';
   dispatchWebhooks(event, formatTask(full));
 
-  res.json(updated);
+  res.json(mapTaskRow(updated));
 }));
 
 router.delete('/:id/permanent', requireBizAdmin, (req, res) => {

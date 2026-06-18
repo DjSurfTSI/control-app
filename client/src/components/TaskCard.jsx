@@ -1,10 +1,16 @@
 import { STATUS_LABELS, formatDate, canExecutorTakeTask } from '../utils';
+import { useAuth } from '../context/AuthContext';
+import { useEntityColumns } from '../context/EntityFieldsContext';
+import { getEntityFieldValue } from '../utils/entityFields';
 
 export default function TaskCard({
   task, isManager, isExecutor, currentUserId, canDelete, canComplete,
   onStart, onComplete, onAssignSelf, onEdit, onCancel, onDelete, onView,
   selectable, selected, onSelectToggle,
 }) {
+  const { user } = useAuth();
+  const { fields: cardFields } = useEntityColumns('tasks', 'card', user?.role);
+  const customCardFields = cardFields.filter((f) => f.kind === 'custom');
   const canTake = isExecutor && canExecutorTakeTask(task);
 
   const card = (
@@ -34,6 +40,11 @@ export default function TaskCard({
         </span>
         {task.accessibility_type && <span className="task-card-chip">{task.accessibility_type}</span>}
         {task.assignee_name && <span className="task-card-assignee-inline">👤 {task.assignee_name}</span>}
+        {customCardFields.map((field) => {
+          const val = getEntityFieldValue(task, field);
+          if (val === '—') return null;
+          return <span key={field.id} className="task-card-custom-field">{field.label}: {val}</span>;
+        })}
       </div>
 
       <div className="task-card-actions">

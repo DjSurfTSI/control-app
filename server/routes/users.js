@@ -7,6 +7,12 @@ import { isBizAdmin, ROLES } from '../roles.js';
 import { normalizeRole } from '../constants.js';
 import { readExcelRows, writeExcelBuffer, pickColumn } from '../utils/excelImport.js';
 import { recalculateUserRating } from '../utils/rating.js';
+import {
+  attachCustomFields,
+  extractCustomFieldsFromBody,
+  serializeCustomData,
+  parseCustomData,
+} from '../utils/entityFields.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 const router = Router();
@@ -16,11 +22,12 @@ const VALID_ROLES = [ROLES.BIZADMIN, ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.EXECUT
 router.use(authMiddleware);
 
 function getTargetUser(id) {
-  return db.prepare(`
+  const row = db.prepare(`
     SELECT id, email, full_name, role, phone, active, created_at,
-      territorial_bank, position, employee_number, rating
+      territorial_bank, position, employee_number, rating, custom_data
     FROM users WHERE id = ?
   `).get(id);
+  return attachCustomFields(row);
 }
 
 function assignableRoles(actor) {
@@ -53,7 +60,7 @@ router.get('/', requireRole(...MANAGERS), (req, res) => {
   }
 
   sql += ' ORDER BY full_name';
-  res.json(db.prepare(sql).all(...params));
+  res.json(db.prepare(sql).all(...params).map((row) => attachCustomFields(row)));
 });
 
 router.get('/import-template', requireRole(...MANAGERS), (_req, res) => {
@@ -155,10 +162,12 @@ router.post('/', requireRole(...MANAGERS), (req, res) => {
   }
 
   try {
+    const customFields = extractCustomFieldsFromBody(req.body, 'users');
+    const custom_data = serializeCustomData(customFields);
     const result = db.prepare(`
-      INSERT INTO users (email, password_hash, full_name, role, phone, territorial_bank, position, employee_number)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(email, bcrypt.hashSync(password, 10), full_name, userRole, phone, territorial_bank, position, employee_number);
+      INSERT INTO users (email, password_hash, full_name, role, phone, territorial_bank, position, employee_number, custom_data)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(email, bcrypt.hashSync(password, 10), full_name, userRole, phone, territorial_bank, position, employee_number, custom_data);
 
     recalculateUserRating(result.lastInsertRowid);
     res.status(201).json(getTargetUser(result.lastInsertRowid));
@@ -199,6 +208,13 @@ router.patch('/:id', requireRole(...MANAGERS), (req, res) => {
     }
     updates.push('role = ?');
     params.push(nextRole);
+  }
+
+  if (req.body.custom_fields !== undefined) {
+    const existing = parseCustomData(target.custom_data);
+    const merged = { ...existing, ...extractCustomFieldsFromBody(req.body, 'users') };
+    updates.push('custom_data = ?');
+    params.push(serializeCustomData(merged));
   }
 
   if (updates.length === 0) {

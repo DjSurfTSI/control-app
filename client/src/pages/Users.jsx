@@ -3,8 +3,12 @@ import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { ROLE_LABELS, isAdmin, isBizAdmin } from '../utils';
 import ExcelImportModal from '../components/ExcelImportModal';
+import EntityFieldTable from '../components/EntityFieldTable';
+import { EntityCustomFormFields, mergeCustomIntoPayload } from '../components/EntityCustomFormFields';
+import FieldBuilderLink from '../components/FieldBuilderLink';
+import { getEntityFieldValue } from '../utils/entityFields';
 
-function EmployeeModal({ user, onClose, onSave, canEditRoles, assignableRoles }) {
+function EmployeeModal({ user, onClose, onSave, canEditRoles, assignableRoles, userRole }) {
   const isNew = !user?.id;
   const [form, setForm] = useState({
     email: user?.email || '',
@@ -17,6 +21,7 @@ function EmployeeModal({ user, onClose, onSave, canEditRoles, assignableRoles })
     employee_number: user?.employee_number || '',
     active: user?.active ?? 1,
   });
+  const [customFields, setCustomFields] = useState({ ...(user?.custom_fields || {}) });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
@@ -30,7 +35,7 @@ function EmployeeModal({ user, onClose, onSave, canEditRoles, assignableRoles })
     }
     setSaving(true);
     try {
-      await onSave(isNew ? 'create' : 'update', form);
+      await onSave(isNew ? 'create' : 'update', mergeCustomIntoPayload(form, customFields));
       onClose();
     } catch (e) {
       setError(e.message);
@@ -99,6 +104,12 @@ function EmployeeModal({ user, onClose, onSave, canEditRoles, assignableRoles })
             {user?.rating != null && <p className="modal-sub">Рейтинг: <strong>{Math.round(user.rating)}</strong></p>}
           </div>
         )}
+        <EntityCustomFormFields
+          entity="users"
+          customValues={customFields}
+          onCustomChange={(key, val) => setCustomFields((c) => ({ ...c, [key]: val }))}
+          role={userRole}
+        />
         <div className="modal-actions">
           <button className="btn-secondary" onClick={onClose}>Отмена</button>
           <button className="btn-primary" onClick={handleSave} disabled={saving}>
@@ -144,6 +155,7 @@ export default function Users() {
         position: form.position,
         employee_number: form.employee_number,
         active: form.active,
+        custom_fields: form.custom_fields,
       };
       if (canEditRoles) data.role = form.role;
       if (form.password) data.password = form.password;
@@ -165,6 +177,43 @@ export default function Users() {
     }
   };
 
+  const renderUserCell = (field, u) => {
+    if (field.type === 'actions') {
+      if (!canManage(u)) return '—';
+      return (
+        <>
+          <button className="btn-secondary btn-xs" type="button" onClick={() => setModal(u)}>Изменить</button>
+          <button className="btn-danger btn-xs" type="button" onClick={() => handleDelete(u)}>Удалить</button>
+        </>
+      );
+    }
+    if (field.type === 'active') {
+      return (
+        <span className={`badge ${u.active ? 'badge-completed' : 'badge-cancelled'}`}>
+          {u.active ? 'Активен' : 'Неактивен'}
+        </span>
+      );
+    }
+    if (field.type === 'role') {
+      return ROLE_LABELS[u.role] || u.role;
+    }
+    if (field.key === 'full_name') {
+      return (
+        <>
+          <strong>{u.full_name}</strong>
+          {u.position && <small className="directory-sub">{u.position}</small>}
+        </>
+      );
+    }
+    if (field.key === 'email') {
+      return <span className="directory-table-cell-truncate">{u.email}</span>;
+    }
+    if (field.key === 'rating' && u.rating != null) {
+      return Math.round(u.rating);
+    }
+    return getEntityFieldValue(u, field);
+  };
+
   return (
     <div className="page-enter">
       <div className="page-header">
@@ -173,6 +222,7 @@ export default function Users() {
           <p className="page-subtitle">Управление персоналом и исполнителями</p>
         </div>
         <div className="header-actions">
+          <FieldBuilderLink entity="users" />
           <button className="btn-secondary" onClick={() => setImportModal(true)}>📥 Импорт</button>
           <button className="btn-primary" onClick={() => setModal({})}>+ Добавить</button>
         </div>
@@ -184,50 +234,15 @@ export default function Users() {
         ) : users.length === 0 ? (
           <p className="empty-state">Нет сотрудников</p>
         ) : (
-          <div className="table-wrap">
-            <table className="directory-table">
-              <thead>
-                <tr>
-                  <th>ФИО</th>
-                  <th>Email</th>
-                  {admin && <th>Роль</th>}
-                  <th>Тел.</th>
-                  <th>Таб. №</th>
-                  <th>Рейт.</th>
-                  <th>Статус</th>
-                  <th>Действия</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id}>
-                    <td>
-                      <strong>{u.full_name}</strong>
-                      {u.position && <small className="directory-sub">{u.position}</small>}
-                    </td>
-                    <td className="directory-table-cell-truncate" title={u.email}>{u.email}</td>
-                    {admin && <td>{ROLE_LABELS[u.role] || u.role}</td>}
-                    <td>{u.phone || '—'}</td>
-                    <td>{u.employee_number || '—'}</td>
-                    <td>{u.rating != null ? Math.round(u.rating) : '—'}</td>
-                    <td>
-                      <span className={`badge ${u.active ? 'badge-completed' : 'badge-cancelled'}`}>
-                        {u.active ? 'Активен' : 'Неактивен'}
-                      </span>
-                    </td>
-                    <td className="actions">
-                      {canManage(u) && (
-                        <>
-                          <button className="btn-secondary btn-xs" onClick={() => setModal(u)}>Изменить</button>
-                          <button className="btn-danger btn-xs" onClick={() => handleDelete(u)}>Удалить</button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <EntityFieldTable
+            entity="users"
+            rows={users}
+            view="table"
+            role={user?.role}
+            tableClass="directory-table"
+            renderCell={renderUserCell}
+            emptyMessage="Нет сотрудников"
+          />
         )}
       </div>
 
@@ -236,6 +251,7 @@ export default function Users() {
           user={modal.id ? modal : null}
           canEditRoles={canEditRoles}
           assignableRoles={assignableRoles}
+          userRole={user?.role}
           onClose={() => setModal(null)}
           onSave={handleSave}
         />

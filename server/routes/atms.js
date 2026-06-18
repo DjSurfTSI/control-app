@@ -4,6 +4,12 @@ import db from '../db.js';
 import { authMiddleware, requireRole } from '../middleware.js';
 import { readExcelRows, writeExcelBuffer, pickColumn } from '../utils/excelImport.js';
 import { validateDeviceReferenceFields } from '../utils/referenceDirectories.js';
+import {
+  attachCustomFields,
+  extractCustomFieldsFromBody,
+  serializeCustomData,
+  parseCustomData,
+} from '../utils/entityFields.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 const router = Router();
@@ -11,11 +17,11 @@ const router = Router();
 router.use(authMiddleware);
 
 function mapDevice(row) {
-  return {
+  return attachCustomFields({
     ...row,
     territorial_bank: row.territorial_bank || row.bank_name,
     gosb: row.gosb || row.zone,
-  };
+  });
 }
 
 router.get('/', (req, res) => {
@@ -122,10 +128,12 @@ router.post('/', requireRole('admin', 'supervisor'), (req, res) => {
   }
 
   try {
+    const customFields = extractCustomFieldsFromBody(req.body, 'atms');
+    const custom_data = serializeCustomData(customFields);
     const result = db.prepare(`
-      INSERT INTO atms (serial_number, bank_name, territorial_bank, address, gosb, zone, accessibility_type, installation_name, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(serial_number, tb, tb, address, gb, gb, accessibility_type, installation_name, notes || null);
+      INSERT INTO atms (serial_number, bank_name, territorial_bank, address, gosb, zone, accessibility_type, installation_name, notes, custom_data)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(serial_number, tb, tb, address, gb, gb, accessibility_type, installation_name, notes || null, custom_data);
 
     res.status(201).json(mapDevice(db.prepare('SELECT * FROM atms WHERE id = ?').get(result.lastInsertRowid)));
   } catch (e) {
@@ -167,6 +175,14 @@ router.patch('/:id', requireRole('admin', 'supervisor'), (req, res) => {
   if (fields.installation_name !== undefined) { updates.push('installation_name = ?'); params.push(fields.installation_name); }
   if (fields.notes !== undefined) { updates.push('notes = ?'); params.push(fields.notes); }
   if (fields.active !== undefined) { updates.push('active = ?'); params.push(fields.active ? 1 : 0); }
+  if (req.body.custom_fields !== undefined) {
+    const existing = parseCustomData(
+      db.prepare('SELECT custom_data FROM atms WHERE id = ?').get(req.params.id)?.custom_data,
+    );
+    const merged = { ...existing, ...extractCustomFieldsFromBody(req.body, 'atms') };
+    updates.push('custom_data = ?');
+    params.push(serializeCustomData(merged));
+  }
 
   if (updates.length === 0) return res.status(400).json({ error: 'Нет данных для обновления' });
 

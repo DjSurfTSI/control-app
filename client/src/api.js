@@ -384,6 +384,13 @@ export const api = {
   updateWorkspace: (config) => request('/workspace', { method: 'PUT', body: JSON.stringify({ config }) }),
   resetWorkspace: () => request('/workspace/reset', { method: 'POST' }),
 
+  getEntityFields: () => request('/entity-fields'),
+  updateEntityFields: (config) => request('/entity-fields', { method: 'PUT', body: JSON.stringify({ config }) }),
+  resetEntityFields: (entity) => request('/entity-fields/reset', {
+    method: 'POST',
+    body: JSON.stringify(entity ? { entity } : {}),
+  }),
+
   getReferenceDirectories: () => request('/reference'),
   getReferenceDirectoriesManage: () => request('/reference/manage'),
   createReferenceEntry: (data) => request('/reference', { method: 'POST', body: JSON.stringify(data) }),

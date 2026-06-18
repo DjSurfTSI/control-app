@@ -9,6 +9,7 @@ import Atms from './pages/Atms';
 import Users from './pages/Users';
 import Settings from './pages/Settings';
 import WorkspaceBuilder from './pages/WorkspaceBuilder';
+import FieldBuilder from './pages/FieldBuilder';
 
 function PrivateRoute({ children, roles }) {
   const { user, loading } = useAuth();
@@ -48,6 +49,14 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route path="tasks" element={<Tasks />} />
         <Route path="workspace" element={<WorkspaceBuilder />} />
+        <Route
+          path="fields"
+          element={
+            <PrivateRoute roles={['bizadmin']}>
+              <FieldBuilder />
+            </PrivateRoute>
+          }
+        />
         <Route
           path="atms"
           element={

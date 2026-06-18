@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
+import { useAuth } from '../context/AuthContext';
 import ExcelImportModal from '../components/ExcelImportModal';
+import EntityFieldTable from '../components/EntityFieldTable';
+import { EntityCustomFormFields, mergeCustomIntoPayload } from '../components/EntityCustomFormFields';
+import FieldBuilderLink from '../components/FieldBuilderLink';
+import { getEntityFieldValue } from '../utils/entityFields';
 
 const EMPTY_DIRECTORIES = {
   territorial_bank: [],
@@ -28,7 +33,7 @@ function DirectorySelect({ label, value, options, onChange, required, allowExtra
   );
 }
 
-function DeviceModal({ device, directories, onClose, onSave }) {
+function DeviceModal({ device, directories, onClose, onSave, userRole }) {
   const isNew = !device?.id;
   const [form, setForm] = useState({
     serial_number: device?.serial_number || '',
@@ -37,7 +42,9 @@ function DeviceModal({ device, directories, onClose, onSave }) {
     address: device?.address || '',
     accessibility_type: device?.accessibility_type || '',
     installation_name: device?.installation_name || '',
+    notes: device?.notes || '',
   });
+  const [customFields, setCustomFields] = useState({ ...(device?.custom_fields || {}) });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
@@ -46,7 +53,7 @@ function DeviceModal({ device, directories, onClose, onSave }) {
     setError('');
     setSaving(true);
     try {
-      await onSave(isNew ? 'create' : 'update', form);
+      await onSave(isNew ? 'create' : 'update', mergeCustomIntoPayload(form, customFields));
       onClose();
     } catch (e) {
       setError(e.message);
@@ -100,6 +107,12 @@ function DeviceModal({ device, directories, onClose, onSave }) {
           <label>Наименование места установки *</label>
           <input value={form.installation_name} onChange={(e) => set('installation_name', e.target.value)} />
         </div>
+        <EntityCustomFormFields
+          entity="atms"
+          customValues={customFields}
+          onCustomChange={(key, val) => setCustomFields((c) => ({ ...c, [key]: val }))}
+          role={userRole}
+        />
         <div className="modal-actions">
           <button className="btn-secondary" onClick={onClose}>Отмена</button>
           <button className="btn-primary" onClick={handleSave} disabled={saving}>
@@ -112,6 +125,7 @@ function DeviceModal({ device, directories, onClose, onSave }) {
 }
 
 export default function Atms() {
+  const { user } = useAuth();
   const [atms, setAtms] = useState([]);
   const [directories, setDirectories] = useState(EMPTY_DIRECTORIES);
   const [loading, setLoading] = useState(true);
@@ -152,6 +166,26 @@ export default function Atms() {
     load();
   };
 
+  const renderAtmCell = (field, atm) => {
+    if (field.type === 'actions') {
+      return (
+        <>
+          <button className="btn-secondary btn-xs" type="button" onClick={() => setModal(atm)}>Изменить</button>
+          <button className="btn-danger btn-xs" type="button" onClick={() => handleDeactivate(atm)}>Удалить</button>
+        </>
+      );
+    }
+    const val = getEntityFieldValue(atm, field);
+    if (field.key === 'serial_number') return <strong>{val}</strong>;
+    if (field.key === 'territorial_bank' || field.key === 'installation_name') {
+      return <span className="directory-table-cell-truncate">{val}</span>;
+    }
+    if (field.key === 'address') {
+      return <span className="directory-table-cell-address">{val}</span>;
+    }
+    return val;
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -160,6 +194,7 @@ export default function Atms() {
           <p className="page-subtitle">Реестр устройств самообслуживания</p>
         </div>
         <div className="header-actions">
+          <FieldBuilderLink entity="atms" />
           <button className="btn-secondary" onClick={() => setImportModal(true)}>📥 Импорт</button>
           <button className="btn-primary" onClick={() => setModal({})}>+ Добавить</button>
         </div>
@@ -171,37 +206,15 @@ export default function Atms() {
         ) : atms.length === 0 ? (
           <p className="empty-state">Устройства не добавлены</p>
         ) : (
-          <div className="table-wrap">
-            <table className="directory-table">
-              <thead>
-                <tr>
-                  <th>ID УС</th>
-                  <th>Терр. Банк</th>
-                  <th>ГОСБ</th>
-                  <th>Адрес</th>
-                  <th>Доступн.</th>
-                  <th>Место</th>
-                  <th>Действия</th>
-                </tr>
-              </thead>
-              <tbody>
-                {atms.map((a) => (
-                  <tr key={a.id}>
-                    <td><strong>{a.serial_number}</strong></td>
-                    <td className="directory-table-cell-truncate" title={a.territorial_bank || a.bank_name}>{a.territorial_bank || a.bank_name}</td>
-                    <td>{a.gosb || a.zone || '—'}</td>
-                    <td className="directory-table-cell-address" title={a.address}>{a.address}</td>
-                    <td>{a.accessibility_type || '—'}</td>
-                    <td className="directory-table-cell-truncate" title={a.installation_name}>{a.installation_name || '—'}</td>
-                    <td className="actions">
-                      <button className="btn-secondary btn-xs" onClick={() => setModal(a)}>Изменить</button>
-                      <button className="btn-danger btn-xs" onClick={() => handleDeactivate(a)}>Удалить</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <EntityFieldTable
+            entity="atms"
+            rows={atms}
+            view="table"
+            role={user?.role}
+            tableClass="directory-table"
+            renderCell={renderAtmCell}
+            emptyMessage="Устройства не добавлены"
+          />
         )}
       </div>
 
@@ -209,6 +222,7 @@ export default function Atms() {
         <DeviceModal
           device={modal.id ? modal : null}
           directories={directories}
+          userRole={user?.role}
           onClose={() => setModal(null)}
           onSave={handleSave}
         />

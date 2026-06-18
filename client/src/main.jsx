@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { EntityFieldsProvider } from './context/EntityFieldsContext';
 import { registerServiceWorker } from './offline/registerSw';
 import './index.css';
 
@@ -13,7 +14,9 @@ function AppBootstrap() {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <App />
+          <EntityFieldsProvider>
+            <App />
+          </EntityFieldsProvider>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

@@ -13,6 +13,7 @@ import settingsRoutes from './routes/settings.js';
 import referenceRoutes from './routes/reference.js';
 import workspaceRoutes from './routes/workspace.js';
 import { isCvEnabled, warmupCvModel } from './cv/atmDetector.js';
+import entityFieldsRoutes from './routes/entityFields.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -34,6 +35,7 @@ app.use('/api/integration', integrationRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/reference', referenceRoutes);
 app.use('/api/workspace', workspaceRoutes);
+app.use('/api/entity-fields', entityFieldsRoutes);
 
 app.use((err, req, res, next) => {
   if (req.path.startsWith('/api')) {
