@@ -59,7 +59,7 @@ db.exec(`
     task_id INTEGER NOT NULL REFERENCES cleaning_tasks(id) ON DELETE CASCADE,
     filename TEXT NOT NULL,
     original_name TEXT,
-    photo_type TEXT CHECK(photo_type IN ('left', 'right', 'front')),
+    photo_type TEXT CHECK(photo_type IN ('left', 'right', 'front', 'top')),
     uploaded_by INTEGER REFERENCES users(id),
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -167,8 +167,38 @@ for (const m of migrations) {
 
 const photoCols = db.prepare('PRAGMA table_info(task_photos)').all();
 if (!photoCols.some((c) => c.name === 'photo_type')) {
-  db.exec("ALTER TABLE task_photos ADD COLUMN photo_type TEXT CHECK(photo_type IN ('left', 'right', 'front'))");
+  db.exec("ALTER TABLE task_photos ADD COLUMN photo_type TEXT CHECK(photo_type IN ('left', 'right', 'front', 'top'))");
 }
+
+function migratePhotoTypeTop() {
+  const sql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='task_photos'").get()?.sql || '';
+  if (sql.includes("'top'")) return;
+
+  db.exec('PRAGMA foreign_keys = OFF');
+  try {
+    db.exec(`
+      CREATE TABLE task_photos_mig (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL REFERENCES cleaning_tasks(id) ON DELETE CASCADE,
+        filename TEXT NOT NULL,
+        original_name TEXT,
+        photo_type TEXT CHECK(photo_type IN ('left', 'right', 'front', 'top')),
+        uploaded_by INTEGER REFERENCES users(id),
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        cv_detected INTEGER,
+        cv_confidence REAL,
+        cv_checked_at TEXT
+      );
+      INSERT INTO task_photos_mig SELECT * FROM task_photos;
+      DROP TABLE task_photos;
+      ALTER TABLE task_photos_mig RENAME TO task_photos;
+    `);
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON');
+  }
+}
+
+migratePhotoTypeTop();
 
 function migrateAtmsData() {
   db.exec(`
@@ -380,7 +410,7 @@ if (!bizadminExists) {
   ).run('bizadmin@bank.ru', hash, 'Бизнес-администратор', 'bizadmin', '+7 900 000-00-03');
 }
 
-export const REQUIRED_PHOTO_TYPES = ['left', 'right', 'front'];
+export const REQUIRED_PHOTO_TYPES = ['left', 'right', 'front', 'top'];
 
 export function hasAllRequiredPhotos(taskId) {
   const types = db.prepare(

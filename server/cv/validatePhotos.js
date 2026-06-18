@@ -10,6 +10,7 @@ export const PHOTO_TYPE_LABELS = {
   left: 'Слева',
   right: 'Справа',
   front: 'Спереди',
+  top: 'Сверху',
 };
 
 let cvQueue = Promise.resolve();

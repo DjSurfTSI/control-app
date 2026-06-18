@@ -29,8 +29,10 @@ export default function TaskCard({
       <div className="task-card-meta">
         <span>📅 {formatDate(task.scheduled_date)}</span>
         {task.deadline_date && <span>⏰ {formatDate(task.deadline_date)}</span>}
+        <span className={`task-card-photo-count${(task.photo_count ?? 0) > 0 ? ' has-photos' : ''}`} title="Фото в заявке">
+          📷 {task.photo_count ?? 0}
+        </span>
         {task.accessibility_type && <span className="task-card-chip">{task.accessibility_type}</span>}
-        {task.photo_count > 0 && <span>📷 {task.photo_count}</span>}
         {task.assignee_name && <span className="task-card-assignee-inline">👤 {task.assignee_name}</span>}
       </div>
 

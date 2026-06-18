@@ -172,15 +172,15 @@ export default function Atms() {
           <p className="empty-state">Устройства не добавлены</p>
         ) : (
           <div className="table-wrap">
-            <table>
+            <table className="directory-table">
               <thead>
                 <tr>
                   <th>ID УС</th>
                   <th>Терр. Банк</th>
                   <th>ГОСБ</th>
                   <th>Адрес</th>
-                  <th>Доступность</th>
-                  <th>Место установки</th>
+                  <th>Доступн.</th>
+                  <th>Место</th>
                   <th>Действия</th>
                 </tr>
               </thead>
@@ -188,14 +188,14 @@ export default function Atms() {
                 {atms.map((a) => (
                   <tr key={a.id}>
                     <td><strong>{a.serial_number}</strong></td>
-                    <td>{a.territorial_bank || a.bank_name}</td>
+                    <td className="directory-table-cell-truncate" title={a.territorial_bank || a.bank_name}>{a.territorial_bank || a.bank_name}</td>
                     <td>{a.gosb || a.zone || '—'}</td>
-                    <td>{a.address}</td>
+                    <td className="directory-table-cell-address" title={a.address}>{a.address}</td>
                     <td>{a.accessibility_type || '—'}</td>
-                    <td>{a.installation_name || '—'}</td>
+                    <td className="directory-table-cell-truncate" title={a.installation_name}>{a.installation_name || '—'}</td>
                     <td className="actions">
-                      <button className="btn-secondary btn-sm" onClick={() => setModal(a)}>Изменить</button>
-                      <button className="btn-danger btn-sm" onClick={() => handleDeactivate(a)}>Удалить</button>
+                      <button className="btn-secondary btn-xs" onClick={() => setModal(a)}>Изменить</button>
+                      <button className="btn-danger btn-xs" onClick={() => handleDeactivate(a)}>Удалить</button>
                     </td>
                   </tr>
                 ))}

@@ -185,15 +185,15 @@ export default function Users() {
           <p className="empty-state">Нет сотрудников</p>
         ) : (
           <div className="table-wrap">
-            <table>
+            <table className="directory-table">
               <thead>
                 <tr>
                   <th>ФИО</th>
                   <th>Email</th>
                   {admin && <th>Роль</th>}
-                  <th>Телефон</th>
+                  <th>Тел.</th>
                   <th>Таб. №</th>
-                  <th>Рейтинг</th>
+                  <th>Рейт.</th>
                   <th>Статус</th>
                   <th>Действия</th>
                 </tr>
@@ -201,8 +201,11 @@ export default function Users() {
               <tbody>
                 {users.map((u) => (
                   <tr key={u.id}>
-                    <td><strong>{u.full_name}</strong><br /><small>{u.position || '—'}</small></td>
-                    <td>{u.email}</td>
+                    <td>
+                      <strong>{u.full_name}</strong>
+                      {u.position && <small className="directory-sub">{u.position}</small>}
+                    </td>
+                    <td className="directory-table-cell-truncate" title={u.email}>{u.email}</td>
                     {admin && <td>{ROLE_LABELS[u.role] || u.role}</td>}
                     <td>{u.phone || '—'}</td>
                     <td>{u.employee_number || '—'}</td>
@@ -215,8 +218,8 @@ export default function Users() {
                     <td className="actions">
                       {canManage(u) && (
                         <>
-                          <button className="btn-secondary btn-sm" onClick={() => setModal(u)}>Изменить</button>
-                          <button className="btn-danger btn-sm" onClick={() => handleDelete(u)}>Удалить</button>
+                          <button className="btn-secondary btn-xs" onClick={() => setModal(u)}>Изменить</button>
+                          <button className="btn-danger btn-xs" onClick={() => handleDelete(u)}>Удалить</button>
                         </>
                       )}
                     </td>

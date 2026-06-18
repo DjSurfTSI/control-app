@@ -21,6 +21,39 @@
   --header-h: 64px;
 }
 
+html[data-theme='light'] {
+  --bg: #eef2f7;
+  --bg-elevated: #ffffff;
+  --surface: #ffffff;
+  --surface-hover: #f1f5f9;
+  --border: #cbd5e1;
+  --border-light: #94a3b8;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --primary-glow: rgba(59, 130, 246, 0.15);
+  --shadow: 0 4px 18px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 10px 32px rgba(15, 23, 42, 0.12);
+}
+
+html[data-theme='light'] body {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(34, 197, 94, 0.04), transparent);
+}
+
+html[data-theme='light'] .header {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+html[data-theme='light'] .offline-status-bar {
+  background: rgba(241, 245, 249, 0.95);
+  color: var(--text-muted);
+}
+
+html[data-theme='light'] .card {
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -1022,6 +1055,121 @@ label {
 
 .tasks-table .actions {
   min-width: 9rem;
+}
+
+.tasks-table .actions {
+  min-width: 9rem;
+}
+
+.tasks-table-cell-photo,
+.task-photo-count {
+  white-space: nowrap;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.task-photo-count.has-photos {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.task-card-photo-count {
+  white-space: nowrap;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.task-card-photo-count.has-photos {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.tasks-table-cell-geo {
+  text-align: center;
+}
+
+.geo-link {
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.photo-cv-status-bar {
+  margin: 0.5rem 0 0.65rem;
+}
+
+.photo-cv-status-bar-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.photo-cv-status-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary), #60a5fa);
+  transition: width 0.35s ease;
+}
+
+.photo-cv-status-bar-fill.indeterminate {
+  width: 40% !important;
+  animation: photo-cv-indeterminate 1.1s ease-in-out infinite;
+}
+
+@keyframes photo-cv-indeterminate {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
+}
+
+.photo-cv-status-bar-label {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.directory-table {
+  font-size: 0.78rem;
+}
+
+.directory-table th,
+.directory-table td {
+  padding: 0.38rem 0.5rem;
+  vertical-align: middle;
+}
+
+.directory-table th {
+  font-size: 0.65rem;
+}
+
+.directory-table .badge {
+  padding: 0.1rem 0.4rem;
+  font-size: 0.62rem;
+}
+
+.directory-table-cell-truncate {
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directory-table-cell-address {
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directory-sub {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  margin-top: 0.1rem;
+}
+
+.theme-toggle-btn {
+  min-width: 2.25rem;
 }
 
 @media (max-width: 1400px) {

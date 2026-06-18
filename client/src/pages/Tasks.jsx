@@ -28,7 +28,7 @@ const EMPTY_FILTERS = {
 function CompleteModal({ task, onClose, onComplete, requirePhotos = true }) {
   const [report, setReport] = useState('');
   const [photoStatus, setPhotoStatus] = useState({
-    complete: false, missing: ['left', 'right', 'front'], cvEnabled: true, cvPassed: false, cvFailed: [],
+    complete: false, missing: ['left', 'right', 'front', 'top'], cvEnabled: true, cvPassed: false, cvFailed: [],
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -88,7 +88,7 @@ function TaskModal({
 }) {
   const isNew = !task?.id;
   const [photoStatus, setPhotoStatus] = useState({
-    complete: false, missing: ['left', 'right', 'front'], cvEnabled: true, cvPassed: false, cvFailed: [],
+    complete: false, missing: ['left', 'right', 'front', 'top'], cvEnabled: true, cvPassed: false, cvFailed: [],
   });
   const [report, setReport] = useState('');
   const [completing, setCompleting] = useState(false);
@@ -212,10 +212,10 @@ function TaskModal({
                     <span>Геолокация</span>
                     <strong>
                       {(() => {
-                        const geo = formatCloseLocation(task.closed_latitude, task.closed_longitude);
+                        const geo = formatCloseLocation(task.closed_latitude, task.closed_longitude, { provider: '2gis' });
                         if (!geo) return 'Не определена';
                         return (
-                          <a href={geo.mapsUrl} target="_blank" rel="noopener noreferrer">{geo.text}</a>
+                          <a href={geo.mapsUrl} target="_blank" rel="noopener noreferrer" className="geo-link">📍 2GIS — {geo.text}</a>
                         );
                       })()}
                     </strong>
@@ -683,10 +683,12 @@ export default function Tasks() {
                       />
                     </th>
                   )}
-                  <th>№</th><th>ID УС</th><th>Статус</th><th>Доступн.</th><th>Терр. Банк</th><th>ГОСБ</th>
+                  <th>№</th><th>ID УС</th><th>Статус</th><th className="tasks-table-cell-photo">📷</th><th>Доступн.</th><th>Терр. Банк</th><th>ГОСБ</th>
                   <th>Адрес</th><th>Место</th><th>План</th><th>Контроль</th>
                   <th className="tasks-table-col-optional">Начало</th><th className="tasks-table-col-optional">Конец</th>
-                  <th className="tasks-table-col-optional">Услуга</th><th>Исполнитель</th><th>Действия</th>
+                  <th className="tasks-table-col-optional">Услуга</th><th>Исполнитель</th>
+                  {manager && <th>Гео</th>}
+                  <th>Действия</th>
                 </tr>
               </thead>
               <tbody>
@@ -708,6 +710,11 @@ export default function Tasks() {
                     <td><strong>{t.id}</strong></td>
                     <td className="tasks-table-cell-mono">{t.serial_number || '—'}</td>
                     <td><span className={`badge badge-${t.status}`}>{STATUS_LABELS[t.status]}</span></td>
+                    <td className="tasks-table-cell-photo">
+                      <span className={`task-photo-count${(t.photo_count ?? 0) > 0 ? ' has-photos' : ''}`} title="Фото в заявке">
+                        📷 {t.photo_count ?? 0}
+                      </span>
+                    </td>
                     <td className="tasks-table-cell-muted">{t.accessibility_type || '—'}</td>
                     <td className="tasks-table-cell-truncate" title={t.territorial_bank || t.bank_name}>{t.territorial_bank || t.bank_name}</td>
                     <td className="tasks-table-cell-muted">{t.gosb || t.zone || '—'}</td>
@@ -719,6 +726,19 @@ export default function Tasks() {
                     <td className="tasks-table-col-optional tasks-table-cell-nowrap">{formatDateTime(t.completed_at)}</td>
                     <td className="tasks-table-col-optional tasks-table-cell-truncate" title={t.service_contract}>{t.service_contract || '—'}</td>
                     <td className="tasks-table-cell-truncate" title={t.assignee_name}>{t.assignee_name || '—'}</td>
+                    {manager && (
+                      <td className="tasks-table-cell-geo">
+                        {(() => {
+                          const geo = formatCloseLocation(t.closed_latitude, t.closed_longitude, { provider: '2gis' });
+                          if (!geo) return '—';
+                          return (
+                            <a href={geo.mapsUrl} target="_blank" rel="noopener noreferrer" className="geo-link" title="Открыть в 2GIS">
+                              📍
+                            </a>
+                          );
+                        })()}
+                      </td>
+                    )}
                     <td className="actions">
                       <button className="btn-secondary btn-xs" onClick={() => setModal(t)}>Открыть</button>
                       {executor && canExecutorTakeTask(t) && (

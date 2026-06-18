@@ -219,7 +219,7 @@ erDiagram
         int id PK
         int task_id FK
         string filename
-        string photo_type "left | right | front"
+        string photo_type "left | right | front | top"
         int cv_detected "0 | 1"
         float cv_confidence
         datetime cv_checked_at
@@ -402,7 +402,7 @@ flowchart LR
 stateDiagram-v2
     [*] --> pending: UI / Excel / Integration API
     pending --> in_progress: Уборщик нажимает «Начать»
-    in_progress --> completed: 3 фото + CV OK + отчёт
+    in_progress --> completed: 4 фото + CV OK + отчёт
     in_progress --> in_progress: CV отклонил фото
     pending --> overdue: Дата прошла
     in_progress --> overdue: Дата прошла
@@ -416,13 +416,14 @@ stateDiagram-v2
 
 ### 6.2 Фотоотчёт (обязательные ракурсы)
 
-Перед завершением заявки уборщик обязан загрузить три фото:
+Перед завершением заявки уборщик обязан загрузить четыре фото:
 
 | `photo_type` | Подпись в UI |
 |--------------|--------------|
 | `left` | Слева |
 | `right` | Справа |
 | `front` | Спереди |
+| `top` | Сверху |
 
 ### 6.2.1 Сжатие и оптимизация разрешения
 
@@ -451,7 +452,7 @@ stateDiagram-v2
 |------|----------|
 | Старт сервера | `warmupCvModel()` — предзагрузка модели (v2.1.0) |
 | Настройки | `cv_settings` в БД; UI bizadmin — `/settings`; статус — `GET /api/settings/cv/status` (CV, камера mobile, разрешение/качество фото) |
-| CV выключена | UI без текстов про CV; завершение — только 3 фото; сервер не запускает CLIP |
+| CV выключена | UI без текстов про CV; завершение — только 4 фото; сервер не запускает CLIP |
 | CV включена | Загрузка фото → CV **синхронно в очереди** `runInCvQueue` → ответ с `cv_detected` |
 | Завершение (executor) | Повторная проверка всех ракурсов; при отказе — `in_progress`, код `cv_rejected` |
 
@@ -515,9 +516,9 @@ sequenceDiagram
 | Модалка | `CompleteModal` | Исполнитель или менеджер |
 | Модалка «Открыть» | `TaskModal` | `canComplete` + (фото/CV только для исполнителя) |
 
-**Исполнитель:** статусы `in_progress`, `overdue`, `returned`, `emergency`; заявка назначена на него; обязательны 3 фото (+ CV при включении).
+**Исполнитель:** статусы `in_progress`, `overdue`, `returned`, `emergency`; заявка назначена на него; обязательны 4 фото (+ CV при включении).
 
-**Менеджер** (admin, supervisor, bizadmin, v2.4.3+): те же статусы, без привязки к исполнителю; **обязательны 3 фото** (v2.4.4); CV — если роль отмечена в `cv_settings.cv_roles` (bizadmin всегда без CV).
+**Менеджер** (admin, supervisor, bizadmin, v2.4.3+): те же статусы, без привязки к исполнителю; **обязательны 4 фото** (v2.6.0, ранее 3); CV — если роль отмечена в `cv_settings.cv_roles` (bizadmin всегда без CV). В списке заявок — колонка **Гео** (ссылка на 2GIS) и **📷 photo_count**.
 
 Просрочка: при загрузке списка `markOverdue()` переводит заявки с прошедшим контрольным сроком в `overdue` — кнопка «Завершить» остаётся доступной (v2.1.0).
 

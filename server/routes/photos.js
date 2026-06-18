@@ -93,7 +93,7 @@ router.post('/:taskId', (req, res, next) => {
   const photoType = req.body.photo_type;
   if (!photoType || !REQUIRED_PHOTO_TYPES.includes(photoType)) {
     fs.unlinkSync(req.file.path);
-    return res.status(400).json({ error: 'Укажите тип фото: left, right или front' });
+    return res.status(400).json({ error: 'Укажите тип фото: left, right, front или top' });
   }
 
   const existing = db.prepare(

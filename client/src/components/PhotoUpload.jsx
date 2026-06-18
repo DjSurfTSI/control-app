@@ -157,6 +157,15 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
   const cv = checkPhotoCv(photos, cvEnabled);
   const canComplete = cvEnabled ? cv.passed : check.complete;
   const showInitialLoad = loading && photos.length === 0 && readOnly;
+  const uploadedCount = PHOTO_TYPES.filter((t) => getPhotoForType(t)).length;
+  const showStatusBar = !readOnly && (uploading || (cvEnabled && cv.pending.length > 0));
+  const statusBarLabel = uploading
+    ? `Загрузка: ${PHOTO_TYPE_LABELS[uploading]}…`
+    : `Проверка CV: ${cv.pending.map((t) => PHOTO_TYPE_LABELS[t]).join(', ')}`;
+  const statusBarProgress = uploading
+    ? Math.max(12, Math.round(((uploadedCount + 0.5) / PHOTO_TYPES.length) * 100))
+    : Math.round(((PHOTO_TYPES.length - cv.pending.length) / PHOTO_TYPES.length) * 100);
+  const statusBarIndeterminate = !!uploading;
 
   if (showInitialLoad) return <p className="photo-loading">Загрузка фото...</p>;
 
@@ -179,11 +188,23 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
         </p>
       ) : (
         <p className="photo-cv-hint photo-cv-off">
-          CV-проверка отключена. Достаточно трёх фото с разных ракурсов.
+          CV-проверка отключена. Достаточно четырёх фото с разных ракурсов.
         </p>
       )}
       {effectiveOffline && !readOnly && (
         <p className="photo-offline-hint">Фото сохранятся на устройстве и отправятся при появлении сети.</p>
+      )}
+
+      {showStatusBar && (
+        <div className="photo-cv-status-bar" role="status" aria-live="polite">
+          <div className="photo-cv-status-bar-track">
+            <div
+              className={`photo-cv-status-bar-fill${statusBarIndeterminate ? ' indeterminate' : ''}`}
+              style={statusBarIndeterminate ? undefined : { width: `${statusBarProgress}%` }}
+            />
+          </div>
+          <span className="photo-cv-status-bar-label">{statusBarLabel}</span>
+        </div>
       )}
 
       {!check.complete && !readOnly && (
@@ -193,9 +214,6 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
         <p className="photo-ok">
           {cvEnabled ? '✓ Все фото загружены и банкомат подтверждён' : '✓ Все фото загружены'}
         </p>
-      )}
-      {cvEnabled && cv.pending.length > 0 && (
-        <p className="photo-hint">Проверка CV: {cv.pending.map((t) => PHOTO_TYPE_LABELS[t]).join(', ')}…</p>
       )}
       {cvEnabled && cv.failed.length > 0 && (
         <p className="photo-cv-fail">
@@ -250,7 +268,7 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
                       onClick={() => inputRefs.current[type]?.click()}
                       disabled={uploading === type}
                     >
-                      {uploading === type ? (cvEnabled ? 'Проверка CV...' : 'Загрузка…') : '📷'}
+                      {uploading === type ? '⏳' : '📷'}
                     </button>
                   </>
                 )
@@ -271,7 +289,7 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
         .photo-cv-fail { color: var(--danger); font-size: 0.85rem; margin-bottom: 0.5rem; }
         .photo-ok { color: var(--success); font-size: 0.85rem; margin-bottom: 0.5rem; }
         .photo-loading { color: var(--text-muted); font-size: 0.85rem; }
-        .photo-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+        .photo-slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.55rem; }
         .photo-slot {
           border: 2px dashed var(--border); border-radius: 10px;
           padding: 0.75rem; text-align: center; min-height: 130px;
@@ -300,10 +318,13 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
         .photo-add-btn:hover { transform: scale(1.08); background: var(--primary); }
         .photo-delete {
           position: absolute; top: 4px; right: 4px;
-          width: 24px; height: 24px; border-radius: 50%;
-          background: rgba(0,0,0,0.7); color: white; font-size: 1rem; padding: 0;
+          width: 30px; height: 30px; border-radius: 50%;
+          background: rgba(0,0,0,0.75); color: white; font-size: 1.25rem; line-height: 1; padding: 0;
         }
         .photo-missing { color: var(--text-muted); font-size: 0.8rem; }
+        @media (max-width: 768px) {
+          .photo-slots { grid-template-columns: repeat(2, 1fr); }
+        }
         @media (max-width: 480px) {
           .photo-slots { grid-template-columns: 1fr; }
         }

@@ -157,12 +157,13 @@ export function hasRouteAccess(user, roles) {
   return normalized.includes(userRole);
 }
 
-export const PHOTO_TYPES = ['left', 'right', 'front'];
+export const PHOTO_TYPES = ['left', 'right', 'front', 'top'];
 
 export const PHOTO_TYPE_LABELS = {
   left: 'Слева',
   right: 'Справа',
   front: 'Спереди',
+  top: 'Сверху',
 };
 
 export function checkRequiredPhotos(photos) {
@@ -253,13 +254,17 @@ export async function getCloseMetadata() {
   return base;
 }
 
-export function formatCloseLocation(latitude, longitude) {
+export function formatCloseLocation(latitude, longitude, { provider = 'google' } = {}) {
   const lat = Number(latitude);
   const lng = Number(longitude);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   const text = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  const googleUrl = `https://maps.google.com/?q=${lat},${lng}`;
+  const gis2Url = `https://2gis.ru/map/geo/${lng},${lat}?m=${encodeURIComponent(`${lng},${lat}/16`)}`;
   return {
     text,
-    mapsUrl: `https://maps.google.com/?q=${lat},${lng}`,
+    mapsUrl: provider === '2gis' ? gis2Url : googleUrl,
+    googleUrl,
+    gis2Url,
   };
 }

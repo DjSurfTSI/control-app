@@ -6,6 +6,7 @@ import ExecutorStatusNav from './ExecutorStatusNav';
 import { ROLE_LABELS } from '../utils';
 import { useNotifications } from '../hooks/useNotifications';
 import OfflineStatusBar from './OfflineStatusBar';
+import { useTheme } from '../context/ThemeContext';
 import { useState } from 'react';
 
 function LayoutShell() {
@@ -16,6 +17,7 @@ function LayoutShell() {
   const { navItems, homeRoute } = useWorkspace();
   const showExecutorStatusNav = executorNav.enabled && location.pathname === '/tasks';
   const { alerts, pushEnabled, pushLoading, enablePush, disablePush } = useNotifications(true);
+  const { toggleTheme, isDark } = useTheme();
   const [notifError, setNotifError] = useState('');
 
   const handleLogout = () => {
@@ -57,6 +59,15 @@ function LayoutShell() {
           <Link to="/workspace" className="btn-secondary btn-sm" title="Конструктор рабочего пространства">
             🎛️
           </Link>
+          <button
+            type="button"
+            className="btn-secondary btn-sm theme-toggle-btn"
+            onClick={toggleTheme}
+            title={isDark ? 'Светлая тема' : 'Тёмная тема'}
+            aria-label={isDark ? 'Включить светлую тему' : 'Включить тёмную тему'}
+          >
+            {isDark ? '☀️' : '🌙'}
+          </button>
           <button
             className={`btn-sm ${pushEnabled ? 'btn-success' : 'btn-secondary'}`}
             onClick={togglePush}
@@ -100,6 +111,10 @@ function LayoutShell() {
                 <span className="mobile-nav-label">{item.label}</span>
               </NavLink>
             ))}
+            <button type="button" className="mobile-nav-item mobile-nav-btn" onClick={toggleTheme} title={isDark ? 'Светлая тема' : 'Тёмная тема'}>
+              <span className="mobile-nav-icon">{isDark ? '☀️' : '🌙'}</span>
+              <span className="mobile-nav-label">Тема</span>
+            </button>
             <button type="button" className="mobile-nav-item mobile-nav-btn" onClick={togglePush} disabled={pushLoading}>
               <span className="mobile-nav-icon">{pushEnabled ? '🔔' : '🔕'}</span>
               <span className="mobile-nav-label">Push</span>
