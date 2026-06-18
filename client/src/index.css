@@ -1186,48 +1186,193 @@ label {
   min-width: 2.25rem;
 }
 
-.field-builder-tabs {
+.field-builder-panel {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-.field-builder-tabs .active-tab {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary);
+.field-builder-intro h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
 }
 
-.field-builder-item {
-  align-items: flex-start;
-}
-
-.field-builder-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.field-builder-meta {
-  display: block;
+.field-builder-help-list {
+  margin: 0;
+  padding-left: 1.15rem;
   color: var(--text-muted);
-  font-size: 0.72rem;
-  margin-top: 0.15rem;
+  font-size: 0.88rem;
+  line-height: 1.55;
 }
 
-.field-builder-views {
+.field-builder-help-list li + li {
+  margin-top: 0.35rem;
+}
+
+.field-builder-entity-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.field-builder-entity-tab {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem 0.75rem;
-  margin-top: 0.45rem;
-}
-
-.field-builder-view-check {
-  display: inline-flex;
+  flex-direction: column;
   align-items: center;
   gap: 0.25rem;
+  padding: 0.65rem 0.5rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+
+.field-builder-entity-tab.active {
+  border-color: var(--primary);
+  background: var(--nav-active-bg);
+  color: var(--primary);
+}
+
+.field-builder-entity-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.field-builder-add-card {
+  border: 1px dashed var(--border-light);
+}
+
+.field-builder-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.field-builder-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.85rem;
+  background: var(--bg-elevated);
+}
+
+.field-builder-card-hidden {
+  opacity: 0.55;
+}
+
+.field-builder-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem 0.75rem;
+}
+
+.field-builder-order {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.field-builder-card-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+}
+
+.field-builder-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.field-builder-badge-system {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--primary);
+}
+
+.field-builder-badge-custom {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--success);
+}
+
+.field-builder-type {
   font-size: 0.72rem;
   color: var(--text-muted);
+}
+
+.field-visible-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.field-view-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.65rem;
+}
+
+.field-view-pills-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-right: 0.15rem;
+}
+
+.field-view-pill {
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.field-view-pill.active {
+  border-color: var(--primary);
+  background: var(--nav-active-bg);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.field-view-pill:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.field-builder-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--border);
 }
 
 .field-builder-add {
@@ -1235,7 +1380,18 @@ label {
 }
 
 .field-builder-add-btn {
-  min-width: 8rem;
+  min-width: 10rem;
+}
+
+@media (max-width: 640px) {
+  .field-builder-entity-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .field-visible-toggle {
+    margin-left: 0;
+    width: 100%;
+  }
 }
 
 .entity-custom-fields {

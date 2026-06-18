@@ -111,10 +111,6 @@ function LayoutShell() {
                 <span className="mobile-nav-label">{item.label}</span>
               </NavLink>
             ))}
-            <button type="button" className="mobile-nav-item mobile-nav-btn" onClick={toggleTheme} title={isDark ? 'Светлая тема' : 'Тёмная тема'}>
-              <span className="mobile-nav-icon">{isDark ? '☀️' : '🌙'}</span>
-              <span className="mobile-nav-label">Тема</span>
-            </button>
             <button type="button" className="mobile-nav-item mobile-nav-btn" onClick={togglePush} disabled={pushLoading}>
               <span className="mobile-nav-icon">{pushEnabled ? '🔔' : '🔕'}</span>
               <span className="mobile-nav-label">Push</span>

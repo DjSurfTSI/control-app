@@ -13,7 +13,6 @@ import {
 } from '../utils';
 import PhotoUpload from '../components/PhotoUpload';
 import TaskCard from '../components/TaskCard';
-import FieldBuilderLink from '../components/FieldBuilderLink';
 import { useEntityColumns } from '../context/EntityFieldsContext';
 import { getEntityFieldValue } from '../utils/entityFields';
 import ImportTasksModal from '../components/ImportTasksModal';
@@ -580,7 +579,6 @@ export default function Tasks() {
           <p className="page-subtitle">Планирование и контроль исполнения работ</p>
         </div>
         <div className="header-actions">
-          {bizAdmin && <FieldBuilderLink entity="tasks" />}
           {manager && (
             <>
               <button className="btn-secondary" onClick={() => setImportModal(true)}>📥 Импорт</button>

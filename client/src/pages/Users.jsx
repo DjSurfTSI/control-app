@@ -5,7 +5,6 @@ import { ROLE_LABELS, isAdmin, isBizAdmin } from '../utils';
 import ExcelImportModal from '../components/ExcelImportModal';
 import EntityFieldTable from '../components/EntityFieldTable';
 import { EntityCustomFormFields, mergeCustomIntoPayload } from '../components/EntityCustomFormFields';
-import FieldBuilderLink from '../components/FieldBuilderLink';
 import { getEntityFieldValue } from '../utils/entityFields';
 
 function EmployeeModal({ user, onClose, onSave, canEditRoles, assignableRoles, userRole }) {
@@ -222,7 +221,6 @@ export default function Users() {
           <p className="page-subtitle">Управление персоналом и исполнителями</p>
         </div>
         <div className="header-actions">
-          <FieldBuilderLink entity="users" />
           <button className="btn-secondary" onClick={() => setImportModal(true)}>📥 Импорт</button>
           <button className="btn-primary" onClick={() => setModal({})}>+ Добавить</button>
         </div>

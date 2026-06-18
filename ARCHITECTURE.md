@@ -776,7 +776,7 @@ client/src/
 | PUT | `/api/entity-fields` | Сохранить (bizadmin) |
 | POST | `/api/entity-fields/reset` | Сброс (весь конфиг или `{ entity }`) |
 
-**Клиент:** `EntityFieldsProvider` → `EntityFieldTable`, `EntityCustomFormFields`, `FieldBuilder.jsx` (`/fields`). Кнопка 🧩 «Поля» в Заявках, Устройствах, Сотрудниках, Настройках.
+**Клиент:** `EntityFieldsProvider` → `EntityFieldTable`, `EntityCustomFormFields`, **`FieldBuilderPanel`** (вкладка «Поля интерфейса» в `Settings.jsx`). Старый URL `/fields` → redirect на `/settings?tab=fields`.
 
 ### Ключевые файлы
 
@@ -1115,6 +1115,7 @@ npx web-push generate-vapid-keys
 
 | Версия | Дата | Изменения |
 |--------|------|-----------|
+| v2.7.1 | 2026-06-17 | Конструктор полей в Настройках, fix Settings — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.7.0 | 2026-06-17 | Конструктор полей, тема mobile-nav — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.6.0 | 2026-06-17 | Светлая/тёмная тема, 4 фото, 2GIS — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.4.0 | 2026-06-13 | Конструктор рабочего пространства — см. [CHANGELOG.md](./CHANGELOG.md) |

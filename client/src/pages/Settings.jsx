@@ -1,8 +1,10 @@
-import FieldBuilderLink from '../components/FieldBuilderLink';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { formatDateTime, CV_ASSIGNABLE_ROLES } from '../utils';
 import { invalidateCvStatus } from '../hooks/useCvStatus';
 import ReferenceDirectoriesEditor from '../components/ReferenceDirectoriesEditor';
+import FieldBuilderPanel from '../components/FieldBuilderPanel';
 
 function CvSettingsPanel() {
   const [settings, setSettings] = useState(null);
@@ -228,18 +230,34 @@ function CvSettingsPanel() {
   );
 }
 
+const VALID_TABS = ['cv', 'directories', 'fields'];
+
 export default function Settings() {
-  const [tab, setTab] = useState('cv');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const entityParam = searchParams.get('entity');
+  const [tab, setTab] = useState(VALID_TABS.includes(tabParam) ? tabParam : 'cv');
+
+  useEffect(() => {
+    if (VALID_TABS.includes(tabParam) && tabParam !== tab) {
+      setTab(tabParam);
+    }
+  }, [tabParam]);
+
+  const selectTab = (next) => {
+    setTab(next);
+    const params = new URLSearchParams();
+    params.set('tab', next);
+    if (next === 'fields' && entityParam) params.set('entity', entityParam);
+    setSearchParams(params, { replace: true });
+  };
 
   return (
     <div className="page-enter">
       <div className="page-header">
         <div>
           <h2 className="page-title">Настройки</h2>
-          <p className="page-subtitle">Параметры системы и справочники устройств</p>
-        </div>
-        <div className="header-actions">
-          <FieldBuilderLink entity="tasks" />
+          <p className="page-subtitle">Параметры системы, справочники и поля интерфейса</p>
         </div>
       </div>
 
@@ -247,22 +265,37 @@ export default function Settings() {
         <button
           type="button"
           role="tab"
+          aria-selected={tab === 'cv'}
           className={`settings-tab${tab === 'cv' ? ' active' : ''}`}
-          onClick={() => setTab('cv')}
+          onClick={() => selectTab('cv')}
         >
           CV-проверка
         </button>
         <button
           type="button"
           role="tab"
+          aria-selected={tab === 'directories'}
           className={`settings-tab${tab === 'directories' ? ' active' : ''}`}
-          onClick={() => setTab('directories')}
+          onClick={() => selectTab('directories')}
         >
           Справочники
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'fields'}
+          className={`settings-tab${tab === 'fields' ? ' active' : ''}`}
+          onClick={() => selectTab('fields')}
+        >
+          🧩 Поля интерфейса
+        </button>
       </div>
 
-      {tab === 'cv' ? <CvSettingsPanel /> : <ReferenceDirectoriesEditor />}
+      {tab === 'cv' && <CvSettingsPanel />}
+      {tab === 'directories' && <ReferenceDirectoriesEditor />}
+      {tab === 'fields' && (
+        <FieldBuilderPanel initialEntity={entityParam || 'tasks'} />
+      )}
     </div>
   );
 }

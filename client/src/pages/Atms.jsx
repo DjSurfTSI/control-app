@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import ExcelImportModal from '../components/ExcelImportModal';
 import EntityFieldTable from '../components/EntityFieldTable';
 import { EntityCustomFormFields, mergeCustomIntoPayload } from '../components/EntityCustomFormFields';
-import FieldBuilderLink from '../components/FieldBuilderLink';
 import { getEntityFieldValue } from '../utils/entityFields';
 
 const EMPTY_DIRECTORIES = {
@@ -194,7 +193,6 @@ export default function Atms() {
           <p className="page-subtitle">Реестр устройств самообслуживания</p>
         </div>
         <div className="header-actions">
-          <FieldBuilderLink entity="atms" />
           <button className="btn-secondary" onClick={() => setImportModal(true)}>📥 Импорт</button>
           <button className="btn-primary" onClick={() => setModal({})}>+ Добавить</button>
         </div>
