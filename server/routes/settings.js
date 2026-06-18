@@ -15,6 +15,7 @@ router.get('/cv/status', (_req, res) => {
     cv_roles: settings.cv_roles,
     executor_photo_max_edge: settings.executor_photo_max_edge,
     executor_photo_jpeg_quality: settings.executor_photo_jpeg_quality,
+    executor_photo_overlay: settings.executor_photo_overlay,
   });
 });
 
@@ -25,12 +26,12 @@ router.get('/cv', requireBizAdmin, (_req, res) => {
 router.patch('/cv', requireBizAdmin, asyncHandler(async (req, res) => {
   const {
     enabled, threshold, margin, executor_mobile_camera_capture, cv_roles,
-    executor_photo_max_edge, executor_photo_jpeg_quality,
+    executor_photo_max_edge, executor_photo_jpeg_quality, executor_photo_overlay,
   } = req.body;
   try {
     const settings = updateCvSettings({
       enabled, threshold, margin, executor_mobile_camera_capture, cv_roles,
-      executor_photo_max_edge, executor_photo_jpeg_quality,
+      executor_photo_max_edge, executor_photo_jpeg_quality, executor_photo_overlay,
     }, req.user.id);
     res.json(settings);
   } catch (err) {

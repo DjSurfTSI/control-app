@@ -35,8 +35,8 @@ html[data-theme='light'] {
   --surface-hover: #f1f5f9;
   --border: #cbd5e1;
   --border-light: #94a3b8;
-  --text: #0f172a;
-  --text-muted: #64748b;
+  --text: #0a0a0a;
+  --text-muted: #1a1a1a;
   --primary-glow: rgba(59, 130, 246, 0.15);
   --shadow: 0 4px 18px rgba(15, 23, 42, 0.08);
   --shadow-lg: 0 10px 32px rgba(15, 23, 42, 0.12);
@@ -66,6 +66,26 @@ html[data-theme='light'] .offline-status-bar {
 
 html[data-theme='light'] .card {
   background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+}
+
+html[data-theme='light'] .hint,
+html[data-theme='light'] .page-subtitle,
+html[data-theme='light'] .meta,
+html[data-theme='light'] .photo-cv-hint,
+html[data-theme='light'] .photo-slot-label,
+html[data-theme='light'] .photo-loading,
+html[data-theme='light'] .photo-missing,
+html[data-theme='light'] .nav a:not(.active),
+html[data-theme='light'] .mobile-nav-item:not(.active) {
+  color: #1a1a1a;
+}
+
+html[data-theme='light'] .header-user-info span,
+html[data-theme='light'] .task-address,
+html[data-theme='light'] .task-assignee,
+html[data-theme='light'] .directory-sub,
+html[data-theme='light'] .stat-label {
+  color: #262626;
 }
 
 * {
@@ -2258,4 +2278,162 @@ input[type="range"] {
 .dashboard-widget-block {
   flex: 1 1 100%;
   width: 100%;
+}
+
+/* ——— ATM photo guide overlay ——— */
+.atm-photo-guide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  pointer-events: none;
+  user-select: none;
+}
+
+.atm-photo-guide-compact .atm-photo-guide-caption {
+  display: none;
+}
+
+.atm-photo-guide-svg {
+  width: 100%;
+  max-width: 200px;
+  height: auto;
+}
+
+.atm-guide-frame {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+}
+
+.atm-guide-shape {
+  fill: none;
+  stroke: rgba(34, 197, 94, 0.85);
+  stroke-width: 2.5;
+}
+
+.atm-guide-screen {
+  fill: rgba(59, 130, 246, 0.25);
+  stroke: rgba(59, 130, 246, 0.9);
+  stroke-width: 1.5;
+}
+
+.atm-guide-keypad {
+  fill: rgba(34, 197, 94, 0.15);
+  stroke: rgba(34, 197, 94, 0.85);
+  stroke-width: 1.5;
+}
+
+.atm-guide-flip {
+  transform: scaleX(-1);
+  transform-origin: center;
+}
+
+.atm-guide-corner {
+  stroke: rgba(250, 204, 21, 0.95);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.atm-photo-guide-caption {
+  text-align: center;
+  max-width: 240px;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.atm-photo-guide-caption strong {
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 0.2rem;
+}
+
+html[data-theme='light'] .atm-photo-guide-compact .atm-guide-frame {
+  stroke: rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme='light'] .atm-photo-guide-compact .atm-guide-shape {
+  stroke: rgba(22, 163, 74, 0.9);
+}
+
+/* ——— In-app camera capture ——— */
+.camera-capture-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+}
+
+.camera-capture-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.camera-capture-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 3;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 1.5rem;
+  line-height: 1;
+  border: none;
+}
+
+.camera-capture-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 55vh;
+  background: #000;
+  overflow: hidden;
+}
+
+.camera-capture-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.camera-capture-guide-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem 3rem;
+  background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.45) 100%);
+}
+
+.camera-capture-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: var(--surface);
+}
+
+.camera-capture-btn {
+  width: 100%;
+}
+
+.camera-capture-error {
+  margin: auto;
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--text);
 }

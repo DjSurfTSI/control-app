@@ -16,6 +16,7 @@ function CvSettingsPanel() {
     cv_roles: ['executor'],
     executor_photo_max_edge: 1280,
     executor_photo_jpeg_quality: 82,
+    executor_photo_overlay: true,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,6 +36,7 @@ function CvSettingsPanel() {
           cv_roles: data.cv_roles?.length ? data.cv_roles : ['executor'],
           executor_photo_max_edge: data.executor_photo_max_edge ?? 1280,
           executor_photo_jpeg_quality: data.executor_photo_jpeg_quality ?? 82,
+          executor_photo_overlay: data.executor_photo_overlay !== false,
         });
       } catch (e) {
         setError(e.message);
@@ -59,6 +61,7 @@ function CvSettingsPanel() {
         cv_roles: data.cv_roles?.length ? data.cv_roles : ['executor'],
         executor_photo_max_edge: data.executor_photo_max_edge ?? 1280,
         executor_photo_jpeg_quality: data.executor_photo_jpeg_quality ?? 82,
+        executor_photo_overlay: data.executor_photo_overlay !== false,
       });
       setSuccess('Настройки сохранены');
       invalidateCvStatus();
@@ -168,6 +171,21 @@ function CvSettingsPanel() {
           <p className="hint">
             Включено — при съёмке фотоотчёта на телефоне сразу открывается камера (нужно разрешение).
             Выключено — выбор файла из галереи без запроса доступа к камере.
+          </p>
+        </div>
+
+        <div className="form-group toggle-row settings-mobile-photo">
+          <label className="toggle-label">
+            <input
+              type="checkbox"
+              checked={form.executor_photo_overlay}
+              onChange={(e) => setForm((f) => ({ ...f, executor_photo_overlay: e.target.checked }))}
+            />
+            <span>Наложение-шаблон банкомата при съёмке</span>
+          </label>
+          <p className="hint">
+            Показывает контур банкомата в камере и в ячейках фотоотчёта, чтобы исполнитель правильно
+            кадрировал снимки (слева, справа, спереди, сверху).
           </p>
         </div>
 

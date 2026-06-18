@@ -21,6 +21,7 @@ function applyCachedStatus(setters) {
   setters.setExecutorMobileCameraCapture(cachedStatus.executor_mobile_camera_capture);
   setters.setExecutorPhotoMaxEdge(cachedStatus.executor_photo_max_edge);
   setters.setExecutorPhotoJpegQuality(cachedStatus.executor_photo_jpeg_quality);
+  setters.setExecutorPhotoOverlay(cachedStatus.executor_photo_overlay);
 }
 
 export function useCvStatus() {
@@ -35,6 +36,9 @@ export function useCvStatus() {
   );
   const [executorPhotoJpegQuality, setExecutorPhotoJpegQuality] = useState(
     cachedStatus?.executor_photo_jpeg_quality ?? PHOTO_JPEG_QUALITY_DEFAULT,
+  );
+  const [executorPhotoOverlay, setExecutorPhotoOverlay] = useState(
+    cachedStatus?.executor_photo_overlay ?? true,
   );
   const [loading, setLoading] = useState(false);
   const [tick, setTick] = useState(0);
@@ -56,6 +60,7 @@ export function useCvStatus() {
           setExecutorMobileCameraCapture,
           setExecutorPhotoMaxEdge,
           setExecutorPhotoJpegQuality,
+          setExecutorPhotoOverlay,
         });
         return;
       }
@@ -69,6 +74,7 @@ export function useCvStatus() {
             executor_mobile_camera_capture: data.executor_mobile_camera_capture !== false,
             executor_photo_max_edge: data.executor_photo_max_edge || PHOTO_MAX_EDGE_DEFAULT,
             executor_photo_jpeg_quality: data.executor_photo_jpeg_quality || PHOTO_JPEG_QUALITY_DEFAULT,
+            executor_photo_overlay: data.executor_photo_overlay !== false,
           };
           applyCachedStatus({
             setCvEnabledGlobal,
@@ -76,6 +82,7 @@ export function useCvStatus() {
             setExecutorMobileCameraCapture,
             setExecutorPhotoMaxEdge,
             setExecutorPhotoJpegQuality,
+            setExecutorPhotoOverlay,
           });
         }
       } catch {
@@ -85,6 +92,7 @@ export function useCvStatus() {
           setExecutorMobileCameraCapture(true);
           setExecutorPhotoMaxEdge(PHOTO_MAX_EDGE_DEFAULT);
           setExecutorPhotoJpegQuality(PHOTO_JPEG_QUALITY_DEFAULT);
+          setExecutorPhotoOverlay(true);
         }
       } finally {
         setLoading(false);
@@ -105,6 +113,7 @@ export function useCvStatus() {
     executorMobileCameraCapture,
     executorPhotoMaxEdge,
     executorPhotoJpegQuality,
+    executorPhotoOverlay,
     loading,
   };
 }

@@ -163,6 +163,7 @@ const migrations = [
   { table: 'cv_settings', column: 'cv_roles', sql: `ALTER TABLE cv_settings ADD COLUMN cv_roles TEXT NOT NULL DEFAULT '["executor"]'` },
   { table: 'cv_settings', column: 'executor_photo_max_edge', sql: 'ALTER TABLE cv_settings ADD COLUMN executor_photo_max_edge INTEGER NOT NULL DEFAULT 1280' },
   { table: 'cv_settings', column: 'executor_photo_jpeg_quality', sql: 'ALTER TABLE cv_settings ADD COLUMN executor_photo_jpeg_quality INTEGER NOT NULL DEFAULT 82' },
+  { table: 'cv_settings', column: 'executor_photo_overlay', sql: 'ALTER TABLE cv_settings ADD COLUMN executor_photo_overlay INTEGER NOT NULL DEFAULT 1' },
   { table: 'atms', column: 'custom_data', sql: 'ALTER TABLE atms ADD COLUMN custom_data TEXT' },
   { table: 'users', column: 'custom_data', sql: 'ALTER TABLE users ADD COLUMN custom_data TEXT' },
   { table: 'cleaning_tasks', column: 'custom_data', sql: 'ALTER TABLE cleaning_tasks ADD COLUMN custom_data TEXT' },

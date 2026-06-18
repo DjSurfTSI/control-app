@@ -265,6 +265,7 @@ erDiagram
         string cv_roles "JSON: admin|supervisor|executor"
         int executor_photo_max_edge
         int executor_photo_jpeg_quality
+        int executor_photo_overlay
         datetime updated_at
         int updated_by FK
     }
@@ -652,6 +653,8 @@ client/src/
 Точки UI: таблица/карточка (`Tasks.jsx`, `TaskCard.jsx`), `CompleteModal`, `TaskModal` (кнопка «Завершить» + поле «Отчёт»).
 
 **Фото на mobile (исполнитель):** `executor_mobile_camera_capture` в `cv_settings`; `PhotoUpload` использует `isMobileDevice()` (не ширину экрана) — `capture="environment"` при включённой настройке, в т.ч. в ландшафте (v2.4.5).
+
+**v2.7.2 — overlay при съёмке:** `executor_photo_overlay` в `cv_settings`; `AtmPhotoGuideOverlay` + `CameraCaptureModal` (getUserMedia) с контуром банкомата по ракурсу; мини-шаблон в пустых ячейках фотоотчёта; переключатель в `/settings` (bizadmin).
 
 **v2.4.9 — разрешение фото:** `executor_photo_max_edge` (640–2560 px) и `executor_photo_jpeg_quality` (50–95%) в `cv_settings`; bizadmin — слайдеры в `/settings`; `useCvStatus` → `PhotoUpload` → `compressImageForUpload`; сервер — `getExecutorPhotoCompressOptions()` в `photos.js` для исполнителя.
 
@@ -1115,6 +1118,7 @@ npx web-push generate-vapid-keys
 
 | Версия | Дата | Изменения |
 |--------|------|-----------|
+| v2.7.2 | 2026-06-17 | Overlay фото, светлая тема — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.7.1 | 2026-06-17 | Конструктор полей в Настройках, fix Settings — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.7.0 | 2026-06-17 | Конструктор полей, тема mobile-nav — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.6.0 | 2026-06-17 | Светлая/тёмная тема, 4 фото, 2GIS — см. [CHANGELOG.md](./CHANGELOG.md) |

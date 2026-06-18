@@ -50,6 +50,7 @@ function rowToSettings(row) {
     cv_roles: parseCvRoles(row.cv_roles),
     executor_photo_max_edge: clampPhotoMaxEdge(row.executor_photo_max_edge ?? EXECUTOR_PHOTO_MAX_EDGE_DEFAULT),
     executor_photo_jpeg_quality: clampPhotoJpegQuality(row.executor_photo_jpeg_quality ?? EXECUTOR_PHOTO_JPEG_QUALITY_DEFAULT),
+    executor_photo_overlay: row.executor_photo_overlay !== 0,
     updated_at: row.updated_at,
     updated_by: row.updated_by,
   };
@@ -67,6 +68,7 @@ export function getCvSettings() {
       cv_roles: [...DEFAULT_CV_ROLES],
       executor_photo_max_edge: EXECUTOR_PHOTO_MAX_EDGE_DEFAULT,
       executor_photo_jpeg_quality: EXECUTOR_PHOTO_JPEG_QUALITY_DEFAULT,
+      executor_photo_overlay: true,
       updated_at: null,
       updated_by: null,
     };
@@ -78,7 +80,7 @@ export function getCvSettings() {
 
 export function updateCvSettings({
   enabled, threshold, margin, executor_mobile_camera_capture, cv_roles,
-  executor_photo_max_edge, executor_photo_jpeg_quality,
+  executor_photo_max_edge, executor_photo_jpeg_quality, executor_photo_overlay,
 }, userId) {
   const current = db.prepare('SELECT * FROM cv_settings WHERE id = 1').get();
   const next = {
@@ -97,6 +99,9 @@ export function updateCvSettings({
     executor_photo_jpeg_quality: executor_photo_jpeg_quality !== undefined
       ? clampPhotoJpegQuality(executor_photo_jpeg_quality)
       : clampPhotoJpegQuality(current?.executor_photo_jpeg_quality ?? EXECUTOR_PHOTO_JPEG_QUALITY_DEFAULT),
+    executor_photo_overlay: executor_photo_overlay !== undefined
+      ? (executor_photo_overlay ? 1 : 0)
+      : (current?.executor_photo_overlay ?? 1),
   };
 
   if (next.threshold < 0.05 || next.threshold > 0.95) {
@@ -115,8 +120,8 @@ export function updateCvSettings({
   }
 
   db.prepare(`
-    INSERT INTO cv_settings (id, enabled, threshold, margin, executor_mobile_camera_capture, cv_roles, executor_photo_max_edge, executor_photo_jpeg_quality, updated_at, updated_by)
-    VALUES (1, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
+    INSERT INTO cv_settings (id, enabled, threshold, margin, executor_mobile_camera_capture, cv_roles, executor_photo_max_edge, executor_photo_jpeg_quality, executor_photo_overlay, updated_at, updated_by)
+    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
     ON CONFLICT(id) DO UPDATE SET
       enabled = excluded.enabled,
       threshold = excluded.threshold,
@@ -125,6 +130,7 @@ export function updateCvSettings({
       cv_roles = excluded.cv_roles,
       executor_photo_max_edge = excluded.executor_photo_max_edge,
       executor_photo_jpeg_quality = excluded.executor_photo_jpeg_quality,
+      executor_photo_overlay = excluded.executor_photo_overlay,
       updated_at = excluded.updated_at,
       updated_by = excluded.updated_by
   `).run(
@@ -135,6 +141,7 @@ export function updateCvSettings({
     next.cv_roles,
     next.executor_photo_max_edge,
     next.executor_photo_jpeg_quality,
+    next.executor_photo_overlay,
     userId ?? null,
   );
 
