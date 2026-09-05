@@ -56,6 +56,15 @@ export function maxScore(results, labels) {
   return Math.max(...labels.map((l) => scoreFor(results, l)));
 }
 
+/**
+ * Сумма вероятностей набора промптов — ансамблирование подсказок.
+ * Softmax по подмножеству равен перенормировке этих сумм, поэтому суммы
+ * можно сравнивать между группами и сводить к попарным вероятностям.
+ */
+export function sumScore(results, labels) {
+  return labels.reduce((acc, l) => acc + scoreFor(results, l), 0);
+}
+
 export function bestLabel(results, labels) {
   return labels.reduce((best, label) => (
     scoreFor(results, label) > scoreFor(results, best) ? label : best

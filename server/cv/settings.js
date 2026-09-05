@@ -13,8 +13,8 @@ export const EXECUTOR_PHOTO_MAX_EDGE_MAX = 2560;
 export const EXECUTOR_PHOTO_JPEG_QUALITY_MIN = 50;
 export const EXECUTOR_PHOTO_JPEG_QUALITY_MAX = 95;
 
-export const ANGLE_THRESHOLD_DEFAULT = 0.30;
-export const CLEANLINESS_THRESHOLD_DEFAULT = 0.35;
+export const ANGLE_THRESHOLD_DEFAULT = 0.45;
+export const CLEANLINESS_THRESHOLD_DEFAULT = 0.65;
 
 function clampUnit(value, fallback, min = 0.05, max = 0.95) {
   const n = Number(value);

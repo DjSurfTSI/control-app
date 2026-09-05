@@ -171,10 +171,10 @@ const migrations = [
   { table: 'task_photos', column: 'cv_cleanliness_score', sql: 'ALTER TABLE task_photos ADD COLUMN cv_cleanliness_score REAL' },
   { table: 'task_photos', column: 'cv_issues', sql: 'ALTER TABLE task_photos ADD COLUMN cv_issues TEXT' },
   { table: 'cv_settings', column: 'angle_check_enabled', sql: 'ALTER TABLE cv_settings ADD COLUMN angle_check_enabled INTEGER NOT NULL DEFAULT 1' },
-  { table: 'cv_settings', column: 'angle_threshold', sql: 'ALTER TABLE cv_settings ADD COLUMN angle_threshold REAL NOT NULL DEFAULT 0.30' },
+  { table: 'cv_settings', column: 'angle_threshold', sql: 'ALTER TABLE cv_settings ADD COLUMN angle_threshold REAL NOT NULL DEFAULT 0.45' },
   { table: 'cv_settings', column: 'angle_block_on_mismatch', sql: 'ALTER TABLE cv_settings ADD COLUMN angle_block_on_mismatch INTEGER NOT NULL DEFAULT 0' },
   { table: 'cv_settings', column: 'cleanliness_check_enabled', sql: 'ALTER TABLE cv_settings ADD COLUMN cleanliness_check_enabled INTEGER NOT NULL DEFAULT 1' },
-  { table: 'cv_settings', column: 'cleanliness_threshold', sql: 'ALTER TABLE cv_settings ADD COLUMN cleanliness_threshold REAL NOT NULL DEFAULT 0.35' },
+  { table: 'cv_settings', column: 'cleanliness_threshold', sql: 'ALTER TABLE cv_settings ADD COLUMN cleanliness_threshold REAL NOT NULL DEFAULT 0.65' },
   { table: 'cv_settings', column: 'cleanliness_block_on_dirty', sql: 'ALTER TABLE cv_settings ADD COLUMN cleanliness_block_on_dirty INTEGER NOT NULL DEFAULT 0' },
   { table: 'atms', column: 'custom_data', sql: 'ALTER TABLE atms ADD COLUMN custom_data TEXT' },
   { table: 'users', column: 'custom_data', sql: 'ALTER TABLE users ADD COLUMN custom_data TEXT' },
@@ -236,6 +236,28 @@ function migratePhotoTypeTop() {
 
 migratePhotoTypeTop();
 applyColumnMigrations();
+
+/**
+ * v2.8.1: пороги ракурса и чистоты сменили смысл — вместо максимума одного
+ * промпта используются суммы по группам и попарный контраст. Значения v2.8.0
+ * в новой шкале бессмысленны, поэтому нетронутые дефолты переносим на новые.
+ */
+function migrateCvThresholdScale() {
+  try {
+    db.prepare(`
+      UPDATE cv_settings
+      SET angle_threshold = 0.45
+      WHERE angle_threshold = 0.30
+    `).run();
+    db.prepare(`
+      UPDATE cv_settings
+      SET cleanliness_threshold = 0.65
+      WHERE cleanliness_threshold = 0.35
+    `).run();
+  } catch { /* ignore */ }
+}
+
+migrateCvThresholdScale();
 
 function migrateAtmsData() {
   db.exec(`

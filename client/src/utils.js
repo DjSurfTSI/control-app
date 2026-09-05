@@ -182,7 +182,17 @@ export const CLEANLINESS_ICONS = {
   trash: '🗑️',
 };
 
-/** Фото с несовпавшим ракурсом (модель уверенно определила другой вид). */
+/**
+ * Виды съёмки, которые различает модель. «Слева» и «справа» сведены
+ * в общий вид «сбоку»: CLIP не различает зеркальные ракурсы.
+ */
+export const VIEW_LABELS = {
+  side: 'Сбоку',
+  front: 'Спереди',
+  top: 'Сверху',
+};
+
+/** Фото с несовпавшим видом съёмки (модель уверенно определила другой). */
 export function getAngleMismatches(photos) {
   return photos
     .filter((p) => p.photo_type && p.cv_angle_match === 0 && !p.offline)
@@ -190,7 +200,7 @@ export function getAngleMismatches(photos) {
       photo_type: p.photo_type,
       label: PHOTO_TYPE_LABELS[p.photo_type],
       detected: p.cv_angle,
-      detectedLabel: PHOTO_TYPE_LABELS[p.cv_angle] || null,
+      detectedLabel: VIEW_LABELS[p.cv_angle] || null,
     }));
 }
 

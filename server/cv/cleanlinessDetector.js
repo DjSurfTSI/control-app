@@ -1,7 +1,8 @@
 import { getCvSettings } from './settings.js';
-import { classifyImage, maxScore, readImage, round3 } from './classifier.js';
+import { classifyImage, readImage, round3, sumScore } from './classifier.js';
 
 export const CLEANLINESS_LEVELS = ['clean', 'dust', 'dirt', 'trash'];
+export const CLEANLINESS_ISSUES = ['dust', 'dirt', 'trash'];
 
 export const CLEANLINESS_LABELS_RU = {
   clean: 'Чисто',
@@ -13,12 +14,18 @@ export const CLEANLINESS_LABELS_RU = {
 /** Чем выше индекс, тем серьёзнее замечание. */
 const SEVERITY = { clean: 0, dust: 1, dirt: 2, trash: 3 };
 
-const CLEANLINESS_PROMPTS = {
-  clean: [
-    'clean polished ATM machine, spotless screen and keypad, no dirt',
-    'well maintained bank terminal after cleaning, shiny surface',
-    'чистый банкомат без пыли и грязи, поверхность блестит',
-  ],
+/**
+ * Пыль и грязь оцениваются на корпусе банкомата, мусор — на полу вокруг.
+ * Промпты про мусор намеренно не упоминают банкомат: иначе CLIP матчит
+ * сам терминал, а не мусор, и метка срабатывает на любом снимке.
+ */
+const BODY_CLEAN_PROMPTS = [
+  'clean polished ATM machine, spotless screen and keypad, no dirt',
+  'well maintained bank terminal after cleaning, shiny surface',
+  'чистый банкомат без пыли и грязи, поверхность блестит',
+];
+
+const ISSUE_PROMPTS = {
   dust: [
     'dusty ATM machine with a visible layer of dust on the panel and screen',
     'bank terminal covered with fine dust, dull matte dusty surface',
@@ -30,50 +37,62 @@ const CLEANLINESS_PROMPTS = {
     'грязный банкомат с пятнами, разводами и потёками на корпусе',
   ],
   trash: [
-    'litter and garbage lying on the floor around the ATM machine',
-    'crumpled paper receipts, bottles and trash near the bank terminal',
-    'мусор рядом с банкоматом: бумажки, чеки, бутылки на полу',
+    'scattered garbage, plastic bottles and crumpled paper on the floor',
+    'pile of litter and rubbish lying on the ground',
+    'разбросанный мусор на полу: бутылки, обёртки, бумажки',
   ],
 };
 
-const ALL_CLEANLINESS_PROMPTS = CLEANLINESS_LEVELS.flatMap((l) => CLEANLINESS_PROMPTS[l]);
+/** Мусор сравнивается с чистым полом, а не с чистым корпусом. */
+const FLOOR_CLEAN_PROMPTS = [
+  'clean empty floor with nothing lying on it',
+  'tidy floor without any litter or objects',
+  'чистый пустой пол без мусора',
+];
 
-export function evaluateCleanliness(results, { threshold = 0.30 } = {}) {
-  const raw = Object.fromEntries(
-    CLEANLINESS_LEVELS.map((level) => [level, maxScore(results, CLEANLINESS_PROMPTS[level])]),
-  );
+const BASELINE_FOR = {
+  dust: BODY_CLEAN_PROMPTS,
+  dirt: BODY_CLEAN_PROMPTS,
+  trash: FLOOR_CLEAN_PROMPTS,
+};
 
-  const total = Object.values(raw).reduce((a, b) => a + b, 0) || 1;
-  const scores = Object.fromEntries(
-    CLEANLINESS_LEVELS.map((level) => [level, round3(raw[level] / total)]),
-  );
+const ALL_PROMPTS = [
+  ...BODY_CLEAN_PROMPTS,
+  ...FLOOR_CLEAN_PROMPTS,
+  ...CLEANLINESS_ISSUES.flatMap((i) => ISSUE_PROMPTS[i]),
+];
 
-  const issues = CLEANLINESS_LEVELS
-    .filter((level) => level !== 'clean' && scores[level] >= threshold)
+export function evaluateCleanliness(results, { threshold = 0.65 } = {}) {
+  // Для каждого замечания — попарная вероятность «замечание против чистого».
+  // Softmax по паре = перенормировка сумм, поэтому хватает одного прогона.
+  const scores = {};
+  for (const issue of CLEANLINESS_ISSUES) {
+    const issueSum = sumScore(results, ISSUE_PROMPTS[issue]);
+    const baseSum = sumScore(results, BASELINE_FOR[issue]);
+    const total = issueSum + baseSum;
+    scores[issue] = total > 0 ? round3(issueSum / total) : 0;
+  }
+
+  const issues = CLEANLINESS_ISSUES
+    .filter((issue) => scores[issue] >= threshold)
     .sort((a, b) => SEVERITY[b] - SEVERITY[a]);
 
-  const bestLevel = CLEANLINESS_LEVELS.reduce(
-    (best, level) => (scores[level] > scores[best] ? level : best),
-    'clean',
-  );
-
-  // Итоговый вердикт — самое серьёзное замечание выше порога,
-  // иначе лидирующая метка.
-  const level = issues[0] ?? (bestLevel === 'clean' ? 'clean' : bestLevel);
+  const level = issues[0] ?? 'clean';
+  const worstScore = Math.max(...CLEANLINESS_ISSUES.map((i) => scores[i]));
 
   return {
     level,
     clean: level === 'clean',
-    score: scores.clean,
-    confidence: round3(scores[level]),
+    score: round3(1 - worstScore),
+    confidence: level === 'clean' ? round3(1 - worstScore) : scores[level],
     issues,
-    scores,
+    scores: { clean: round3(1 - worstScore), ...scores },
     reason: 'ok',
   };
 }
 
 /**
- * Оценивает чистоту уборки на фото: пыль, грязь, мусор.
+ * Оценивает чистоту уборки на фото: пыль и грязь на корпусе, мусор на полу.
  * @param {string|object} source путь к файлу или RawImage
  */
 export async function detectCleanliness(source) {
@@ -84,7 +103,7 @@ export async function detectCleanliness(source) {
 
   try {
     const image = typeof source === 'string' ? await readImage(source) : source;
-    const results = await classifyImage(image, ALL_CLEANLINESS_PROMPTS);
+    const results = await classifyImage(image, ALL_PROMPTS);
     if (!results) {
       return { skipped: true, level: null, clean: null, score: 0, issues: [], reason: 'cv_unavailable' };
     }

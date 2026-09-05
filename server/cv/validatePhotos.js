@@ -2,7 +2,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import db, { REQUIRED_PHOTO_TYPES } from '../db.js';
 import { detectAtmInPhoto, isCvEnabled } from './atmDetector.js';
-import { detectPhotoAngle, ANGLE_LABELS_RU } from './angleDetector.js';
+import { detectPhotoAngle, ANGLE_LABELS_RU, VIEW_LABELS_RU } from './angleDetector.js';
 import { detectCleanliness, CLEANLINESS_LABELS_RU } from './cleanlinessDetector.js';
 import { readImage } from './classifier.js';
 import { getCvSettings } from './settings.js';
@@ -11,7 +11,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '../uploads');
 
 export const PHOTO_TYPE_LABELS = ANGLE_LABELS_RU;
-export { CLEANLINESS_LABELS_RU };
+export { CLEANLINESS_LABELS_RU, VIEW_LABELS_RU };
 
 let cvQueue = Promise.resolve();
 
@@ -117,7 +117,7 @@ export function getPhotoWarnings(photos) {
         photo_type: photo.photo_type,
         label: PHOTO_TYPE_LABELS[photo.photo_type],
         detected_angle: photo.cv_angle,
-        detected_label: ANGLE_LABELS_RU[photo.cv_angle] || null,
+        detected_label: VIEW_LABELS_RU[photo.cv_angle] || null,
         confidence: photo.cv_angle_confidence,
       });
     }

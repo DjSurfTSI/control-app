@@ -1,5 +1,5 @@
 import { getCvSettings } from './settings.js';
-import { classifyImage, maxScore, readImage, round3 } from './classifier.js';
+import { classifyImage, readImage, round3, sumScore } from './classifier.js';
 
 export const ANGLE_TYPES = ['left', 'right', 'front', 'top'];
 
@@ -11,140 +11,84 @@ export const ANGLE_LABELS_RU = {
 };
 
 /**
- * Ракурсы делятся на группы: сторона (left/right), фронт и вид сверху.
- * CLIP уверенно различает группы, но плохо различает лево/право,
- * поэтому внутри группы «сторона» вердикт выносится только при явном перевесе.
+ * Модель различает три вида съёмки. Лево и право не различаются:
+ * на зеркальных ракурсах CLIP уверенно выдаёт один и тот же ответ,
+ * поэтому оба боковых ракурса сведены в общий вид «сбоку».
  */
-const ANGLE_GROUPS = {
+export const VIEW_TYPES = ['side', 'front', 'top'];
+
+export const VIEW_LABELS_RU = {
+  side: 'Сбоку',
+  front: 'Спереди',
+  top: 'Сверху',
+};
+
+const DECLARED_TO_VIEW = {
   left: 'side',
   right: 'side',
   front: 'front',
   top: 'top',
 };
 
-const ANGLE_PROMPTS = {
-  left: [
-    'ATM cash machine photographed from its left side, side profile view',
-    'bank terminal seen from the left, side panel facing the camera',
-    'банкомат снят сбоку слева, виден боковой корпус',
-  ],
-  right: [
-    'ATM cash machine photographed from its right side, side profile view',
-    'bank terminal seen from the right, opposite side panel facing the camera',
-    'банкомат снят сбоку справа, виден боковой корпус',
+/** По три промпта на вид — наборы сбалансированы, иначе сумма смещается к более крупной группе. */
+const VIEW_PROMPTS = {
+  side: [
+    'ATM cash machine photographed from the side, side profile of the body panel',
+    'bank terminal seen from its side, the screen is turned away at an angle',
+    'банкомат снят сбоку, виден боковой корпус, экран отвёрнут',
   ],
   front: [
     'ATM cash machine photographed straight from the front, screen and keypad facing the camera',
-    'frontal view of a bank terminal display and card slot',
-    'банкомат снят спереди, экран и клавиатура прямо перед камерой',
+    'frontal view of a bank terminal display and card slot directly ahead',
+    'банкомат снят строго спереди, экран и клавиатура прямо перед камерой',
   ],
   top: [
     'ATM cash machine photographed from above, high angle looking down at the top panel',
-    'top down view of a bank terminal keypad from overhead',
-    'банкомат снят сверху, вид на верхнюю панель и клавиатуру',
+    'top down overhead view of a bank terminal keypad',
+    'банкомат снят сверху, вид сверху на верхнюю панель',
   ],
 };
 
-const ALL_ANGLE_PROMPTS = ANGLE_TYPES.flatMap((t) => ANGLE_PROMPTS[t]);
+const ALL_VIEW_PROMPTS = VIEW_TYPES.flatMap((v) => VIEW_PROMPTS[v]);
 
-/** Минимальный перевес лево/право, ниже которого ракурс считается неопределённым. */
-const SIDE_DECISION_MARGIN = 0.06;
-
-export function evaluateAngle(results, declaredType, { threshold = 0.30 } = {}) {
+export function evaluateAngle(results, declaredType, { threshold = 0.45 } = {}) {
+  // Суммы по группам промптов дают распределение по трём видам (в сумме 1).
   const scores = Object.fromEntries(
-    ANGLE_TYPES.map((type) => [type, round3(maxScore(results, ANGLE_PROMPTS[type]))]),
+    VIEW_TYPES.map((view) => [view, round3(sumScore(results, VIEW_PROMPTS[view]))]),
   );
 
-  const groupScores = {
-    side: Math.max(scores.left, scores.right),
-    front: scores.front,
-    top: scores.top,
-  };
+  const bestView = VIEW_TYPES.reduce((a, b) => (scores[a] >= scores[b] ? a : b));
+  const bestScore = scores[bestView];
+  const expectedView = DECLARED_TO_VIEW[declaredType] ?? null;
 
-  const bestGroup = Object.keys(groupScores).reduce(
-    (best, g) => (groupScores[g] > groupScores[best] ? g : best),
-    'front',
-  );
-  const bestGroupScore = groupScores[bestGroup];
-
-  const declaredGroup = ANGLE_GROUPS[declaredType] ?? null;
-  const sideDelta = Math.abs(scores.left - scores.right);
-  const bestSide = scores.left >= scores.right ? 'left' : 'right';
-
-  let angle = bestGroup === 'side'
-    ? (sideDelta >= SIDE_DECISION_MARGIN ? bestSide : null)
-    : bestGroup;
-
-  // Уверенности не хватает — вердикт не выносим
-  if (bestGroupScore < threshold) {
+  if (bestScore < threshold) {
     return {
-      angle: null,
-      group: bestGroup,
-      confidence: round3(bestGroupScore),
-      match: null,
-      reason: 'low_confidence',
-      scores,
+      angle: null, view: bestView, confidence: bestScore,
+      match: null, reason: 'low_confidence', scores,
     };
   }
 
-  if (!declaredGroup) {
+  if (!expectedView) {
     return {
-      angle,
-      group: bestGroup,
-      confidence: round3(bestGroupScore),
-      match: null,
-      reason: 'unknown_declared',
-      scores,
+      angle: bestView, view: bestView, confidence: bestScore,
+      match: null, reason: 'unknown_declared', scores,
     };
   }
 
-  if (bestGroup !== declaredGroup) {
-    return {
-      angle: angle ?? bestGroup,
-      group: bestGroup,
-      confidence: round3(bestGroupScore),
-      match: false,
-      reason: 'group_mismatch',
-      scores,
-    };
-  }
-
-  // Группа совпала. Для фронта и вида сверху этого достаточно.
-  if (declaredGroup !== 'side') {
-    return {
-      angle: declaredType,
-      group: bestGroup,
-      confidence: round3(bestGroupScore),
-      match: true,
-      reason: 'ok',
-      scores,
-    };
-  }
-
-  // Сторона: лево/право различаем только при явном перевесе.
-  if (sideDelta < SIDE_DECISION_MARGIN) {
-    return {
-      angle: null,
-      group: 'side',
-      confidence: round3(bestGroupScore),
-      match: null,
-      reason: 'side_uncertain',
-      scores,
-    };
-  }
-
+  const match = bestView === expectedView;
   return {
-    angle: bestSide,
-    group: 'side',
-    confidence: round3(scores[bestSide]),
-    match: bestSide === declaredType,
-    reason: bestSide === declaredType ? 'ok' : 'side_mismatch',
+    angle: bestView,
+    view: bestView,
+    confidence: bestScore,
+    match,
+    reason: match ? 'ok' : 'view_mismatch',
     scores,
   };
 }
 
 /**
- * Определяет ракурс съёмки и сверяет его с заявленным типом фото.
+ * Определяет вид съёмки (сбоку / спереди / сверху) и сверяет с заявленным
+ * типом фото. Ракурсы «слева» и «справа» считаются одним видом «сбоку».
  * @param {string|object} source путь к файлу или RawImage
  * @param {string} declaredType left | right | front | top
  */
@@ -156,7 +100,7 @@ export async function detectPhotoAngle(source, declaredType) {
 
   try {
     const image = typeof source === 'string' ? await readImage(source) : source;
-    const results = await classifyImage(image, ALL_ANGLE_PROMPTS);
+    const results = await classifyImage(image, ALL_VIEW_PROMPTS);
     if (!results) {
       return { skipped: true, angle: null, match: null, confidence: 0, reason: 'cv_unavailable' };
     }

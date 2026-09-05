@@ -2,7 +2,8 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '../api';
 import {
   PHOTO_TYPES, PHOTO_TYPE_LABELS, checkRequiredPhotos, checkPhotoCv,
-  CLEANLINESS_ICONS, CLEANLINESS_LABELS, getAngleMismatches, getCleanlinessIssues,
+  CLEANLINESS_ICONS, CLEANLINESS_LABELS, VIEW_LABELS,
+  getAngleMismatches, getCleanlinessIssues,
 } from '../utils';
 import { compressImageForUpload } from '../utils/compressImage';
 import { isMobileDevice } from '../utils/isMobileDevice';
@@ -256,8 +257,8 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
       {angleMismatches.length > 0 && (
         <p className="photo-cv-warn">
           🧭 Ракурс не совпадает: {angleMismatches.map((m) => (
-            m.detectedLabel ? `${m.label} (похоже на «${m.detectedLabel}»)` : m.label
-          )).join(', ')} — проверьте, с какой стороны сделан снимок
+            m.detectedLabel ? `${m.label} (похоже, снято «${m.detectedLabel}»)` : m.label
+          )).join(', ')} — проверьте, как сделан снимок
         </p>
       )}
       {cleanlinessIssues.length > 0 && (
@@ -303,7 +304,7 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
                       <span
                         className="photo-cv-badge warn"
                         title={photo.cv_angle
-                          ? `Похоже на ракурс «${PHOTO_TYPE_LABELS[photo.cv_angle] || photo.cv_angle}»`
+                          ? `Похоже, снято «${VIEW_LABELS[photo.cv_angle] || photo.cv_angle}»`
                           : 'Ракурс не совпадает с заявленным'}
                       >
                         🧭

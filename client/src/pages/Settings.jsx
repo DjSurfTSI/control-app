@@ -18,10 +18,10 @@ function CvSettingsPanel() {
     executor_photo_jpeg_quality: 82,
     executor_photo_overlay: true,
     angle_check_enabled: true,
-    angle_threshold: 0.3,
+    angle_threshold: 0.45,
     angle_block_on_mismatch: false,
     cleanliness_check_enabled: true,
-    cleanliness_threshold: 0.35,
+    cleanliness_threshold: 0.65,
     cleanliness_block_on_dirty: false,
   });
   const [loading, setLoading] = useState(true);
@@ -44,10 +44,10 @@ function CvSettingsPanel() {
           executor_photo_jpeg_quality: data.executor_photo_jpeg_quality ?? 82,
           executor_photo_overlay: data.executor_photo_overlay !== false,
           angle_check_enabled: data.angle_check_enabled !== false,
-          angle_threshold: data.angle_threshold ?? 0.3,
+          angle_threshold: data.angle_threshold ?? 0.45,
           angle_block_on_mismatch: data.angle_block_on_mismatch === true,
           cleanliness_check_enabled: data.cleanliness_check_enabled !== false,
-          cleanliness_threshold: data.cleanliness_threshold ?? 0.35,
+          cleanliness_threshold: data.cleanliness_threshold ?? 0.65,
           cleanliness_block_on_dirty: data.cleanliness_block_on_dirty === true,
         });
       } catch (e) {
@@ -75,10 +75,10 @@ function CvSettingsPanel() {
         executor_photo_jpeg_quality: data.executor_photo_jpeg_quality ?? 82,
         executor_photo_overlay: data.executor_photo_overlay !== false,
         angle_check_enabled: data.angle_check_enabled !== false,
-        angle_threshold: data.angle_threshold ?? 0.3,
+        angle_threshold: data.angle_threshold ?? 0.45,
         angle_block_on_mismatch: data.angle_block_on_mismatch === true,
         cleanliness_check_enabled: data.cleanliness_check_enabled !== false,
-        cleanliness_threshold: data.cleanliness_threshold ?? 0.35,
+        cleanliness_threshold: data.cleanliness_threshold ?? 0.65,
         cleanliness_block_on_dirty: data.cleanliness_block_on_dirty === true,
       });
       setSuccess('Настройки сохранены');
@@ -190,26 +190,30 @@ function CvSettingsPanel() {
               <span>Проверять ракурс съёмки</span>
             </label>
             <p className="hint">
-              Модель определяет, с какой стороны сделан снимок (слева, справа, спереди, сверху),
-              и сверяет с ячейкой фотоотчёта. Лево и право различаются только при явном перевесе —
-              в спорных случаях замечание не выставляется.
+              Модель определяет вид съёмки — <strong>сбоку</strong>, <strong>спереди</strong> или
+              <strong> сверху</strong> — и сверяет с ячейкой фотоотчёта. Ракурсы «слева» и «справа»
+              для неё один вид «сбоку»: зеркальные снимки CLIP не различает, поэтому перепутанные
+              местами лево и право проверка не поймает.
             </p>
           </div>
 
           <div className="form-group">
             <label>
-              Порог определения ракурса: <strong>{form.angle_threshold.toFixed(2)}</strong>
+              Порог определения вида: <strong>{form.angle_threshold.toFixed(2)}</strong>
             </label>
             <input
               type="range"
-              min="0.05"
+              min="0.34"
               max="0.95"
               step="0.01"
               value={form.angle_threshold}
               disabled={!form.enabled || !form.angle_check_enabled}
               onChange={(e) => setForm((f) => ({ ...f, angle_threshold: parseFloat(e.target.value) }))}
             />
-            <p className="hint">Ниже порога вердикт по ракурсу не выносится.</p>
+            <p className="hint">
+              Доля уверенности между тремя видами; при равновероятном исходе — 0.33.
+              Ниже порога вердикт не выносится. На проверочных фото верный вид набирал 0.55–0.71.
+            </p>
           </div>
 
           <div className="form-group toggle-row">
@@ -242,8 +246,8 @@ function CvSettingsPanel() {
               <span>Оценивать чистоту: пыль, грязь, мусор</span>
             </label>
             <p className="hint">
-              Модель ищет на фото пыль на корпусе и экране, грязь и потёки, а также мусор рядом
-              с банкоматом. Результат виден на плитках фотоотчёта.
+              Модель ищет пыль и грязь на корпусе и экране, а также мусор на полу вокруг банкомата.
+              Результат виден на плитках фотоотчёта.
             </p>
           </div>
 
@@ -253,7 +257,7 @@ function CvSettingsPanel() {
             </label>
             <input
               type="range"
-              min="0.05"
+              min="0.5"
               max="0.95"
               step="0.01"
               value={form.cleanliness_threshold}
@@ -261,6 +265,7 @@ function CvSettingsPanel() {
               onChange={(e) => setForm((f) => ({ ...f, cleanliness_threshold: parseFloat(e.target.value) }))}
             />
             <p className="hint">
+              Вероятность замечания против чистого состояния; 0.50 — модель не может выбрать.
               Выше — меньше ложных замечаний, но часть загрязнений останется незамеченной.
             </p>
           </div>
