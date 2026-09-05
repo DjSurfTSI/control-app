@@ -13,6 +13,15 @@ export const EXECUTOR_PHOTO_MAX_EDGE_MAX = 2560;
 export const EXECUTOR_PHOTO_JPEG_QUALITY_MIN = 50;
 export const EXECUTOR_PHOTO_JPEG_QUALITY_MAX = 95;
 
+export const ANGLE_THRESHOLD_DEFAULT = 0.30;
+export const CLEANLINESS_THRESHOLD_DEFAULT = 0.35;
+
+function clampUnit(value, fallback, min = 0.05, max = 0.95) {
+  const n = Number(value);
+  if (Number.isNaN(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
 function clampPhotoMaxEdge(value) {
   const n = Math.round(Number(value));
   if (Number.isNaN(n)) return EXECUTOR_PHOTO_MAX_EDGE_DEFAULT;
@@ -51,6 +60,12 @@ function rowToSettings(row) {
     executor_photo_max_edge: clampPhotoMaxEdge(row.executor_photo_max_edge ?? EXECUTOR_PHOTO_MAX_EDGE_DEFAULT),
     executor_photo_jpeg_quality: clampPhotoJpegQuality(row.executor_photo_jpeg_quality ?? EXECUTOR_PHOTO_JPEG_QUALITY_DEFAULT),
     executor_photo_overlay: row.executor_photo_overlay !== 0,
+    angle_check_enabled: row.angle_check_enabled !== 0,
+    angle_threshold: clampUnit(row.angle_threshold, ANGLE_THRESHOLD_DEFAULT),
+    angle_block_on_mismatch: row.angle_block_on_mismatch === 1,
+    cleanliness_check_enabled: row.cleanliness_check_enabled !== 0,
+    cleanliness_threshold: clampUnit(row.cleanliness_threshold, CLEANLINESS_THRESHOLD_DEFAULT),
+    cleanliness_block_on_dirty: row.cleanliness_block_on_dirty === 1,
     updated_at: row.updated_at,
     updated_by: row.updated_by,
   };
@@ -69,6 +84,12 @@ export function getCvSettings() {
       executor_photo_max_edge: EXECUTOR_PHOTO_MAX_EDGE_DEFAULT,
       executor_photo_jpeg_quality: EXECUTOR_PHOTO_JPEG_QUALITY_DEFAULT,
       executor_photo_overlay: true,
+      angle_check_enabled: true,
+      angle_threshold: ANGLE_THRESHOLD_DEFAULT,
+      angle_block_on_mismatch: false,
+      cleanliness_check_enabled: true,
+      cleanliness_threshold: CLEANLINESS_THRESHOLD_DEFAULT,
+      cleanliness_block_on_dirty: false,
       updated_at: null,
       updated_by: null,
     };
@@ -81,6 +102,8 @@ export function getCvSettings() {
 export function updateCvSettings({
   enabled, threshold, margin, executor_mobile_camera_capture, cv_roles,
   executor_photo_max_edge, executor_photo_jpeg_quality, executor_photo_overlay,
+  angle_check_enabled, angle_threshold, angle_block_on_mismatch,
+  cleanliness_check_enabled, cleanliness_threshold, cleanliness_block_on_dirty,
 }, userId) {
   const current = db.prepare('SELECT * FROM cv_settings WHERE id = 1').get();
   const next = {
@@ -102,6 +125,24 @@ export function updateCvSettings({
     executor_photo_overlay: executor_photo_overlay !== undefined
       ? (executor_photo_overlay ? 1 : 0)
       : (current?.executor_photo_overlay ?? 1),
+    angle_check_enabled: angle_check_enabled !== undefined
+      ? (angle_check_enabled ? 1 : 0)
+      : (current?.angle_check_enabled ?? 1),
+    angle_threshold: angle_threshold !== undefined
+      ? Number(angle_threshold)
+      : (current?.angle_threshold ?? ANGLE_THRESHOLD_DEFAULT),
+    angle_block_on_mismatch: angle_block_on_mismatch !== undefined
+      ? (angle_block_on_mismatch ? 1 : 0)
+      : (current?.angle_block_on_mismatch ?? 0),
+    cleanliness_check_enabled: cleanliness_check_enabled !== undefined
+      ? (cleanliness_check_enabled ? 1 : 0)
+      : (current?.cleanliness_check_enabled ?? 1),
+    cleanliness_threshold: cleanliness_threshold !== undefined
+      ? Number(cleanliness_threshold)
+      : (current?.cleanliness_threshold ?? CLEANLINESS_THRESHOLD_DEFAULT),
+    cleanliness_block_on_dirty: cleanliness_block_on_dirty !== undefined
+      ? (cleanliness_block_on_dirty ? 1 : 0)
+      : (current?.cleanliness_block_on_dirty ?? 0),
   };
 
   if (next.threshold < 0.05 || next.threshold > 0.95) {
@@ -118,10 +159,22 @@ export function updateCvSettings({
     || next.executor_photo_jpeg_quality > EXECUTOR_PHOTO_JPEG_QUALITY_MAX) {
     throw new Error(`Качество JPEG: от ${EXECUTOR_PHOTO_JPEG_QUALITY_MIN} до ${EXECUTOR_PHOTO_JPEG_QUALITY_MAX}%`);
   }
+  if (next.angle_threshold < 0.05 || next.angle_threshold > 0.95) {
+    throw new Error('Порог определения ракурса должен быть от 0.05 до 0.95');
+  }
+  if (next.cleanliness_threshold < 0.05 || next.cleanliness_threshold > 0.95) {
+    throw new Error('Порог оценки чистоты должен быть от 0.05 до 0.95');
+  }
 
   db.prepare(`
-    INSERT INTO cv_settings (id, enabled, threshold, margin, executor_mobile_camera_capture, cv_roles, executor_photo_max_edge, executor_photo_jpeg_quality, executor_photo_overlay, updated_at, updated_by)
-    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
+    INSERT INTO cv_settings (
+      id, enabled, threshold, margin, executor_mobile_camera_capture, cv_roles,
+      executor_photo_max_edge, executor_photo_jpeg_quality, executor_photo_overlay,
+      angle_check_enabled, angle_threshold, angle_block_on_mismatch,
+      cleanliness_check_enabled, cleanliness_threshold, cleanliness_block_on_dirty,
+      updated_at, updated_by
+    )
+    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
     ON CONFLICT(id) DO UPDATE SET
       enabled = excluded.enabled,
       threshold = excluded.threshold,
@@ -131,6 +184,12 @@ export function updateCvSettings({
       executor_photo_max_edge = excluded.executor_photo_max_edge,
       executor_photo_jpeg_quality = excluded.executor_photo_jpeg_quality,
       executor_photo_overlay = excluded.executor_photo_overlay,
+      angle_check_enabled = excluded.angle_check_enabled,
+      angle_threshold = excluded.angle_threshold,
+      angle_block_on_mismatch = excluded.angle_block_on_mismatch,
+      cleanliness_check_enabled = excluded.cleanliness_check_enabled,
+      cleanliness_threshold = excluded.cleanliness_threshold,
+      cleanliness_block_on_dirty = excluded.cleanliness_block_on_dirty,
       updated_at = excluded.updated_at,
       updated_by = excluded.updated_by
   `).run(
@@ -142,6 +201,12 @@ export function updateCvSettings({
     next.executor_photo_max_edge,
     next.executor_photo_jpeg_quality,
     next.executor_photo_overlay,
+    next.angle_check_enabled,
+    next.angle_threshold,
+    next.angle_block_on_mismatch,
+    next.cleanliness_check_enabled,
+    next.cleanliness_threshold,
+    next.cleanliness_block_on_dirty,
     userId ?? null,
   );
 

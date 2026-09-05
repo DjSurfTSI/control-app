@@ -58,9 +58,25 @@ function photoUrl(req, taskId, filename) {
   return `/api/photos/${taskId}/file/${filename}${qs}`;
 }
 
+const PHOTO_FIELDS = `id, filename, original_name, photo_type, uploaded_by, created_at,
+            cv_detected, cv_confidence, cv_checked_at,
+            cv_angle, cv_angle_confidence, cv_angle_match,
+            cv_cleanliness, cv_cleanliness_score, cv_issues`;
+
+function parseIssues(raw) {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function mapPhoto(req, taskId, photo) {
   return {
     ...photo,
+    cv_issues: parseIssues(photo.cv_issues),
     url: photoUrl(req, taskId, photo.filename),
   };
 }
@@ -71,9 +87,7 @@ router.get('/:taskId', asyncHandler(async (req, res) => {
   if (!canAccessTask(task, req.user)) return res.status(403).json({ error: 'Нет доступа' });
 
   const photos = db.prepare(
-    `SELECT id, filename, original_name, photo_type, uploaded_by, created_at,
-            cv_detected, cv_confidence, cv_checked_at
-     FROM task_photos WHERE task_id = ? ORDER BY photo_type, created_at`
+    `SELECT ${PHOTO_FIELDS} FROM task_photos WHERE task_id = ? ORDER BY photo_type, created_at`
   ).all(req.params.taskId);
 
   res.json(photos.map((p) => mapPhoto(req, req.params.taskId, p)));
@@ -133,7 +147,7 @@ router.post('/:taskId', (req, res, next) => {
     const cvCopy = `${optimized.path}.cvcheck.jpg`;
     fs.copyFileSync(optimized.path, cvCopy);
     try {
-      await validatePhoto(cvCopy, photo.id);
+      await validatePhoto(cvCopy, photo.id, photoType);
     } finally {
       if (fs.existsSync(cvCopy)) fs.unlinkSync(cvCopy);
     }
@@ -146,9 +160,7 @@ router.post('/:taskId', (req, res, next) => {
   }
 
   const saved = db.prepare(
-    `SELECT id, filename, original_name, photo_type, uploaded_by, created_at,
-            cv_detected, cv_confidence, cv_checked_at
-     FROM task_photos WHERE id = ?`
+    `SELECT ${PHOTO_FIELDS} FROM task_photos WHERE id = ?`
   ).get(photo.id);
 
   res.status(201).json({

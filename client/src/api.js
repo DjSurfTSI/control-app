@@ -361,6 +361,8 @@ export const api = {
             executor_photo_max_edge: cachedMaxEdge || 1280,
             executor_photo_jpeg_quality: cachedQuality || 82,
             executor_photo_overlay: true,
+            angle_check_enabled: true,
+            cleanliness_check_enabled: true,
           };
         }
       } catch {
@@ -374,6 +376,8 @@ export const api = {
           executor_photo_max_edge: 1280,
           executor_photo_jpeg_quality: 82,
           executor_photo_overlay: true,
+          angle_check_enabled: true,
+          cleanliness_check_enabled: true,
         };
       }
       throw err;

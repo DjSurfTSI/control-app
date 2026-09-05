@@ -110,7 +110,10 @@ atm-cleaning-control/
 │   │   ├── schemas.js          # Форматы ответов для v1 API
 │   │   └── webhooks.js         # Исходящие webhook-события
 │   ├── cv/                     # CV-проверка фотоотчётов
+│   │   ├── classifier.js       # Общий загрузчик CLIP + хелперы оценок
 │   │   ├── atmDetector.js      # CLIP zero-shot: банкомат Сбербанка на фото
+│   │   ├── angleDetector.js    # Ракурс: слева / справа / спереди / сверху
+│   │   ├── cleanlinessDetector.js # Чистота: пыль / грязь / мусор
 │   │   ├── settings.js         # Настройки CV (cv_settings в БД)
 │   │   └── validatePhotos.js   # Проверка ракурсов и сохранение результата
 │   ├── utils/
@@ -266,6 +269,12 @@ erDiagram
         int executor_photo_max_edge
         int executor_photo_jpeg_quality
         int executor_photo_overlay
+        int angle_check_enabled
+        real angle_threshold
+        int angle_block_on_mismatch
+        int cleanliness_check_enabled
+        real cleanliness_threshold
+        int cleanliness_block_on_dirty
         datetime updated_at
         int updated_by FK
     }
@@ -281,7 +290,7 @@ erDiagram
 | `task_photos` | Доказательства выполнения |
 | `push_subscriptions` | Подписки на события |
 | `api_clients` | Внешние системы с API-ключами |
-| `cv_settings` | Параметры CV (вкл/выкл, порог, запас, камера mobile, `cv_roles`, разрешение/качество фото исполнителя) — bizadmin |
+| `cv_settings` | Параметры CV (вкл/выкл, порог, запас, камера mobile, `cv_roles`, разрешение/качество фото исполнителя, проверки ракурса и чистоты) — bizadmin |
 | `external_id` | Связь записей между АС |
 
 ---
@@ -445,17 +454,31 @@ stateDiagram-v2
 
 Типичный размер после сжатия в браузере: **150–500 КБ** вместо 3–8 МБ с камеры.
 
-### 6.2.2 CV-проверка банкомата на фото
+### 6.2.2 CV-проверка фотоотчёта
 
-Модуль `server/cv/` использует **CLIP zero-shot** (`Xenova/clip-vit-base-patch32`).
+Модуль `server/cv/` использует **CLIP zero-shot** (`Xenova/clip-vit-base-patch32`). Загрузка модели и хелперы оценок — в общем `classifier.js`; изображение читается один раз и прогоняется тремя наборами меток.
 
 | Этап | Действие |
 |------|----------|
 | Старт сервера | `warmupCvModel()` — предзагрузка модели (v2.1.0) |
-| Настройки | `cv_settings` в БД; UI bizadmin — `/settings`; статус — `GET /api/settings/cv/status` (CV, камера mobile, разрешение/качество фото) |
+| Настройки | `cv_settings` в БД; UI bizadmin — `/settings`; статус — `GET /api/settings/cv/status` (CV, камера mobile, разрешение/качество фото, проверки ракурса и чистоты) |
 | CV выключена | UI без текстов про CV; завершение — только 4 фото; сервер не запускает CLIP |
-| CV включена | Загрузка фото → CV **синхронно в очереди** `runInCvQueue` → ответ с `cv_detected` |
+| CV включена | Загрузка фото → анализ **синхронно в очереди** `runInCvQueue` → ответ с `cv_detected`, `cv_angle_match`, `cv_cleanliness` |
 | Завершение (executor) | Повторная проверка всех ракурсов; при отказе — `in_progress`, код `cv_rejected` |
+
+#### Три проверки одного снимка (v2.8.0)
+
+| Проверка | Модуль | Результат | Блокирует завершение |
+|----------|--------|-----------|----------------------|
+| Банкомат на фото | `atmDetector.js` | `cv_detected`, `cv_confidence` | Всегда |
+| Ракурс съёмки | `angleDetector.js` | `cv_angle`, `cv_angle_confidence`, `cv_angle_match` | Только при `angle_block_on_mismatch` |
+| Чистота уборки | `cleanlinessDetector.js` | `cv_cleanliness`, `cv_cleanliness_score`, `cv_issues` | Только при `cleanliness_block_on_dirty` |
+
+**Ракурс** определяется в два шага: сначала группа (`side` / `front` / `top`), затем внутри `side` — лево или право. CLIP слабо различает лево и право, поэтому вердикт по стороне выносится только при перевесе ≥ `SIDE_DECISION_MARGIN` (0.06); иначе `cv_angle_match = null` и замечание не выставляется.
+
+**Чистота** — четыре категории (`clean`, `dust`, `dirt`, `trash`); баллы нормализуются, в `cv_issues` попадают замечания выше `cleanliness_threshold`, итоговый уровень — самое серьёзное из найденного.
+
+`getPhotoWarnings(photos)` собирает замечания и признаки блокировки; `getPhotoCvStatus()` учитывает их в `ok`.
 
 Проверка **обязательна для роли `executor`/`cleaner`** и **только если CV включена**.
 
@@ -466,23 +489,23 @@ sequenceDiagram
     participant C as Исполнитель
     participant API as /api/photos
     participant Q as runInCvQueue
-    participant CV as atmDetector.js
+    participant CV as cv/ детекторы
     participant DB as SQLite
 
     C->>API: POST фото + photo_type
     API->>Q: validatePhoto (синхронно в очереди)
-    Q->>CV: detectAtmInPhoto()
-    CV->>DB: cv_detected, cv_confidence
-    API-->>C: 201 + cv_detected
+    Q->>CV: detectAtmInPhoto() + detectPhotoAngle() + detectCleanliness()
+    CV->>DB: cv_detected, cv_angle_match, cv_cleanliness, cv_issues
+    API-->>C: 201 + результаты трёх проверок
 
     C->>API: PATCH status=completed + closed_*
     API->>CV: validateTaskPhotos()
-    alt Банкомат на всех фото
+    alt Все проверки пройдены
         API->>DB: status=completed, closed_device, geo
         API-->>C: 200 OK
-    else Банкомат не обнаружен
+    else Банкомат не обнаружен / ракурс / уборка (если блокируют)
         API->>DB: status=in_progress
-        API-->>C: 400 cv_rejected
+        API-->>C: 400 cv_rejected + warnings
     end
 ```
 
@@ -1118,6 +1141,7 @@ npx web-push generate-vapid-keys
 
 | Версия | Дата | Изменения |
 |--------|------|-----------|
+| v2.8.0 | 2026-09-05 | Определение ракурса и оценка чистоты уборки — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.7.4 | 2026-06-17 | Overlay fullscreen, «Взять в работу» — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.7.3 | 2026-06-17 | Fix загрузки «Поля интерфейса» — см. [CHANGELOG.md](./CHANGELOG.md) |
 | v2.7.2 | 2026-06-17 | Overlay фото, светлая тема — см. [CHANGELOG.md](./CHANGELOG.md) |

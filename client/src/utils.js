@@ -166,6 +166,48 @@ export const PHOTO_TYPE_LABELS = {
   top: 'Сверху',
 };
 
+export const CLEANLINESS_LEVELS = ['clean', 'dust', 'dirt', 'trash'];
+
+export const CLEANLINESS_LABELS = {
+  clean: 'Чисто',
+  dust: 'Пыль',
+  dirt: 'Грязь',
+  trash: 'Мусор',
+};
+
+export const CLEANLINESS_ICONS = {
+  clean: '✨',
+  dust: '🌫️',
+  dirt: '🧽',
+  trash: '🗑️',
+};
+
+/** Фото с несовпавшим ракурсом (модель уверенно определила другой вид). */
+export function getAngleMismatches(photos) {
+  return photos
+    .filter((p) => p.photo_type && p.cv_angle_match === 0 && !p.offline)
+    .map((p) => ({
+      photo_type: p.photo_type,
+      label: PHOTO_TYPE_LABELS[p.photo_type],
+      detected: p.cv_angle,
+      detectedLabel: PHOTO_TYPE_LABELS[p.cv_angle] || null,
+    }));
+}
+
+/** Фото с замечаниями по чистоте: пыль, грязь, мусор. */
+export function getCleanlinessIssues(photos) {
+  return photos
+    .filter((p) => p.photo_type && !p.offline && Array.isArray(p.cv_issues) && p.cv_issues.length > 0)
+    .map((p) => ({
+      photo_type: p.photo_type,
+      label: PHOTO_TYPE_LABELS[p.photo_type],
+      level: p.cv_cleanliness,
+      levelLabel: CLEANLINESS_LABELS[p.cv_cleanliness] || p.cv_cleanliness,
+      issues: p.cv_issues,
+      issueLabels: p.cv_issues.map((i) => CLEANLINESS_LABELS[i] || i),
+    }));
+}
+
 export function checkRequiredPhotos(photos) {
   const types = photos.map((p) => p.photo_type).filter(Boolean);
   const missing = PHOTO_TYPES.filter((t) => !types.includes(t));

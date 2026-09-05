@@ -1,6 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '../api';
-import { PHOTO_TYPES, PHOTO_TYPE_LABELS, checkRequiredPhotos, checkPhotoCv } from '../utils';
+import {
+  PHOTO_TYPES, PHOTO_TYPE_LABELS, checkRequiredPhotos, checkPhotoCv,
+  CLEANLINESS_ICONS, CLEANLINESS_LABELS, getAngleMismatches, getCleanlinessIssues,
+} from '../utils';
 import { compressImageForUpload } from '../utils/compressImage';
 import { isMobileDevice } from '../utils/isMobileDevice';
 import { useCvStatus } from '../hooks/useCvStatus';
@@ -11,7 +14,8 @@ import CameraCaptureModal from './CameraCaptureModal';
 export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
   const {
     cvEnabled, executorMobileCameraCapture, executorPhotoOverlay,
-    executorPhotoMaxEdge, executorPhotoJpegQuality, loading: cvLoading,
+    executorPhotoMaxEdge, executorPhotoJpegQuality,
+    angleCheckEnabled, cleanlinessCheckEnabled, loading: cvLoading,
   } = useCvStatus();
   const { effectiveOffline, networkOnline } = useOffline();
   const [photos, setPhotos] = useState([]);
@@ -182,6 +186,8 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
 
   const check = checkRequiredPhotos(photos);
   const cv = checkPhotoCv(photos, cvEnabled);
+  const angleMismatches = cvEnabled && angleCheckEnabled ? getAngleMismatches(photos) : [];
+  const cleanlinessIssues = cvEnabled && cleanlinessCheckEnabled ? getCleanlinessIssues(photos) : [];
   const canComplete = cvEnabled ? cv.passed : check.complete;
   const showInitialLoad = loading && photos.length === 0 && readOnly;
   const uploadedCount = PHOTO_TYPES.filter((t) => getPhotoForType(t)).length;
@@ -247,6 +253,20 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
           Банкомат не обнаружен: {cv.failed.map((t) => PHOTO_TYPE_LABELS[t]).join(', ')} — переснимите
         </p>
       )}
+      {angleMismatches.length > 0 && (
+        <p className="photo-cv-warn">
+          🧭 Ракурс не совпадает: {angleMismatches.map((m) => (
+            m.detectedLabel ? `${m.label} (похоже на «${m.detectedLabel}»)` : m.label
+          )).join(', ')} — проверьте, с какой стороны сделан снимок
+        </p>
+      )}
+      {cleanlinessIssues.length > 0 && (
+        <p className="photo-cv-warn">
+          🧹 Замечания по уборке: {cleanlinessIssues.map((c) => (
+            `${c.label} — ${c.issueLabels.join(', ').toLowerCase()}`
+          )).join('; ')}
+        </p>
+      )}
       {error && <div className="error-msg">{error}</div>}
 
       <div className="photo-slots">
@@ -255,8 +275,17 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
           const cvOk = cvEnabled && photo?.cv_detected === 1;
           const cvFail = cvEnabled && photo?.cv_detected === 0;
           const cvPending = cvEnabled && photo && photo.cv_detected == null;
+          const angleMismatch = cvEnabled && angleCheckEnabled && photo?.cv_angle_match === 0;
+          const dirtyLevel = cvEnabled && cleanlinessCheckEnabled && photo?.cv_issues?.length
+            ? photo.cv_cleanliness
+            : null;
+          const hasWarning = angleMismatch || !!dirtyLevel;
           const slotClass = photo
-            ? (cvFail ? 'cv-fail' : (cvPending && !photo.offline) ? 'cv-pending' : 'filled')
+            ? (cvFail
+              ? 'cv-fail'
+              : (cvPending && !photo.offline)
+                ? 'cv-pending'
+                : hasWarning ? 'cv-warn' : 'filled')
             : 'empty';
 
           return (
@@ -267,12 +296,32 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
                   <a href={photo.url} target="_blank" rel="noreferrer">
                     <img src={photo.url} alt={PHOTO_TYPE_LABELS[type]} />
                   </a>
-                  {cvOk && <span className="photo-cv-badge ok">✓ ATM</span>}
-                  {cvFail && <span className="photo-cv-badge fail">✗</span>}
-                  {photo.offline && <span className="photo-cv-badge pending">📡</span>}
-                  {cvPending && !photo.offline && uploading !== type && (
-                    <span className="photo-cv-badge pending">…</span>
-                  )}
+                  <div className="photo-badges">
+                    {cvOk && <span className="photo-cv-badge ok">✓ ATM</span>}
+                    {cvFail && <span className="photo-cv-badge fail">✗</span>}
+                    {angleMismatch && (
+                      <span
+                        className="photo-cv-badge warn"
+                        title={photo.cv_angle
+                          ? `Похоже на ракурс «${PHOTO_TYPE_LABELS[photo.cv_angle] || photo.cv_angle}»`
+                          : 'Ракурс не совпадает с заявленным'}
+                      >
+                        🧭
+                      </span>
+                    )}
+                    {dirtyLevel && (
+                      <span
+                        className="photo-cv-badge warn"
+                        title={`Замечания по уборке: ${photo.cv_issues.map((i) => CLEANLINESS_LABELS[i] || i).join(', ')}`}
+                      >
+                        {CLEANLINESS_ICONS[dirtyLevel] || '⚠'}
+                      </span>
+                    )}
+                    {photo.offline && <span className="photo-cv-badge pending">📡</span>}
+                    {cvPending && !photo.offline && uploading !== type && (
+                      <span className="photo-cv-badge pending">…</span>
+                    )}
+                  </div>
                   {!readOnly && (
                     <button type="button" className="photo-delete" onClick={() => handleDelete(photo.id)}>×</button>
                   )}
@@ -327,6 +376,7 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
         .photo-offline-hint { color: #93c5fd; font-size: 0.8rem; margin-bottom: 0.5rem; }
         .photo-hint { color: var(--warning); font-size: 0.85rem; margin-bottom: 0.5rem; }
         .photo-cv-fail { color: var(--danger); font-size: 0.85rem; margin-bottom: 0.5rem; }
+        .photo-cv-warn { color: var(--warning); font-size: 0.85rem; margin-bottom: 0.5rem; }
         .photo-ok { color: var(--success); font-size: 0.85rem; margin-bottom: 0.5rem; }
         .photo-loading { color: var(--text-muted); font-size: 0.85rem; }
         .photo-slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.55rem; }
@@ -339,18 +389,23 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
         .photo-slot.filled { border-style: solid; border-color: var(--success); background: #14532d22; }
         .photo-slot.cv-fail { border-style: solid; border-color: var(--danger); background: #7f1d1d22; }
         .photo-slot.cv-pending { border-style: solid; border-color: var(--warning); background: #78350f22; }
+        .photo-slot.cv-warn { border-style: solid; border-color: var(--warning); background: #78350f18; }
         .photo-slot.empty { border-color: var(--warning); }
         .photo-slot-empty { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; width: 100%; }
         .photo-slot-guide { width: 100%; max-width: 88px; opacity: 0.92; }
         .photo-slot-label { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-muted); }
         .photo-slot-preview { position: relative; width: 100%; aspect-ratio: 1; border-radius: 8px; overflow: hidden; }
         .photo-slot-preview img { width: 100%; height: 100%; object-fit: cover; }
+        .photo-badges {
+          position: absolute; bottom: 4px; left: 4px; right: 4px;
+          display: flex; flex-wrap: wrap; gap: 3px; align-items: center;
+        }
         .photo-cv-badge {
-          position: absolute; bottom: 4px; left: 4px;
           font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 4px;
         }
         .photo-cv-badge.ok { background: var(--success); color: white; }
         .photo-cv-badge.fail { background: var(--danger); color: white; }
+        .photo-cv-badge.warn { background: var(--warning); color: black; cursor: help; }
         .photo-cv-badge.pending { background: var(--warning); color: black; }
         .photo-add-btn {
           width: 56px; height: 56px; border-radius: 50%;

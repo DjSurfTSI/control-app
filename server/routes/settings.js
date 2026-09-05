@@ -16,6 +16,10 @@ router.get('/cv/status', (_req, res) => {
     executor_photo_max_edge: settings.executor_photo_max_edge,
     executor_photo_jpeg_quality: settings.executor_photo_jpeg_quality,
     executor_photo_overlay: settings.executor_photo_overlay,
+    angle_check_enabled: settings.angle_check_enabled,
+    angle_block_on_mismatch: settings.angle_block_on_mismatch,
+    cleanliness_check_enabled: settings.cleanliness_check_enabled,
+    cleanliness_block_on_dirty: settings.cleanliness_block_on_dirty,
   });
 });
 
@@ -27,11 +31,15 @@ router.patch('/cv', requireBizAdmin, asyncHandler(async (req, res) => {
   const {
     enabled, threshold, margin, executor_mobile_camera_capture, cv_roles,
     executor_photo_max_edge, executor_photo_jpeg_quality, executor_photo_overlay,
+    angle_check_enabled, angle_threshold, angle_block_on_mismatch,
+    cleanliness_check_enabled, cleanliness_threshold, cleanliness_block_on_dirty,
   } = req.body;
   try {
     const settings = updateCvSettings({
       enabled, threshold, margin, executor_mobile_camera_capture, cv_roles,
       executor_photo_max_edge, executor_photo_jpeg_quality, executor_photo_overlay,
+      angle_check_enabled, angle_threshold, angle_block_on_mismatch,
+      cleanliness_check_enabled, cleanliness_threshold, cleanliness_block_on_dirty,
     }, req.user.id);
     res.json(settings);
   } catch (err) {

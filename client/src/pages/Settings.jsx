@@ -17,6 +17,12 @@ function CvSettingsPanel() {
     executor_photo_max_edge: 1280,
     executor_photo_jpeg_quality: 82,
     executor_photo_overlay: true,
+    angle_check_enabled: true,
+    angle_threshold: 0.3,
+    angle_block_on_mismatch: false,
+    cleanliness_check_enabled: true,
+    cleanliness_threshold: 0.35,
+    cleanliness_block_on_dirty: false,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -37,6 +43,12 @@ function CvSettingsPanel() {
           executor_photo_max_edge: data.executor_photo_max_edge ?? 1280,
           executor_photo_jpeg_quality: data.executor_photo_jpeg_quality ?? 82,
           executor_photo_overlay: data.executor_photo_overlay !== false,
+          angle_check_enabled: data.angle_check_enabled !== false,
+          angle_threshold: data.angle_threshold ?? 0.3,
+          angle_block_on_mismatch: data.angle_block_on_mismatch === true,
+          cleanliness_check_enabled: data.cleanliness_check_enabled !== false,
+          cleanliness_threshold: data.cleanliness_threshold ?? 0.35,
+          cleanliness_block_on_dirty: data.cleanliness_block_on_dirty === true,
         });
       } catch (e) {
         setError(e.message);
@@ -62,6 +74,12 @@ function CvSettingsPanel() {
         executor_photo_max_edge: data.executor_photo_max_edge ?? 1280,
         executor_photo_jpeg_quality: data.executor_photo_jpeg_quality ?? 82,
         executor_photo_overlay: data.executor_photo_overlay !== false,
+        angle_check_enabled: data.angle_check_enabled !== false,
+        angle_threshold: data.angle_threshold ?? 0.3,
+        angle_block_on_mismatch: data.angle_block_on_mismatch === true,
+        cleanliness_check_enabled: data.cleanliness_check_enabled !== false,
+        cleanliness_threshold: data.cleanliness_threshold ?? 0.35,
+        cleanliness_block_on_dirty: data.cleanliness_block_on_dirty === true,
       });
       setSuccess('Настройки сохранены');
       invalidateCvStatus();
@@ -155,6 +173,110 @@ function CvSettingsPanel() {
             />
             <p className="hint">
               Насколько сильнее должна быть метка «банкомат» по сравнению с полом, стеной и т.п. Выше — строже.
+            </p>
+          </div>
+        </div>
+
+        <div className={`cv-check-block ${!form.enabled ? 'disabled' : ''}`}>
+          <h4 className="cv-check-title">🧭 Определение ракурса</h4>
+          <div className="form-group toggle-row">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={form.angle_check_enabled}
+                disabled={!form.enabled}
+                onChange={(e) => setForm((f) => ({ ...f, angle_check_enabled: e.target.checked }))}
+              />
+              <span>Проверять ракурс съёмки</span>
+            </label>
+            <p className="hint">
+              Модель определяет, с какой стороны сделан снимок (слева, справа, спереди, сверху),
+              и сверяет с ячейкой фотоотчёта. Лево и право различаются только при явном перевесе —
+              в спорных случаях замечание не выставляется.
+            </p>
+          </div>
+
+          <div className="form-group">
+            <label>
+              Порог определения ракурса: <strong>{form.angle_threshold.toFixed(2)}</strong>
+            </label>
+            <input
+              type="range"
+              min="0.05"
+              max="0.95"
+              step="0.01"
+              value={form.angle_threshold}
+              disabled={!form.enabled || !form.angle_check_enabled}
+              onChange={(e) => setForm((f) => ({ ...f, angle_threshold: parseFloat(e.target.value) }))}
+            />
+            <p className="hint">Ниже порога вердикт по ракурсу не выносится.</p>
+          </div>
+
+          <div className="form-group toggle-row">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={form.angle_block_on_mismatch}
+                disabled={!form.enabled || !form.angle_check_enabled}
+                onChange={(e) => setForm((f) => ({ ...f, angle_block_on_mismatch: e.target.checked }))}
+              />
+              <span>Блокировать завершение при несовпадении ракурса</span>
+            </label>
+            <p className="hint">
+              Выключено — исполнитель видит предупреждение, но может завершить заявку.
+              Включено — заявка возвращается в работу.
+            </p>
+          </div>
+        </div>
+
+        <div className={`cv-check-block ${!form.enabled ? 'disabled' : ''}`}>
+          <h4 className="cv-check-title">🧹 Оценка чистоты уборки</h4>
+          <div className="form-group toggle-row">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={form.cleanliness_check_enabled}
+                disabled={!form.enabled}
+                onChange={(e) => setForm((f) => ({ ...f, cleanliness_check_enabled: e.target.checked }))}
+              />
+              <span>Оценивать чистоту: пыль, грязь, мусор</span>
+            </label>
+            <p className="hint">
+              Модель ищет на фото пыль на корпусе и экране, грязь и потёки, а также мусор рядом
+              с банкоматом. Результат виден на плитках фотоотчёта.
+            </p>
+          </div>
+
+          <div className="form-group">
+            <label>
+              Порог замечания: <strong>{form.cleanliness_threshold.toFixed(2)}</strong>
+            </label>
+            <input
+              type="range"
+              min="0.05"
+              max="0.95"
+              step="0.01"
+              value={form.cleanliness_threshold}
+              disabled={!form.enabled || !form.cleanliness_check_enabled}
+              onChange={(e) => setForm((f) => ({ ...f, cleanliness_threshold: parseFloat(e.target.value) }))}
+            />
+            <p className="hint">
+              Выше — меньше ложных замечаний, но часть загрязнений останется незамеченной.
+            </p>
+          </div>
+
+          <div className="form-group toggle-row">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={form.cleanliness_block_on_dirty}
+                disabled={!form.enabled || !form.cleanliness_check_enabled}
+                onChange={(e) => setForm((f) => ({ ...f, cleanliness_block_on_dirty: e.target.checked }))}
+              />
+              <span>Блокировать завершение при замечаниях по уборке</span>
+            </label>
+            <p className="hint">
+              Включено — заявку нельзя закрыть, пока на фото видны пыль, грязь или мусор.
             </p>
           </div>
         </div>

@@ -164,17 +164,33 @@ const migrations = [
   { table: 'cv_settings', column: 'executor_photo_max_edge', sql: 'ALTER TABLE cv_settings ADD COLUMN executor_photo_max_edge INTEGER NOT NULL DEFAULT 1280' },
   { table: 'cv_settings', column: 'executor_photo_jpeg_quality', sql: 'ALTER TABLE cv_settings ADD COLUMN executor_photo_jpeg_quality INTEGER NOT NULL DEFAULT 82' },
   { table: 'cv_settings', column: 'executor_photo_overlay', sql: 'ALTER TABLE cv_settings ADD COLUMN executor_photo_overlay INTEGER NOT NULL DEFAULT 1' },
+  { table: 'task_photos', column: 'cv_angle', sql: 'ALTER TABLE task_photos ADD COLUMN cv_angle TEXT' },
+  { table: 'task_photos', column: 'cv_angle_confidence', sql: 'ALTER TABLE task_photos ADD COLUMN cv_angle_confidence REAL' },
+  { table: 'task_photos', column: 'cv_angle_match', sql: 'ALTER TABLE task_photos ADD COLUMN cv_angle_match INTEGER' },
+  { table: 'task_photos', column: 'cv_cleanliness', sql: 'ALTER TABLE task_photos ADD COLUMN cv_cleanliness TEXT' },
+  { table: 'task_photos', column: 'cv_cleanliness_score', sql: 'ALTER TABLE task_photos ADD COLUMN cv_cleanliness_score REAL' },
+  { table: 'task_photos', column: 'cv_issues', sql: 'ALTER TABLE task_photos ADD COLUMN cv_issues TEXT' },
+  { table: 'cv_settings', column: 'angle_check_enabled', sql: 'ALTER TABLE cv_settings ADD COLUMN angle_check_enabled INTEGER NOT NULL DEFAULT 1' },
+  { table: 'cv_settings', column: 'angle_threshold', sql: 'ALTER TABLE cv_settings ADD COLUMN angle_threshold REAL NOT NULL DEFAULT 0.30' },
+  { table: 'cv_settings', column: 'angle_block_on_mismatch', sql: 'ALTER TABLE cv_settings ADD COLUMN angle_block_on_mismatch INTEGER NOT NULL DEFAULT 0' },
+  { table: 'cv_settings', column: 'cleanliness_check_enabled', sql: 'ALTER TABLE cv_settings ADD COLUMN cleanliness_check_enabled INTEGER NOT NULL DEFAULT 1' },
+  { table: 'cv_settings', column: 'cleanliness_threshold', sql: 'ALTER TABLE cv_settings ADD COLUMN cleanliness_threshold REAL NOT NULL DEFAULT 0.35' },
+  { table: 'cv_settings', column: 'cleanliness_block_on_dirty', sql: 'ALTER TABLE cv_settings ADD COLUMN cleanliness_block_on_dirty INTEGER NOT NULL DEFAULT 0' },
   { table: 'atms', column: 'custom_data', sql: 'ALTER TABLE atms ADD COLUMN custom_data TEXT' },
   { table: 'users', column: 'custom_data', sql: 'ALTER TABLE users ADD COLUMN custom_data TEXT' },
   { table: 'cleaning_tasks', column: 'custom_data', sql: 'ALTER TABLE cleaning_tasks ADD COLUMN custom_data TEXT' },
 ];
 
-for (const m of migrations) {
-  const cols = db.prepare(`PRAGMA table_info(${m.table})`).all();
-  if (!cols.some((c) => c.name === m.column)) {
-    try { db.exec(m.sql); } catch { /* ignore */ }
+function applyColumnMigrations() {
+  for (const m of migrations) {
+    const cols = db.prepare(`PRAGMA table_info(${m.table})`).all();
+    if (!cols.some((c) => c.name === m.column)) {
+      try { db.exec(m.sql); } catch { /* ignore */ }
+    }
   }
 }
+
+applyColumnMigrations();
 
 const photoCols = db.prepare('PRAGMA table_info(task_photos)').all();
 if (!photoCols.some((c) => c.name === 'photo_type')) {
@@ -184,6 +200,14 @@ if (!photoCols.some((c) => c.name === 'photo_type')) {
 function migratePhotoTypeTop() {
   const sql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='task_photos'").get()?.sql || '';
   if (sql.includes("'top'")) return;
+
+  // Переносим только базовые колонки; остальные восстанавливает applyColumnMigrations().
+  const baseColumns = [
+    'id', 'task_id', 'filename', 'original_name', 'photo_type',
+    'uploaded_by', 'created_at', 'cv_detected', 'cv_confidence', 'cv_checked_at',
+  ];
+  const existing = db.prepare('PRAGMA table_info(task_photos)').all().map((c) => c.name);
+  const carried = baseColumns.filter((c) => existing.includes(c));
 
   db.exec('PRAGMA foreign_keys = OFF');
   try {
@@ -200,7 +224,8 @@ function migratePhotoTypeTop() {
         cv_confidence REAL,
         cv_checked_at TEXT
       );
-      INSERT INTO task_photos_mig SELECT * FROM task_photos;
+      INSERT INTO task_photos_mig (${carried.join(', ')})
+        SELECT ${carried.join(', ')} FROM task_photos;
       DROP TABLE task_photos;
       ALTER TABLE task_photos_mig RENAME TO task_photos;
     `);
@@ -210,6 +235,7 @@ function migratePhotoTypeTop() {
 }
 
 migratePhotoTypeTop();
+applyColumnMigrations();
 
 function migrateAtmsData() {
   db.exec(`

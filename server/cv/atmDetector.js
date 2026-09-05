@@ -1,8 +1,12 @@
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { getCvSettings, isCvEnabledRuntime } from './settings.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import {
+  bestLabel,
+  classifyImage,
+  getClassifier,
+  maxScore,
+  readImage,
+  round3,
+} from './classifier.js';
 
 /** Банкоматы Сбербанка — зелёные и серые корпуса, экран, клавиатура */
 const ATM_LABELS = [
@@ -30,8 +34,6 @@ const REJECT_LABELS = [
   'building facade without ATM',
 ];
 
-const CV_TIMEOUT_MS = parseInt(process.env.CV_TIMEOUT_MS || '25000', 10);
-
 const FLOOR_LABELS = [
   'floor tiles or concrete ground close-up photograph',
   'dirty indoor floor pavement without any machine',
@@ -39,53 +41,8 @@ const FLOOR_LABELS = [
   'grass lawn outdoor ground',
 ];
 
-let classifierPromise = null;
-
-function withTimeout(promise, ms) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('CV-проверка превысила лимит времени')), ms);
-    }),
-  ]);
-}
-
 export function isCvEnabled() {
   return isCvEnabledRuntime();
-}
-
-const CLASSIFIER_LOAD_TIMEOUT_MS = parseInt(process.env.CV_LOAD_TIMEOUT_MS || '60000', 10);
-
-async function getClassifier() {
-  if (!isCvEnabledRuntime()) return null;
-  if (!classifierPromise) {
-    classifierPromise = withTimeout((async () => {
-      const { pipeline, env } = await import('@xenova/transformers');
-      env.cacheDir = path.join(__dirname, '../../.cache/transformers');
-      env.allowLocalModels = true;
-      console.log('Загрузка CV-модели (CLIP)...');
-      return pipeline('zero-shot-image-classification', 'Xenova/clip-vit-base-patch32');
-    })(), CLASSIFIER_LOAD_TIMEOUT_MS).catch((err) => {
-      console.error('CV model load failed:', err.message);
-      classifierPromise = null;
-      return null;
-    });
-  }
-  return classifierPromise;
-}
-
-function scoreFor(results, label) {
-  return results.find((r) => r.label === label)?.score ?? 0;
-}
-
-function maxScore(results, labels) {
-  return Math.max(...labels.map((l) => scoreFor(results, l)));
-}
-
-function bestLabel(results, labels) {
-  return labels.reduce((best, label) => (
-    scoreFor(results, label) > scoreFor(results, best) ? label : best
-  ), labels[0]);
 }
 
 export function evaluateDetection(results, { threshold = 0.30, margin = 0.12 } = {}) {
@@ -113,36 +70,36 @@ export function evaluateDetection(results, { threshold = 0.30, margin = 0.12 } =
 
   return {
     detected,
-    confidence: Math.round(atmBest * 1000) / 1000,
+    confidence: round3(atmBest),
     topLabel: top?.label,
     bestAtmLabel,
     bestRejectLabel,
-    atmBest: Math.round(atmBest * 1000) / 1000,
-    rejectBest: Math.round(rejectBest * 1000) / 1000,
-    floorBest: Math.round(floorBest * 1000) / 1000,
+    atmBest: round3(atmBest),
+    rejectBest: round3(rejectBest),
+    floorBest: round3(floorBest),
     reason,
     threshold,
     margin,
   };
 }
 
-export async function detectAtmInPhoto(filePath) {
+/**
+ * Проверка наличия банкомата на фото.
+ * @param {string|object} source путь к файлу или уже прочитанный RawImage
+ */
+export async function detectAtmInPhoto(source) {
   const settings = getCvSettings();
   if (!settings.enabled) {
     return { detected: true, confidence: 1, skipped: true };
   }
 
   try {
-    const classifier = await getClassifier();
-    if (!classifier) {
+    const image = typeof source === 'string' ? await readImage(source) : source;
+    const results = await classifyImage(image, [...ATM_LABELS, ...REJECT_LABELS]);
+    if (!results) {
       return { detected: true, confidence: 0, skipped: true };
     }
 
-    const { RawImage } = await import('@xenova/transformers');
-    const image = await RawImage.read(filePath);
-    const labels = [...ATM_LABELS, ...REJECT_LABELS];
-
-    const results = await withTimeout(classifier(image, labels), CV_TIMEOUT_MS);
     const evaluation = evaluateDetection(results, {
       threshold: settings.threshold,
       margin: settings.margin,

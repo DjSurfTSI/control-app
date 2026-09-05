@@ -2073,6 +2073,33 @@ td small {
   pointer-events: none;
 }
 
+.cv-check-block {
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-hover);
+}
+
+.cv-check-block.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.cv-check-title {
+  margin: 0 0 0.85rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.cv-check-block .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.cv-check-block .toggle-row {
+  margin-bottom: 1rem;
+}
+
 .cv-roles-list {
   display: flex;
   flex-wrap: wrap;

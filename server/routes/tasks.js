@@ -392,12 +392,29 @@ router.patch('/:id', asyncHandler(async (req, res) => {
         `).run(req.params.id);
 
         const labels = cv.failed.map((f) => f.label || PHOTO_TYPE_LABELS[f.photo_type]).join(', ');
-        notifyCvRejected(task, req.user.id, labels);
+        const reasons = [];
+        if (labels) reasons.push(`банкомат не обнаружен: ${labels}`);
+        if (cv.warnings?.angle_blocking) {
+          const angles = cv.warnings.angle_mismatch
+            .map((w) => `${w.label}${w.detected_label ? ` (похоже на «${w.detected_label}»)` : ''}`)
+            .join(', ');
+          reasons.push(`ракурс не совпадает: ${angles}`);
+        }
+        if (cv.warnings?.cleanliness_blocking) {
+          const dirty = cv.warnings.cleanliness
+            .map((w) => `${w.label} — ${w.issue_labels.join(', ').toLowerCase()}`)
+            .join('; ');
+          reasons.push(`уборка не принята: ${dirty}`);
+        }
+
+        const summary = reasons.join('. ');
+        notifyCvRejected(task, req.user.id, labels || summary);
 
         return res.status(400).json({
-          error: `Банкомат не обнаружен на фото: ${labels}. Заявка возвращена в работу — переснимите фото.`,
+          error: `${summary || 'Фото не прошли проверку'}. Заявка возвращена в работу — переснимите фото.`,
           code: 'cv_rejected',
           failed_photos: cv.failed,
+          warnings: cv.warnings,
           status: 'in_progress',
         });
       }

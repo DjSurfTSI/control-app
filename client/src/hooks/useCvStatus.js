@@ -22,6 +22,8 @@ function applyCachedStatus(setters) {
   setters.setExecutorPhotoMaxEdge(cachedStatus.executor_photo_max_edge);
   setters.setExecutorPhotoJpegQuality(cachedStatus.executor_photo_jpeg_quality);
   setters.setExecutorPhotoOverlay(cachedStatus.executor_photo_overlay);
+  setters.setAngleCheckEnabled(cachedStatus.angle_check_enabled);
+  setters.setCleanlinessCheckEnabled(cachedStatus.cleanliness_check_enabled);
 }
 
 export function useCvStatus() {
@@ -39,6 +41,12 @@ export function useCvStatus() {
   );
   const [executorPhotoOverlay, setExecutorPhotoOverlay] = useState(
     cachedStatus?.executor_photo_overlay ?? true,
+  );
+  const [angleCheckEnabled, setAngleCheckEnabled] = useState(
+    cachedStatus?.angle_check_enabled ?? true,
+  );
+  const [cleanlinessCheckEnabled, setCleanlinessCheckEnabled] = useState(
+    cachedStatus?.cleanliness_check_enabled ?? true,
   );
   const [loading, setLoading] = useState(false);
   const [tick, setTick] = useState(0);
@@ -61,6 +69,8 @@ export function useCvStatus() {
           setExecutorPhotoMaxEdge,
           setExecutorPhotoJpegQuality,
           setExecutorPhotoOverlay,
+          setAngleCheckEnabled,
+          setCleanlinessCheckEnabled,
         });
         return;
       }
@@ -75,6 +85,8 @@ export function useCvStatus() {
             executor_photo_max_edge: data.executor_photo_max_edge || PHOTO_MAX_EDGE_DEFAULT,
             executor_photo_jpeg_quality: data.executor_photo_jpeg_quality || PHOTO_JPEG_QUALITY_DEFAULT,
             executor_photo_overlay: data.executor_photo_overlay !== false,
+            angle_check_enabled: data.angle_check_enabled !== false,
+            cleanliness_check_enabled: data.cleanliness_check_enabled !== false,
           };
           applyCachedStatus({
             setCvEnabledGlobal,
@@ -83,6 +95,8 @@ export function useCvStatus() {
             setExecutorPhotoMaxEdge,
             setExecutorPhotoJpegQuality,
             setExecutorPhotoOverlay,
+            setAngleCheckEnabled,
+            setCleanlinessCheckEnabled,
           });
         }
       } catch {
@@ -93,6 +107,8 @@ export function useCvStatus() {
           setExecutorPhotoMaxEdge(PHOTO_MAX_EDGE_DEFAULT);
           setExecutorPhotoJpegQuality(PHOTO_JPEG_QUALITY_DEFAULT);
           setExecutorPhotoOverlay(true);
+          setAngleCheckEnabled(true);
+          setCleanlinessCheckEnabled(true);
         }
       } finally {
         setLoading(false);
@@ -114,6 +130,8 @@ export function useCvStatus() {
     executorPhotoMaxEdge,
     executorPhotoJpegQuality,
     executorPhotoOverlay,
+    angleCheckEnabled,
+    cleanlinessCheckEnabled,
     loading,
   };
 }
