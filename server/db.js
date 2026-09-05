@@ -59,7 +59,7 @@ db.exec(`
     task_id INTEGER NOT NULL REFERENCES cleaning_tasks(id) ON DELETE CASCADE,
     filename TEXT NOT NULL,
     original_name TEXT,
-    photo_type TEXT CHECK(photo_type IN ('left', 'right', 'front', 'top')),
+    photo_type TEXT CHECK(photo_type IN ('left', 'right', 'front', 'top', 'before_top')),
     uploaded_by INTEGER REFERENCES users(id),
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -129,6 +129,29 @@ db.exec(`
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS cv_training_samples (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    photo_id INTEGER NOT NULL REFERENCES task_photos(id) ON DELETE CASCADE,
+    task_id INTEGER NOT NULL,
+    kind TEXT NOT NULL CHECK(kind IN ('cleanliness', 'view')),
+    label TEXT NOT NULL,
+    embedding TEXT,
+    created_by INTEGER REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(photo_id, kind)
+  );
+
+  CREATE TABLE IF NOT EXISTS cv_models (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL CHECK(kind IN ('cleanliness', 'view')),
+    payload TEXT NOT NULL,
+    samples_count INTEGER NOT NULL DEFAULT 0,
+    accuracy REAL,
+    active INTEGER NOT NULL DEFAULT 1,
+    trained_at TEXT NOT NULL DEFAULT (datetime('now')),
+    trained_by INTEGER REFERENCES users(id)
+  );
+
   CREATE TABLE IF NOT EXISTS entity_field_config (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     config TEXT NOT NULL,
@@ -176,6 +199,7 @@ const migrations = [
   { table: 'cv_settings', column: 'cleanliness_check_enabled', sql: 'ALTER TABLE cv_settings ADD COLUMN cleanliness_check_enabled INTEGER NOT NULL DEFAULT 1' },
   { table: 'cv_settings', column: 'cleanliness_threshold', sql: 'ALTER TABLE cv_settings ADD COLUMN cleanliness_threshold REAL NOT NULL DEFAULT 0.65' },
   { table: 'cv_settings', column: 'cleanliness_block_on_dirty', sql: 'ALTER TABLE cv_settings ADD COLUMN cleanliness_block_on_dirty INTEGER NOT NULL DEFAULT 0' },
+  { table: 'cv_settings', column: 'before_photo_enabled', sql: 'ALTER TABLE cv_settings ADD COLUMN before_photo_enabled INTEGER NOT NULL DEFAULT 1' },
   { table: 'atms', column: 'custom_data', sql: 'ALTER TABLE atms ADD COLUMN custom_data TEXT' },
   { table: 'users', column: 'custom_data', sql: 'ALTER TABLE users ADD COLUMN custom_data TEXT' },
   { table: 'cleaning_tasks', column: 'custom_data', sql: 'ALTER TABLE cleaning_tasks ADD COLUMN custom_data TEXT' },
@@ -194,20 +218,26 @@ applyColumnMigrations();
 
 const photoCols = db.prepare('PRAGMA table_info(task_photos)').all();
 if (!photoCols.some((c) => c.name === 'photo_type')) {
-  db.exec("ALTER TABLE task_photos ADD COLUMN photo_type TEXT CHECK(photo_type IN ('left', 'right', 'front', 'top'))");
+  db.exec("ALTER TABLE task_photos ADD COLUMN photo_type TEXT CHECK(photo_type IN ('left', 'right', 'front', 'top', 'before_top'))");
 }
 
-function migratePhotoTypeTop() {
-  const sql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='task_photos'").get()?.sql || '';
-  if (sql.includes("'top'")) return;
+const PHOTO_TYPE_CHECK_LIST = "'left', 'right', 'front', 'top', 'before_top'";
 
-  // Переносим только базовые колонки; остальные восстанавливает applyColumnMigrations().
+/**
+ * CHECK на photo_type меняется только пересозданием таблицы. Базовые колонки
+ * переносятся явным списком, добавленные миграциями — воссоздаются на новой
+ * таблице до копирования, чтобы не терять результаты CV-проверок.
+ */
+function migratePhotoTypeCheck() {
+  const sql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='task_photos'").get()?.sql || '';
+  if (sql.includes("'before_top'")) return;
+
   const baseColumns = [
-    'id', 'task_id', 'filename', 'original_name', 'photo_type',
-    'uploaded_by', 'created_at', 'cv_detected', 'cv_confidence', 'cv_checked_at',
+    'id', 'task_id', 'filename', 'original_name', 'photo_type', 'uploaded_by', 'created_at',
   ];
   const existing = db.prepare('PRAGMA table_info(task_photos)').all().map((c) => c.name);
-  const carried = baseColumns.filter((c) => existing.includes(c));
+  const extra = migrations.filter((m) => m.table === 'task_photos' && existing.includes(m.column));
+  const carried = [...baseColumns, ...extra.map((m) => m.column)].filter((c) => existing.includes(c));
 
   db.exec('PRAGMA foreign_keys = OFF');
   try {
@@ -217,13 +247,15 @@ function migratePhotoTypeTop() {
         task_id INTEGER NOT NULL REFERENCES cleaning_tasks(id) ON DELETE CASCADE,
         filename TEXT NOT NULL,
         original_name TEXT,
-        photo_type TEXT CHECK(photo_type IN ('left', 'right', 'front', 'top')),
+        photo_type TEXT CHECK(photo_type IN (${PHOTO_TYPE_CHECK_LIST})),
         uploaded_by INTEGER REFERENCES users(id),
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        cv_detected INTEGER,
-        cv_confidence REAL,
-        cv_checked_at TEXT
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
       );
+    `);
+    for (const m of extra) {
+      db.exec(m.sql.replace('ALTER TABLE task_photos ', 'ALTER TABLE task_photos_mig '));
+    }
+    db.exec(`
       INSERT INTO task_photos_mig (${carried.join(', ')})
         SELECT ${carried.join(', ')} FROM task_photos;
       DROP TABLE task_photos;
@@ -234,7 +266,7 @@ function migratePhotoTypeTop() {
   }
 }
 
-migratePhotoTypeTop();
+migratePhotoTypeCheck();
 applyColumnMigrations();
 
 /**
@@ -469,7 +501,17 @@ if (!bizadminExists) {
   ).run('bizadmin@bank.ru', hash, 'Бизнес-администратор', 'bizadmin', '+7 900 000-00-03');
 }
 
+/** Ракурсы после уборки — от них зависит закрытие заявки. */
 export const REQUIRED_PHOTO_TYPES = ['left', 'right', 'front', 'top'];
+
+/** Фото «до уборки» — необязательные, проверяются на чистоту, но закрытие не блокируют. */
+export const BEFORE_PHOTO_TYPES = ['before_top'];
+
+export const ALL_PHOTO_TYPES = [...REQUIRED_PHOTO_TYPES, ...BEFORE_PHOTO_TYPES];
+
+export function isBeforePhotoType(type) {
+  return BEFORE_PHOTO_TYPES.includes(type);
+}
 
 export function hasAllRequiredPhotos(taskId) {
   const types = db.prepare(

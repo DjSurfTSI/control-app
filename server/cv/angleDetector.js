@@ -1,5 +1,7 @@
 import { getCvSettings } from './settings.js';
 import { classifyImage, readImage, round3, sumScore } from './classifier.js';
+import { getActiveModel, predictWithModel } from './training.js';
+import { resolveEmbedding } from './embedding.js';
 
 export const ANGLE_TYPES = ['left', 'right', 'front', 'top'];
 
@@ -8,6 +10,7 @@ export const ANGLE_LABELS_RU = {
   right: 'Справа',
   front: 'Спереди',
   top: 'Сверху',
+  before_top: 'До уборки, сверху',
 };
 
 /**
@@ -28,6 +31,7 @@ const DECLARED_TO_VIEW = {
   right: 'side',
   front: 'front',
   top: 'top',
+  before_top: 'top',
 };
 
 /** По три промпта на вид — наборы сбалансированы, иначе сумма смещается к более крупной группе. */
@@ -51,27 +55,24 @@ const VIEW_PROMPTS = {
 
 const ALL_VIEW_PROMPTS = VIEW_TYPES.flatMap((v) => VIEW_PROMPTS[v]);
 
-export function evaluateAngle(results, declaredType, { threshold = 0.45 } = {}) {
-  // Суммы по группам промптов дают распределение по трём видам (в сумме 1).
-  const scores = Object.fromEntries(
-    VIEW_TYPES.map((view) => [view, round3(sumScore(results, VIEW_PROMPTS[view]))]),
-  );
-
-  const bestView = VIEW_TYPES.reduce((a, b) => (scores[a] >= scores[b] ? a : b));
+/** Сводит распределение по видам и заявленный тип к вердикту о совпадении. */
+function verdictFrom(scores, declaredType, threshold, source) {
+  const known = VIEW_TYPES.filter((v) => scores[v] !== undefined);
+  const bestView = known.reduce((a, b) => (scores[a] >= scores[b] ? a : b));
   const bestScore = scores[bestView];
   const expectedView = DECLARED_TO_VIEW[declaredType] ?? null;
 
   if (bestScore < threshold) {
     return {
       angle: null, view: bestView, confidence: bestScore,
-      match: null, reason: 'low_confidence', scores,
+      match: null, reason: 'low_confidence', scores, source,
     };
   }
 
   if (!expectedView) {
     return {
       angle: bestView, view: bestView, confidence: bestScore,
-      match: null, reason: 'unknown_declared', scores,
+      match: null, reason: 'unknown_declared', scores, source,
     };
   }
 
@@ -83,22 +84,42 @@ export function evaluateAngle(results, declaredType, { threshold = 0.45 } = {}) 
     match,
     reason: match ? 'ok' : 'view_mismatch',
     scores,
+    source,
   };
+}
+
+export function evaluateAngle(results, declaredType, { threshold = 0.45 } = {}) {
+  // Суммы по группам промптов дают распределение по трём видам (в сумме 1).
+  const scores = Object.fromEntries(
+    VIEW_TYPES.map((view) => [view, round3(sumScore(results, VIEW_PROMPTS[view]))]),
+  );
+  return verdictFrom(scores, declaredType, threshold, 'zero-shot');
 }
 
 /**
  * Определяет вид съёмки (сбоку / спереди / сверху) и сверяет с заявленным
  * типом фото. Ракурсы «слева» и «справа» считаются одним видом «сбоку».
+ * Если бизнес-администратор обучил модель на своих фото — используется она.
  * @param {string|object} source путь к файлу или RawImage
- * @param {string} declaredType left | right | front | top
+ * @param {string} declaredType left | right | front | top | before_top
+ * @param {object} [opts]
+ * @param {number[]} [opts.embedding] готовый эмбеддинг изображения
  */
-export async function detectPhotoAngle(source, declaredType) {
+export async function detectPhotoAngle(source, declaredType, { embedding = null } = {}) {
   const settings = getCvSettings();
   if (!settings.enabled || !settings.angle_check_enabled) {
     return { skipped: true, angle: null, match: null, confidence: 0, reason: 'disabled' };
   }
 
   try {
+    if (getActiveModel('view')) {
+      const vector = await resolveEmbedding(source, embedding, readImage);
+      const trained = predictWithModel('view', vector);
+      if (trained) {
+        return verdictFrom(trained.scores, declaredType, settings.angle_threshold, 'trained');
+      }
+    }
+
     const image = typeof source === 'string' ? await readImage(source) : source;
     const results = await classifyImage(image, ALL_VIEW_PROMPTS);
     if (!results) {

@@ -1,10 +1,12 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
-import db, { REQUIRED_PHOTO_TYPES } from '../db.js';
+import db, { REQUIRED_PHOTO_TYPES, isBeforePhotoType } from '../db.js';
 import { detectAtmInPhoto, isCvEnabled } from './atmDetector.js';
 import { detectPhotoAngle, ANGLE_LABELS_RU, VIEW_LABELS_RU } from './angleDetector.js';
 import { detectCleanliness, CLEANLINESS_LABELS_RU } from './cleanlinessDetector.js';
 import { readImage } from './classifier.js';
+import { embedImage } from './embedding.js';
+import { getActiveModel } from './training.js';
 import { getCvSettings } from './settings.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -12,6 +14,10 @@ const uploadsDir = path.join(__dirname, '../uploads');
 
 export const PHOTO_TYPE_LABELS = ANGLE_LABELS_RU;
 export { CLEANLINESS_LABELS_RU, VIEW_LABELS_RU };
+
+function hasTrainedModels() {
+  return Boolean(getActiveModel('view') || getActiveModel('cleanliness'));
+}
 
 let cvQueue = Promise.resolve();
 
@@ -31,7 +37,7 @@ export function saveCvResult(photoId, result) {
           cv_cleanliness = ?, cv_cleanliness_score = ?, cv_issues = ?
       WHERE id = ?
     `).run(
-      result.detected ? 1 : 0,
+      result.detected === null || result.detected === undefined ? null : (result.detected ? 1 : 0),
       result.confidence ?? 0,
       result.angle?.angle ?? null,
       result.angle?.confidence ?? null,
@@ -51,6 +57,8 @@ export function saveCvResult(photoId, result) {
 /**
  * Полный анализ фото: наличие банкомата, ракурс съёмки и чистота уборки.
  * Изображение читается один раз и переиспользуется всеми детекторами.
+ * Фото «до уборки» проверяется только на чистоту — присутствие банкомата
+ * и ракурс для него не важны и завершение заявки не блокируют.
  */
 async function analyzePhoto(filePath, photoType) {
   const settings = getCvSettings();
@@ -62,14 +70,28 @@ async function analyzePhoto(filePath, photoType) {
     return { detected: true, confidence: 0, skipped: true, error: err.message };
   }
 
-  const atm = await detectAtmInPhoto(image);
+  // Эмбеддинг нужен только обученным моделям; без них лишнюю работу не делаем.
+  let embedding = null;
+  if (hasTrainedModels()) {
+    try {
+      embedding = await embedImage(image);
+    } catch (err) {
+      console.error('CV embedding error:', err.message);
+    }
+  }
 
-  const angle = settings.angle_check_enabled
-    ? await detectPhotoAngle(image, photoType)
+  const beforePhoto = isBeforePhotoType(photoType);
+
+  const atm = beforePhoto
+    ? { detected: null, confidence: 0, skipped: true, reason: 'before_photo' }
+    : await detectAtmInPhoto(image);
+
+  const angle = settings.angle_check_enabled && !beforePhoto
+    ? await detectPhotoAngle(image, photoType, { embedding })
     : null;
 
   const cleanliness = settings.cleanliness_check_enabled
-    ? await detectCleanliness(image)
+    ? await detectCleanliness(image, { embedding })
     : null;
 
   return { ...atm, angle, cleanliness };
@@ -108,9 +130,27 @@ export function getPhotoWarnings(photos) {
   const settings = getCvSettings();
   const angleMismatch = [];
   const cleanliness = [];
+  const beforeCleanliness = [];
 
   for (const photo of photos) {
     if (!photo.photo_type) continue;
+
+    // Фото «до уборки» — информационные: замечания показываем, но не блокируем.
+    if (isBeforePhotoType(photo.photo_type)) {
+      const issues = parseIssues(photo.cv_issues);
+      if (settings.cleanliness_check_enabled && issues.length) {
+        beforeCleanliness.push({
+          photo_type: photo.photo_type,
+          label: PHOTO_TYPE_LABELS[photo.photo_type],
+          level: photo.cv_cleanliness,
+          level_label: CLEANLINESS_LABELS_RU[photo.cv_cleanliness] || null,
+          issues,
+          issue_labels: issues.map((i) => CLEANLINESS_LABELS_RU[i] || i),
+          score: photo.cv_cleanliness_score,
+        });
+      }
+      continue;
+    }
 
     if (settings.angle_check_enabled && photo.cv_angle_match === 0) {
       angleMismatch.push({
@@ -141,6 +181,7 @@ export function getPhotoWarnings(photos) {
   return {
     angle_mismatch: angleMismatch,
     cleanliness,
+    before_cleanliness: beforeCleanliness,
     angle_blocking: settings.angle_block_on_mismatch && angleMismatch.length > 0,
     cleanliness_blocking: settings.cleanliness_block_on_dirty && cleanliness.length > 0,
   };

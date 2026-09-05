@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '../api';
 import {
-  PHOTO_TYPES, PHOTO_TYPE_LABELS, checkRequiredPhotos, checkPhotoCv,
+  PHOTO_TYPES, BEFORE_PHOTO_TYPES, PHOTO_TYPE_LABELS, isBeforePhotoType,
+  checkRequiredPhotos, checkPhotoCv,
   CLEANLINESS_ICONS, CLEANLINESS_LABELS, VIEW_LABELS,
   getAngleMismatches, getCleanlinessIssues,
 } from '../utils';
@@ -16,7 +17,7 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
   const {
     cvEnabled, executorMobileCameraCapture, executorPhotoOverlay,
     executorPhotoMaxEdge, executorPhotoJpegQuality,
-    angleCheckEnabled, cleanlinessCheckEnabled, loading: cvLoading,
+    angleCheckEnabled, cleanlinessCheckEnabled, beforePhotoEnabled, loading: cvLoading,
   } = useCvStatus();
   const { effectiveOffline, networkOnline } = useOffline();
   const [photos, setPhotos] = useState([]);
@@ -93,7 +94,10 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
 
   useEffect(() => {
     if (!cvEnabled || !networkOnline || !taskId) return undefined;
-    const hasPending = photos.some((p) => p.cv_detected == null && !p.offline);
+    // У фото «до уборки» cv_detected всегда пустой — банкомат на них не ищется.
+    const hasPending = photos.some(
+      (p) => p.cv_detected == null && !p.offline && !isBeforePhotoType(p.photo_type),
+    );
     if (!hasPending) return undefined;
 
     let cancelled = false;
@@ -189,6 +193,104 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
   const cv = checkPhotoCv(photos, cvEnabled);
   const angleMismatches = cvEnabled && angleCheckEnabled ? getAngleMismatches(photos) : [];
   const cleanlinessIssues = cvEnabled && cleanlinessCheckEnabled ? getCleanlinessIssues(photos) : [];
+  const beforeIssues = cvEnabled && cleanlinessCheckEnabled
+    ? getCleanlinessIssues(photos, { before: true })
+    : [];
+  const showBeforeSection = beforePhotoEnabled !== false
+    && (!readOnly || BEFORE_PHOTO_TYPES.some((t) => getPhotoForType(t)));
+
+  /** Один слот фотоотчёта. Для фото «до уборки» проверка банкомата и ракурса не показывается. */
+  function renderSlot(type) {
+    const before = isBeforePhotoType(type);
+    const photo = getPhotoForType(type);
+    const cvOk = !before && cvEnabled && photo?.cv_detected === 1;
+    const cvFail = !before && cvEnabled && photo?.cv_detected === 0;
+    const cvPending = cvEnabled && photo && photo.cv_detected == null && !before;
+    const angleMismatch = !before && cvEnabled && angleCheckEnabled && photo?.cv_angle_match === 0;
+    const dirtyLevel = cvEnabled && cleanlinessCheckEnabled && photo?.cv_issues?.length
+      ? photo.cv_cleanliness
+      : null;
+    const hasWarning = angleMismatch || (!before && !!dirtyLevel);
+    const slotClass = photo
+      ? (cvFail
+        ? 'cv-fail'
+        : (cvPending && !photo.offline)
+          ? 'cv-pending'
+          : hasWarning ? 'cv-warn' : 'filled')
+      : (before ? 'optional' : 'empty');
+
+    return (
+      <div key={type} className={`photo-slot ${slotClass} animate-scale-in`}>
+        <span className="photo-slot-label">{PHOTO_TYPE_LABELS[type]}</span>
+        {photo ? (
+          <div className="photo-slot-preview">
+            <a href={photo.url} target="_blank" rel="noreferrer">
+              <img src={photo.url} alt={PHOTO_TYPE_LABELS[type]} />
+            </a>
+            <div className="photo-badges">
+              {cvOk && <span className="photo-cv-badge ok">✓ ATM</span>}
+              {cvFail && <span className="photo-cv-badge fail">✗</span>}
+              {angleMismatch && (
+                <span
+                  className="photo-cv-badge warn"
+                  title={photo.cv_angle
+                    ? `Похоже, снято «${VIEW_LABELS[photo.cv_angle] || photo.cv_angle}»`
+                    : 'Ракурс не совпадает с заявленным'}
+                >
+                  🧭
+                </span>
+              )}
+              {dirtyLevel && (
+                <span
+                  className={`photo-cv-badge ${before ? 'note' : 'warn'}`}
+                  title={`${before ? 'До уборки' : 'Замечания по уборке'}: ${photo.cv_issues.map((i) => CLEANLINESS_LABELS[i] || i).join(', ')}`}
+                >
+                  {CLEANLINESS_ICONS[dirtyLevel] || '⚠'}
+                </span>
+              )}
+              {photo.offline && <span className="photo-cv-badge pending">📡</span>}
+              {cvPending && !photo.offline && uploading !== type && (
+                <span className="photo-cv-badge pending">…</span>
+              )}
+            </div>
+            {!readOnly && (
+              <button type="button" className="photo-delete" onClick={() => handleDelete(photo.id)}>×</button>
+            )}
+          </div>
+        ) : (
+          !readOnly && (
+            <div className="photo-slot-empty">
+              {showPhotoOverlay && (
+                <AtmPhotoGuideOverlay
+                  photoType={before ? 'top' : type}
+                  compact
+                  className="photo-slot-guide"
+                />
+              )}
+              <input
+                ref={(el) => { inputRefs.current[type] = el; }}
+                type="file"
+                accept="image/*"
+                {...(useCameraCapture && !useInAppCamera ? { capture: 'environment' } : {})}
+                onChange={(e) => handleUpload(type, e)}
+                style={{ display: 'none' }}
+                id={`photo-${taskId}-${type}`}
+              />
+              <button
+                type="button"
+                className="photo-add-btn"
+                onClick={() => openCapture(type)}
+                disabled={uploading === type}
+              >
+                {uploading === type ? '⏳' : '📷'}
+              </button>
+            </div>
+          )
+        )}
+        {readOnly && !photo && <span className="photo-missing">Нет фото</span>}
+      </div>
+    );
+  }
   const canComplete = cvEnabled ? cv.passed : check.complete;
   const showInitialLoad = loading && photos.length === 0 && readOnly;
   const uploadedCount = PHOTO_TYPES.filter((t) => getPhotoForType(t)).length;
@@ -271,99 +373,33 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
       {error && <div className="error-msg">{error}</div>}
 
       <div className="photo-slots">
-        {PHOTO_TYPES.map((type) => {
-          const photo = getPhotoForType(type);
-          const cvOk = cvEnabled && photo?.cv_detected === 1;
-          const cvFail = cvEnabled && photo?.cv_detected === 0;
-          const cvPending = cvEnabled && photo && photo.cv_detected == null;
-          const angleMismatch = cvEnabled && angleCheckEnabled && photo?.cv_angle_match === 0;
-          const dirtyLevel = cvEnabled && cleanlinessCheckEnabled && photo?.cv_issues?.length
-            ? photo.cv_cleanliness
-            : null;
-          const hasWarning = angleMismatch || !!dirtyLevel;
-          const slotClass = photo
-            ? (cvFail
-              ? 'cv-fail'
-              : (cvPending && !photo.offline)
-                ? 'cv-pending'
-                : hasWarning ? 'cv-warn' : 'filled')
-            : 'empty';
-
-          return (
-            <div key={type} className={`photo-slot ${slotClass} animate-scale-in`}>
-              <span className="photo-slot-label">{PHOTO_TYPE_LABELS[type]}</span>
-              {photo ? (
-                <div className="photo-slot-preview">
-                  <a href={photo.url} target="_blank" rel="noreferrer">
-                    <img src={photo.url} alt={PHOTO_TYPE_LABELS[type]} />
-                  </a>
-                  <div className="photo-badges">
-                    {cvOk && <span className="photo-cv-badge ok">✓ ATM</span>}
-                    {cvFail && <span className="photo-cv-badge fail">✗</span>}
-                    {angleMismatch && (
-                      <span
-                        className="photo-cv-badge warn"
-                        title={photo.cv_angle
-                          ? `Похоже, снято «${VIEW_LABELS[photo.cv_angle] || photo.cv_angle}»`
-                          : 'Ракурс не совпадает с заявленным'}
-                      >
-                        🧭
-                      </span>
-                    )}
-                    {dirtyLevel && (
-                      <span
-                        className="photo-cv-badge warn"
-                        title={`Замечания по уборке: ${photo.cv_issues.map((i) => CLEANLINESS_LABELS[i] || i).join(', ')}`}
-                      >
-                        {CLEANLINESS_ICONS[dirtyLevel] || '⚠'}
-                      </span>
-                    )}
-                    {photo.offline && <span className="photo-cv-badge pending">📡</span>}
-                    {cvPending && !photo.offline && uploading !== type && (
-                      <span className="photo-cv-badge pending">…</span>
-                    )}
-                  </div>
-                  {!readOnly && (
-                    <button type="button" className="photo-delete" onClick={() => handleDelete(photo.id)}>×</button>
-                  )}
-                </div>
-              ) : (
-                !readOnly && (
-                  <div className="photo-slot-empty">
-                    {showPhotoOverlay && (
-                      <AtmPhotoGuideOverlay photoType={type} compact className="photo-slot-guide" />
-                    )}
-                    <input
-                      ref={(el) => { inputRefs.current[type] = el; }}
-                      type="file"
-                      accept="image/*"
-                      {...(useCameraCapture && !useInAppCamera ? { capture: 'environment' } : {})}
-                      onChange={(e) => handleUpload(type, e)}
-                      style={{ display: 'none' }}
-                      id={`photo-${taskId}-${type}`}
-                    />
-                    <button
-                      type="button"
-                      className="photo-add-btn"
-                      onClick={() => openCapture(type)}
-                      disabled={uploading === type}
-                    >
-                      {uploading === type ? '⏳' : '📷'}
-                    </button>
-                  </div>
-                )
-              )}
-              {readOnly && !photo && <span className="photo-missing">Нет фото</span>}
-            </div>
-          );
-        })}
+        {PHOTO_TYPES.map(renderSlot)}
       </div>
+
+      {showBeforeSection && (
+        <div className="photo-before-section">
+          <label className="photo-title">Фото до уборки — необязательно</label>
+          <p className="photo-cv-hint">
+            {cvEnabled && cleanlinessCheckEnabled
+              ? 'Снимок сверху до начала работ. Модель оценит пыль, грязь и мусор — на закрытие заявки это не влияет.'
+              : 'Снимок сверху до начала работ. На закрытие заявки не влияет.'}
+          </p>
+          {beforeIssues.length > 0 && (
+            <p className="photo-cv-note">
+              🔍 До уборки зафиксировано: {beforeIssues.map((c) => c.issueLabels.join(', ').toLowerCase()).join('; ')}
+            </p>
+          )}
+          <div className="photo-slots photo-slots-before">
+            {BEFORE_PHOTO_TYPES.map(renderSlot)}
+          </div>
+        </div>
+      )}
 
       {cameraType && (
         <CameraCaptureModal
-          photoType={cameraType}
-          stepIndex={PHOTO_TYPES.indexOf(cameraType) + 1}
-          totalSteps={PHOTO_TYPES.length}
+          photoType={isBeforePhotoType(cameraType) ? 'top' : cameraType}
+          stepIndex={isBeforePhotoType(cameraType) ? 1 : PHOTO_TYPES.indexOf(cameraType) + 1}
+          totalSteps={isBeforePhotoType(cameraType) ? 1 : PHOTO_TYPES.length}
           onCapture={handleCameraCapture}
           onClose={() => setCameraType(null)}
         />
@@ -392,6 +428,10 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
         .photo-slot.cv-pending { border-style: solid; border-color: var(--warning); background: #78350f22; }
         .photo-slot.cv-warn { border-style: solid; border-color: var(--warning); background: #78350f18; }
         .photo-slot.empty { border-color: var(--warning); }
+        .photo-slot.optional { border-color: var(--border); }
+        .photo-before-section { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+        .photo-slots-before { grid-template-columns: repeat(4, 1fr); }
+        .photo-cv-note { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem; }
         .photo-slot-empty { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; width: 100%; }
         .photo-slot-guide { width: 100%; max-width: 88px; opacity: 0.92; }
         .photo-slot-label { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-muted); }
@@ -408,6 +448,7 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
         .photo-cv-badge.fail { background: var(--danger); color: white; }
         .photo-cv-badge.warn { background: var(--warning); color: black; cursor: help; }
         .photo-cv-badge.pending { background: var(--warning); color: black; }
+        .photo-cv-badge.note { background: rgba(0,0,0,0.6); color: white; cursor: help; }
         .photo-add-btn {
           width: 56px; height: 56px; border-radius: 50%;
           background: var(--surface-hover); border: 1px solid var(--border);
@@ -422,9 +463,11 @@ export default function PhotoUpload({ taskId, readOnly = false, onChange }) {
         .photo-missing { color: var(--text-muted); font-size: 0.8rem; }
         @media (max-width: 768px) {
           .photo-slots { grid-template-columns: repeat(2, 1fr); }
+          .photo-slots-before { grid-template-columns: repeat(2, 1fr); }
         }
         @media (max-width: 480px) {
           .photo-slots { grid-template-columns: 1fr; }
+          .photo-slots-before { grid-template-columns: 1fr; }
         }
       `}</style>
     </div>

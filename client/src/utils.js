@@ -157,14 +157,23 @@ export function hasRouteAccess(user, roles) {
   return normalized.includes(userRole);
 }
 
+/** Ракурсы после уборки — обязательны для закрытия заявки. */
 export const PHOTO_TYPES = ['left', 'right', 'front', 'top'];
+
+/** Фото до уборки — необязательные, проверяются только на чистоту. */
+export const BEFORE_PHOTO_TYPES = ['before_top'];
 
 export const PHOTO_TYPE_LABELS = {
   left: 'Слева',
   right: 'Справа',
   front: 'Спереди',
   top: 'Сверху',
+  before_top: 'Сверху',
 };
+
+export function isBeforePhotoType(type) {
+  return BEFORE_PHOTO_TYPES.includes(type);
+}
 
 export const CLEANLINESS_LEVELS = ['clean', 'dust', 'dirt', 'trash'];
 
@@ -195,7 +204,7 @@ export const VIEW_LABELS = {
 /** Фото с несовпавшим видом съёмки (модель уверенно определила другой). */
 export function getAngleMismatches(photos) {
   return photos
-    .filter((p) => p.photo_type && p.cv_angle_match === 0 && !p.offline)
+    .filter((p) => p.photo_type && !isBeforePhotoType(p.photo_type) && p.cv_angle_match === 0 && !p.offline)
     .map((p) => ({
       photo_type: p.photo_type,
       label: PHOTO_TYPE_LABELS[p.photo_type],
@@ -204,10 +213,17 @@ export function getAngleMismatches(photos) {
     }));
 }
 
-/** Фото с замечаниями по чистоте: пыль, грязь, мусор. */
-export function getCleanlinessIssues(photos) {
+/**
+ * Фото с замечаниями по чистоте: пыль, грязь, мусор.
+ * @param {object[]} photos
+ * @param {object} [opts]
+ * @param {boolean} [opts.before] брать фото «до уборки» вместо фото после
+ */
+export function getCleanlinessIssues(photos, { before = false } = {}) {
   return photos
-    .filter((p) => p.photo_type && !p.offline && Array.isArray(p.cv_issues) && p.cv_issues.length > 0)
+    .filter((p) => p.photo_type && !p.offline
+      && isBeforePhotoType(p.photo_type) === before
+      && Array.isArray(p.cv_issues) && p.cv_issues.length > 0)
     .map((p) => ({
       photo_type: p.photo_type,
       label: PHOTO_TYPE_LABELS[p.photo_type],

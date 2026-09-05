@@ -66,6 +66,7 @@ function rowToSettings(row) {
     cleanliness_check_enabled: row.cleanliness_check_enabled !== 0,
     cleanliness_threshold: clampUnit(row.cleanliness_threshold, CLEANLINESS_THRESHOLD_DEFAULT),
     cleanliness_block_on_dirty: row.cleanliness_block_on_dirty === 1,
+    before_photo_enabled: row.before_photo_enabled !== 0,
     updated_at: row.updated_at,
     updated_by: row.updated_by,
   };
@@ -90,6 +91,7 @@ export function getCvSettings() {
       cleanliness_check_enabled: true,
       cleanliness_threshold: CLEANLINESS_THRESHOLD_DEFAULT,
       cleanliness_block_on_dirty: false,
+      before_photo_enabled: true,
       updated_at: null,
       updated_by: null,
     };
@@ -104,6 +106,7 @@ export function updateCvSettings({
   executor_photo_max_edge, executor_photo_jpeg_quality, executor_photo_overlay,
   angle_check_enabled, angle_threshold, angle_block_on_mismatch,
   cleanliness_check_enabled, cleanliness_threshold, cleanliness_block_on_dirty,
+  before_photo_enabled,
 }, userId) {
   const current = db.prepare('SELECT * FROM cv_settings WHERE id = 1').get();
   const next = {
@@ -143,6 +146,9 @@ export function updateCvSettings({
     cleanliness_block_on_dirty: cleanliness_block_on_dirty !== undefined
       ? (cleanliness_block_on_dirty ? 1 : 0)
       : (current?.cleanliness_block_on_dirty ?? 0),
+    before_photo_enabled: before_photo_enabled !== undefined
+      ? (before_photo_enabled ? 1 : 0)
+      : (current?.before_photo_enabled ?? 1),
   };
 
   if (next.threshold < 0.05 || next.threshold > 0.95) {
@@ -172,9 +178,10 @@ export function updateCvSettings({
       executor_photo_max_edge, executor_photo_jpeg_quality, executor_photo_overlay,
       angle_check_enabled, angle_threshold, angle_block_on_mismatch,
       cleanliness_check_enabled, cleanliness_threshold, cleanliness_block_on_dirty,
+      before_photo_enabled,
       updated_at, updated_by
     )
-    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
+    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
     ON CONFLICT(id) DO UPDATE SET
       enabled = excluded.enabled,
       threshold = excluded.threshold,
@@ -190,6 +197,7 @@ export function updateCvSettings({
       cleanliness_check_enabled = excluded.cleanliness_check_enabled,
       cleanliness_threshold = excluded.cleanliness_threshold,
       cleanliness_block_on_dirty = excluded.cleanliness_block_on_dirty,
+      before_photo_enabled = excluded.before_photo_enabled,
       updated_at = excluded.updated_at,
       updated_by = excluded.updated_by
   `).run(
@@ -207,6 +215,7 @@ export function updateCvSettings({
     next.cleanliness_check_enabled,
     next.cleanliness_threshold,
     next.cleanliness_block_on_dirty,
+    next.before_photo_enabled,
     userId ?? null,
   );
 

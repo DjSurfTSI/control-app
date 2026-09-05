@@ -24,6 +24,7 @@ function applyCachedStatus(setters) {
   setters.setExecutorPhotoOverlay(cachedStatus.executor_photo_overlay);
   setters.setAngleCheckEnabled(cachedStatus.angle_check_enabled);
   setters.setCleanlinessCheckEnabled(cachedStatus.cleanliness_check_enabled);
+  setters.setBeforePhotoEnabled(cachedStatus.before_photo_enabled);
 }
 
 export function useCvStatus() {
@@ -48,6 +49,9 @@ export function useCvStatus() {
   const [cleanlinessCheckEnabled, setCleanlinessCheckEnabled] = useState(
     cachedStatus?.cleanliness_check_enabled ?? true,
   );
+  const [beforePhotoEnabled, setBeforePhotoEnabled] = useState(
+    cachedStatus?.before_photo_enabled ?? true,
+  );
   const [loading, setLoading] = useState(false);
   const [tick, setTick] = useState(0);
 
@@ -71,6 +75,7 @@ export function useCvStatus() {
           setExecutorPhotoOverlay,
           setAngleCheckEnabled,
           setCleanlinessCheckEnabled,
+          setBeforePhotoEnabled,
         });
         return;
       }
@@ -87,6 +92,7 @@ export function useCvStatus() {
             executor_photo_overlay: data.executor_photo_overlay !== false,
             angle_check_enabled: data.angle_check_enabled !== false,
             cleanliness_check_enabled: data.cleanliness_check_enabled !== false,
+            before_photo_enabled: data.before_photo_enabled !== false,
           };
           applyCachedStatus({
             setCvEnabledGlobal,
@@ -97,6 +103,7 @@ export function useCvStatus() {
             setExecutorPhotoOverlay,
             setAngleCheckEnabled,
             setCleanlinessCheckEnabled,
+            setBeforePhotoEnabled,
           });
         }
       } catch {
@@ -109,6 +116,7 @@ export function useCvStatus() {
           setExecutorPhotoOverlay(true);
           setAngleCheckEnabled(true);
           setCleanlinessCheckEnabled(true);
+          setBeforePhotoEnabled(true);
         }
       } finally {
         setLoading(false);
@@ -132,6 +140,7 @@ export function useCvStatus() {
     executorPhotoOverlay,
     angleCheckEnabled,
     cleanlinessCheckEnabled,
+    beforePhotoEnabled,
     loading,
   };
 }

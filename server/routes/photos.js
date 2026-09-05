@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import db, { REQUIRED_PHOTO_TYPES } from '../db.js';
+import db, { ALL_PHOTO_TYPES } from '../db.js';
 import { authMiddleware } from '../middleware.js';
 import { isManager, isExecutor } from '../roles.js';
 import { canExecutorSelfAssignTask } from '../constants.js';
@@ -105,9 +105,9 @@ router.post('/:taskId', (req, res, next) => {
   if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
 
   const photoType = req.body.photo_type;
-  if (!photoType || !REQUIRED_PHOTO_TYPES.includes(photoType)) {
+  if (!photoType || !ALL_PHOTO_TYPES.includes(photoType)) {
     fs.unlinkSync(req.file.path);
-    return res.status(400).json({ error: 'Укажите тип фото: left, right, front или top' });
+    return res.status(400).json({ error: `Укажите тип фото: ${ALL_PHOTO_TYPES.join(', ')}` });
   }
 
   const existing = db.prepare(

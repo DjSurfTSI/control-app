@@ -5,6 +5,7 @@ import { formatDateTime, CV_ASSIGNABLE_ROLES } from '../utils';
 import { invalidateCvStatus } from '../hooks/useCvStatus';
 import ReferenceDirectoriesEditor from '../components/ReferenceDirectoriesEditor';
 import FieldBuilderPanel from '../components/FieldBuilderPanel';
+import CvTrainingPanel from '../components/CvTrainingPanel';
 
 function CvSettingsPanel() {
   const [settings, setSettings] = useState(null);
@@ -23,6 +24,7 @@ function CvSettingsPanel() {
     cleanliness_check_enabled: true,
     cleanliness_threshold: 0.65,
     cleanliness_block_on_dirty: false,
+    before_photo_enabled: true,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -49,6 +51,7 @@ function CvSettingsPanel() {
           cleanliness_check_enabled: data.cleanliness_check_enabled !== false,
           cleanliness_threshold: data.cleanliness_threshold ?? 0.65,
           cleanliness_block_on_dirty: data.cleanliness_block_on_dirty === true,
+          before_photo_enabled: data.before_photo_enabled !== false,
         });
       } catch (e) {
         setError(e.message);
@@ -80,6 +83,7 @@ function CvSettingsPanel() {
         cleanliness_check_enabled: data.cleanliness_check_enabled !== false,
         cleanliness_threshold: data.cleanliness_threshold ?? 0.65,
         cleanliness_block_on_dirty: data.cleanliness_block_on_dirty === true,
+        before_photo_enabled: data.before_photo_enabled !== false,
       });
       setSuccess('Настройки сохранены');
       invalidateCvStatus();
@@ -282,6 +286,22 @@ function CvSettingsPanel() {
             </label>
             <p className="hint">
               Включено — заявку нельзя закрыть, пока на фото видны пыль, грязь или мусор.
+              На фото «до уборки» не распространяется.
+            </p>
+          </div>
+
+          <div className="form-group toggle-row">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={form.before_photo_enabled}
+                onChange={(e) => setForm((f) => ({ ...f, before_photo_enabled: e.target.checked }))}
+              />
+              <span>Фото «до уборки» (ракурс сверху)</span>
+            </label>
+            <p className="hint">
+              Необязательный снимок до начала работ. Оценивается на пыль, грязь и мусор,
+              но закрытие заявки никогда не блокирует.
             </p>
           </div>
         </div>
@@ -375,7 +395,7 @@ function CvSettingsPanel() {
   );
 }
 
-const VALID_TABS = ['cv', 'directories', 'fields'];
+const VALID_TABS = ['cv', 'training', 'directories', 'fields'];
 
 export default function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -419,6 +439,15 @@ export default function Settings() {
         <button
           type="button"
           role="tab"
+          aria-selected={tab === 'training'}
+          className={`settings-tab${tab === 'training' ? ' active' : ''}`}
+          onClick={() => selectTab('training')}
+        >
+          🎓 Обучение модели
+        </button>
+        <button
+          type="button"
+          role="tab"
           aria-selected={tab === 'directories'}
           className={`settings-tab${tab === 'directories' ? ' active' : ''}`}
           onClick={() => selectTab('directories')}
@@ -437,6 +466,7 @@ export default function Settings() {
       </div>
 
       {tab === 'cv' && <CvSettingsPanel />}
+      {tab === 'training' && <CvTrainingPanel />}
       {tab === 'directories' && <ReferenceDirectoriesEditor />}
       {tab === 'fields' && (
         <FieldBuilderPanel initialEntity={entityParam || 'tasks'} />

@@ -1,5 +1,7 @@
 import { getCvSettings } from './settings.js';
 import { classifyImage, readImage, round3, sumScore } from './classifier.js';
+import { getActiveModel, predictWithModel } from './training.js';
+import { resolveEmbedding } from './embedding.js';
 
 export const CLEANLINESS_LEVELS = ['clean', 'dust', 'dirt', 'trash'];
 export const CLEANLINESS_ISSUES = ['dust', 'dirt', 'trash'];
@@ -91,23 +93,52 @@ export function evaluateCleanliness(results, { threshold = 0.65 } = {}) {
   };
 }
 
+/** Вердикт обученной модели: один класс из clean/dust/dirt/trash. */
+function evaluateTrained(prediction, threshold) {
+  const scores = Object.fromEntries(
+    CLEANLINESS_LEVELS.map((l) => [l, prediction.scores[l] ?? 0]),
+  );
+  const dirty = prediction.label !== 'clean' && prediction.confidence >= threshold;
+  const level = dirty ? prediction.label : 'clean';
+
+  return {
+    level,
+    clean: !dirty,
+    score: round3(scores.clean),
+    confidence: prediction.confidence,
+    issues: dirty ? [level] : [],
+    scores,
+    reason: 'ok',
+    source: 'trained',
+  };
+}
+
 /**
  * Оценивает чистоту уборки на фото: пыль и грязь на корпусе, мусор на полу.
+ * Если бизнес-администратор обучил модель на своих фото — используется она.
  * @param {string|object} source путь к файлу или RawImage
+ * @param {object} [opts]
+ * @param {number[]} [opts.embedding] готовый эмбеддинг изображения
  */
-export async function detectCleanliness(source) {
+export async function detectCleanliness(source, { embedding = null } = {}) {
   const settings = getCvSettings();
   if (!settings.enabled || !settings.cleanliness_check_enabled) {
     return { skipped: true, level: null, clean: null, score: 0, issues: [], reason: 'disabled' };
   }
 
   try {
+    if (getActiveModel('cleanliness')) {
+      const vector = await resolveEmbedding(source, embedding, readImage);
+      const trained = predictWithModel('cleanliness', vector);
+      if (trained) return evaluateTrained(trained, settings.cleanliness_threshold);
+    }
+
     const image = typeof source === 'string' ? await readImage(source) : source;
     const results = await classifyImage(image, ALL_PROMPTS);
     if (!results) {
       return { skipped: true, level: null, clean: null, score: 0, issues: [], reason: 'cv_unavailable' };
     }
-    return evaluateCleanliness(results, { threshold: settings.cleanliness_threshold });
+    return { ...evaluateCleanliness(results, { threshold: settings.cleanliness_threshold }), source: 'zero-shot' };
   } catch (err) {
     console.error('CV cleanliness detection error:', err.message);
     return { skipped: true, level: null, clean: null, score: 0, issues: [], reason: 'error', error: err.message };

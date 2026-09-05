@@ -363,6 +363,7 @@ export const api = {
             executor_photo_overlay: true,
             angle_check_enabled: true,
             cleanliness_check_enabled: true,
+            before_photo_enabled: true,
           };
         }
       } catch {
@@ -378,6 +379,7 @@ export const api = {
           executor_photo_overlay: true,
           angle_check_enabled: true,
           cleanliness_check_enabled: true,
+          before_photo_enabled: true,
         };
       }
       throw err;
@@ -385,6 +387,17 @@ export const api = {
   },
 
   updateCvSettings: (data) => request('/settings/cv', { method: 'PATCH', body: JSON.stringify(data) }),
+
+  getCvTrainingSummary: () => request('/cv/training/summary'),
+  getCvTrainingPhotos: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
+    ).toString();
+    return request(`/cv/training/photos${qs ? `?${qs}` : ''}`);
+  },
+  setCvTrainingLabel: (data) => request('/cv/training/samples', { method: 'POST', body: JSON.stringify(data) }),
+  trainCvModel: (kind) => request('/cv/training/train', { method: 'POST', body: JSON.stringify({ kind }) }),
+  resetCvModel: (kind) => request('/cv/training/reset', { method: 'POST', body: JSON.stringify({ kind }) }),
 
   getWorkspace: () => request('/workspace'),
   updateWorkspace: (config) => request('/workspace', { method: 'PUT', body: JSON.stringify({ config }) }),
