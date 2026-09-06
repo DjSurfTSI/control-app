@@ -1097,13 +1097,15 @@ label {
   gap: 0.2rem;
 }
 
-.tasks-load-more {
+.tasks-load-more,
+.list-load-more {
   display: flex;
   justify-content: center;
   padding-top: 0.75rem;
 }
 
-.tasks-load-more button { min-width: 12rem; }
+.tasks-load-more button,
+.list-load-more button { min-width: 12rem; }
 
 /* ——— Tasks table (desktop) ——— */
 .tasks-table {
@@ -1267,6 +1269,98 @@ label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ——— Справочники: поиск и карточки ——— */
+.directory-search {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.directory-search input {
+  width: 100%;
+  padding-right: 3.5rem;
+}
+
+.directory-search-count {
+  position: absolute;
+  top: 50%;
+  right: 0.6rem;
+  transform: translateY(-50%);
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.entity-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.entity-card {
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.entity-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.entity-card-title {
+  min-width: 0;
+  font-size: 0.95rem;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.entity-card-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.35rem;
+}
+
+.entity-card-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0.5rem 0 0;
+}
+
+.entity-card-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.entity-card-row dt {
+  flex-shrink: 0;
+  min-width: 7rem;
+  color: var(--text-muted);
+}
+
+.entity-card-row dd {
+  margin: 0;
+  min-width: 0;
+  word-break: break-word;
+}
+
+/* В карточке места хватает — обрезка, нужная в узкой колонке, только мешает. */
+.entity-card .directory-table-cell-truncate,
+.entity-card .directory-table-cell-address {
+  max-width: none;
+  overflow: visible;
+  white-space: normal;
 }
 
 .directory-sub {
@@ -1531,23 +1625,27 @@ label {
   }
 }
 
-/* ——— Плотность списка заявок на мобильных ——— */
+/* ——— Плотность списков на мобильных ——— */
 @media (max-width: 767px) {
   /* Подпись страницы и крупные отступы съедают верх первого экрана. */
-  .tasks-page .page-subtitle { display: none; }
+  .tasks-page .page-subtitle,
+  .directory-page .page-subtitle { display: none; }
 
-  .tasks-page .page-header {
+  .tasks-page .page-header,
+  .directory-page .page-header {
     margin-bottom: 0.6rem;
     gap: 0.5rem;
   }
 
-  .tasks-page .page-title {
+  .tasks-page .page-title,
+  .directory-page .page-title {
     font-size: 1.2rem;
     margin-bottom: 0;
   }
 
   /* Список сам состоит из карточек — внешняя обёртка даёт второй фон и отступы. */
-  .tasks-list-card {
+  .tasks-list-card,
+  .directory-list-card {
     padding: 0;
     background: none;
     border: none;
@@ -1556,6 +1654,18 @@ label {
 
   /* Расстояние между карточками задаёт gap контейнера. */
   .mobile-tasks .task-card { margin-bottom: 0; }
+
+  /* Две кнопки шапки в строку — иначе они переносятся и добавляют ряд. */
+  .directory-page .header-actions {
+    width: 100%;
+    flex-wrap: nowrap;
+  }
+
+  .directory-page .header-actions button { flex: 1; }
+
+  .directory-search { margin-bottom: 0.6rem; }
+
+  .entity-card-row dt { min-width: 6rem; }
 }
 
 /* ——— Tables ——— */

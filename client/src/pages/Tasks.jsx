@@ -11,6 +11,7 @@ import {
   canExecutorTakeTask,
   EXECUTOR_MOBILE_TABS, filterTasksByExecutorTab, TASK_FILTER_STATUSES, canBulkAssignTask, canBulkAssignSelfTask,
 } from '../utils';
+import { useIsMobile } from '../hooks/useIsMobile';
 import PhotoUpload from '../components/PhotoUpload';
 import TaskCard from '../components/TaskCard';
 import { useEntityColumns } from '../context/EntityFieldsContext';
@@ -308,7 +309,7 @@ export default function Tasks() {
   const [importModal, setImportModal] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [filters, setFilters] = useState({ ...EMPTY_FILTERS, status: searchParams.get('status') || '' });
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const isMobile = useIsMobile();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [executorMobileTab, setExecutorMobileTab] = useState('new');
   const [selectedIds, setSelectedIds] = useState(() => new Set());
@@ -406,12 +407,6 @@ export default function Tasks() {
       setLoadingMore(false);
     }
   };
-
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
 
   useEffect(() => {
     load();

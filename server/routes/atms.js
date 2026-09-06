@@ -14,6 +14,9 @@ import {
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 const router = Router();
 
+const ATMS_PAGE_LIMIT_MAX = 200;
+const ATMS_ORDER = ' ORDER BY territorial_bank, bank_name, address';
+
 router.use(authMiddleware);
 
 function mapDevice(row) {
@@ -24,11 +27,42 @@ function mapDevice(row) {
   });
 }
 
+/**
+ * Одна строка поиска вместо набора фильтров: на телефоне искать устройство
+ * удобнее по любому опознавательному признаку сразу.
+ */
+function buildAtmWhere(query) {
+  let sql = ' WHERE active = 1';
+  const params = [];
+  const search = String(query.search || '').trim();
+  if (search) {
+    sql += ` AND (serial_number LIKE ? OR address LIKE ? OR installation_name LIKE ?
+      OR COALESCE(territorial_bank, bank_name) LIKE ? OR COALESCE(gosb, zone) LIKE ?)`;
+    const like = `%${search}%`;
+    params.push(like, like, like, like, like);
+  }
+  return { sql, params };
+}
+
 router.get('/', (req, res) => {
-  const atms = db.prepare(
-    'SELECT * FROM atms WHERE active = 1 ORDER BY territorial_bank, bank_name, address'
-  ).all().map(mapDevice);
-  res.json(atms);
+  const where = buildAtmWhere(req.query);
+
+  // Без limit отдаём массив, как раньше: на этот формат опираются выпадающие
+  // списки в заявках.
+  if (req.query.limit === undefined) {
+    return res.json(
+      db.prepare(`SELECT * FROM atms${where.sql}${ATMS_ORDER}`).all(...where.params).map(mapDevice),
+    );
+  }
+
+  const limit = Math.min(ATMS_PAGE_LIMIT_MAX, Math.max(1, parseInt(req.query.limit, 10) || 20));
+  const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+  const total = db.prepare(`SELECT COUNT(*) AS n FROM atms${where.sql}`).get(...where.params).n;
+  const items = db.prepare(`SELECT * FROM atms${where.sql}${ATMS_ORDER} LIMIT ? OFFSET ?`)
+    .all(...where.params, limit, offset)
+    .map(mapDevice);
+
+  res.json({ items, total, limit, offset });
 });
 
 router.get('/import-template', requireRole('admin', 'supervisor'), (_req, res) => {

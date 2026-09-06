@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useIsMobile } from '../hooks/useIsMobile';
 import ExcelImportModal from '../components/ExcelImportModal';
 import EntityFieldTable from '../components/EntityFieldTable';
 import { EntityCustomFormFields, mergeCustomIntoPayload } from '../components/EntityCustomFormFields';
 import { getEntityFieldValue } from '../utils/entityFields';
+
+const PAGE_SIZE_MOBILE = 20;
+const PAGE_SIZE_DESKTOP = 50;
 
 const EMPTY_DIRECTORIES = {
   territorial_bank: [],
@@ -125,11 +129,19 @@ function DeviceModal({ device, directories, onClose, onSave, userRole }) {
 
 export default function Atms() {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [atms, setAtms] = useState([]);
   const [directories, setDirectories] = useState(EMPTY_DIRECTORIES);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
   const [importModal, setImportModal] = useState(false);
+  const [search, setSearch] = useState('');
+  const [query, setQuery] = useState('');
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const pageSize = isMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE_DESKTOP;
+  const hasMore = atms.length < total;
 
   const loadDirectories = async () => {
     try {
@@ -142,16 +154,34 @@ export default function Atms() {
   const load = async () => {
     setLoading(true);
     try {
-      setAtms(await api.getAtms());
+      const page = await api.getAtmsPage({ search: query }, { limit: pageSize, offset: 0 });
+      setAtms(page.items);
+      setTotal(page.total);
     } finally {
       setLoading(false);
     }
   };
 
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const page = await api.getAtmsPage({ search: query }, { limit: pageSize, offset: atms.length });
+      setAtms((prev) => [...prev, ...page.items]);
+      setTotal(page.total);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  useEffect(() => { loadDirectories(); }, []);
+
+  // Запрос уходит на сервер, поэтому ждём паузу в наборе.
   useEffect(() => {
-    load();
-    loadDirectories();
-  }, []);
+    const id = setTimeout(() => setQuery(search.trim()), 300);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  useEffect(() => { load(); }, [query, pageSize]);
 
   const handleSave = async (action, form) => {
     if (action === 'create') await api.createAtm(form);
@@ -186,7 +216,7 @@ export default function Atms() {
   };
 
   return (
-    <div>
+    <div className="directory-page">
       <div className="page-header">
         <div>
           <h2 className="page-title">Устройства самообслуживания</h2>
@@ -198,11 +228,22 @@ export default function Atms() {
         </div>
       </div>
 
-      <div className="card">
+      <div className="directory-search">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Поиск: ID УС, адрес, место, банк, ГОСБ"
+          aria-label="Поиск устройств"
+        />
+        {!loading && <span className="directory-search-count">{total}</span>}
+      </div>
+
+      <div className="card directory-list-card">
         {loading ? (
           <p className="empty-state">Загрузка...</p>
         ) : atms.length === 0 ? (
-          <p className="empty-state">Устройства не добавлены</p>
+          <p className="empty-state">{query ? 'Ничего не найдено' : 'Устройства не добавлены'}</p>
         ) : (
           <EntityFieldTable
             entity="atms"
@@ -212,7 +253,16 @@ export default function Atms() {
             tableClass="directory-table"
             renderCell={renderAtmCell}
             emptyMessage="Устройства не добавлены"
+            cards={isMobile}
           />
+        )}
+
+        {!loading && hasMore && (
+          <div className="list-load-more">
+            <button type="button" className="btn-secondary" onClick={loadMore} disabled={loadingMore}>
+              {loadingMore ? 'Загрузка…' : `Показать ещё (${total - atms.length})`}
+            </button>
+          </div>
         )}
       </div>
 

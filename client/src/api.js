@@ -142,6 +142,12 @@ export const api = {
   },
 
   getUsers: (role) => request(`/users${role ? `?role=${role === 'cleaner' ? 'executor' : role}` : ''}`),
+  getUsersPage: ({ role, search } = {}, { limit = 20, offset = 0 } = {}) => {
+    const q = new URLSearchParams({ limit, offset });
+    if (role) q.set('role', role === 'cleaner' ? 'executor' : role);
+    if (search) q.set('search', search);
+    return request(`/users?${q}`);
+  },
   createUser: (data) => request('/users', { method: 'POST', body: JSON.stringify(data) }),
   updateUser: (id, data) => request(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
@@ -156,6 +162,11 @@ export const api = {
   },
 
   getAtms: () => request('/atms'),
+  getAtmsPage: ({ search } = {}, { limit = 20, offset = 0 } = {}) => {
+    const q = new URLSearchParams({ limit, offset });
+    if (search) q.set('search', search);
+    return request(`/atms?${q}`);
+  },
   createAtm: (data) => request('/atms', { method: 'POST', body: JSON.stringify(data) }),
   updateAtm: (id, data) => request(`/atms/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   downloadAtmsTemplate: async () => {

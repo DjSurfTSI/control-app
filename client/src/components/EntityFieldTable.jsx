@@ -9,6 +9,7 @@ export default function EntityFieldTable({
   rowKey = 'id',
   renderCell,
   emptyMessage = 'Нет данных',
+  cards = false,
 }) {
   const { fields, loading } = useEntityColumns(entity, view, role);
 
@@ -23,6 +24,39 @@ export default function EntityFieldTable({
 
   if (!rows.length) {
     return <p className="hint">{emptyMessage}</p>;
+  }
+
+  // На узком экране таблица уезжает в горизонтальную прокрутку, поэтому те же
+  // колонки показываем как список «подпись — значение».
+  if (cards) {
+    const actionsField = fields.find((f) => f.type === 'actions');
+    const [titleField, ...restFields] = fields.filter((f) => f.type !== 'actions');
+    return (
+      <div className="entity-cards">
+        {rows.map((row) => {
+          // Прочерк вместо кнопок нужен таблице, чтобы не разъезжалась колонка;
+          // в карточке выравнивать нечего, и он выглядит мусором.
+          const actions = actionsField ? renderCell(actionsField, row) : null;
+          const hasActions = actions && typeof actions !== 'string' && typeof actions !== 'number';
+          return (
+            <article className="entity-card" key={row[rowKey] ?? row.id}>
+              <div className="entity-card-head">
+                <div className="entity-card-title">{titleField ? renderCell(titleField, row) : null}</div>
+                {hasActions && <div className="entity-card-actions">{actions}</div>}
+              </div>
+              <dl className="entity-card-rows">
+                {restFields.map((field) => (
+                  <div className="entity-card-row" key={field.id}>
+                    <dt>{field.label}</dt>
+                    <dd>{renderCell(field, row)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </article>
+          );
+        })}
+      </div>
+    );
   }
 
   return (

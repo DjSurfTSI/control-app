@@ -18,6 +18,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 const router = Router();
 const MANAGERS = [ROLES.ADMIN, ROLES.SUPERVISOR];
 const VALID_ROLES = [ROLES.BIZADMIN, ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.EXECUTOR];
+const USERS_PAGE_LIMIT_MAX = 200;
 
 router.use(authMiddleware);
 
@@ -43,24 +44,55 @@ function canManageUser(actor, target) {
   return false;
 }
 
-router.get('/', requireRole(...MANAGERS), (req, res) => {
-  const { role } = req.query;
-  let sql = `
-    SELECT id, email, full_name, role, phone, active, created_at,
-      territorial_bank, position, employee_number, rating
-    FROM users WHERE 1=1
-  `;
+/**
+ * Одна строка поиска вместо набора фильтров: на телефоне найти сотрудника
+ * удобнее по любому признаку сразу.
+ */
+function buildUserWhere(query, actor) {
+  let sql = ' WHERE 1=1';
   const params = [];
 
-  if (req.user.role === ROLES.SUPERVISOR) {
+  if (actor.role === ROLES.SUPERVISOR) {
     sql += " AND role = 'executor'";
-  } else if (role) {
+  } else if (query.role) {
     sql += ' AND role = ?';
-    params.push(role === 'cleaner' ? 'executor' : role);
+    params.push(query.role === 'cleaner' ? 'executor' : query.role);
   }
 
-  sql += ' ORDER BY full_name';
-  res.json(db.prepare(sql).all(...params).map((row) => attachCustomFields(row)));
+  const search = String(query.search || '').trim();
+  if (search) {
+    sql += ' AND (full_name LIKE ? OR email LIKE ? OR phone LIKE ? OR employee_number LIKE ? OR position LIKE ?)';
+    const like = `%${search}%`;
+    params.push(like, like, like, like, like);
+  }
+
+  return { sql, params };
+}
+
+router.get('/', requireRole(...MANAGERS), (req, res) => {
+  const where = buildUserWhere(req.query, req.user);
+  const select = `
+    SELECT id, email, full_name, role, phone, active, created_at,
+      territorial_bank, position, employee_number, rating
+    FROM users
+  `;
+
+  // Без limit отдаём массив, как раньше: на этот формат опираются выпадающие
+  // списки исполнителей в заявках.
+  if (req.query.limit === undefined) {
+    return res.json(
+      db.prepare(`${select}${where.sql} ORDER BY full_name`).all(...where.params).map(attachCustomFields),
+    );
+  }
+
+  const limit = Math.min(USERS_PAGE_LIMIT_MAX, Math.max(1, parseInt(req.query.limit, 10) || 20));
+  const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+  const total = db.prepare(`SELECT COUNT(*) AS n FROM users${where.sql}`).get(...where.params).n;
+  const items = db.prepare(`${select}${where.sql} ORDER BY full_name LIMIT ? OFFSET ?`)
+    .all(...where.params, limit, offset)
+    .map(attachCustomFields);
+
+  res.json({ items, total, limit, offset });
 });
 
 router.get('/import-template', requireRole(...MANAGERS), (_req, res) => {

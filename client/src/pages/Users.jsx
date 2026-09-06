@@ -2,10 +2,14 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { ROLE_LABELS, isAdmin, isBizAdmin } from '../utils';
+import { useIsMobile } from '../hooks/useIsMobile';
 import ExcelImportModal from '../components/ExcelImportModal';
 import EntityFieldTable from '../components/EntityFieldTable';
 import { EntityCustomFormFields, mergeCustomIntoPayload } from '../components/EntityCustomFormFields';
 import { getEntityFieldValue } from '../utils/entityFields';
+
+const PAGE_SIZE_MOBILE = 20;
+const PAGE_SIZE_DESKTOP = 50;
 
 function EmployeeModal({ user, onClose, onSave, canEditRoles, assignableRoles, userRole }) {
   const isNew = !user?.id;
@@ -131,17 +135,49 @@ export default function Users() {
       ? ['admin', 'supervisor', 'executor']
       : ['executor'];
 
+  const isMobile = useIsMobile();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
   const [importModal, setImportModal] = useState(false);
+  const [search, setSearch] = useState('');
+  const [query, setQuery] = useState('');
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const pageSize = isMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE_DESKTOP;
+  const hasMore = users.length < total;
+  const listParams = { role: admin ? undefined : 'executor', search: query };
 
   const load = async () => {
     setLoading(true);
-    try { setUsers(await api.getUsers(admin ? undefined : 'executor')); } finally { setLoading(false); }
+    try {
+      const page = await api.getUsersPage(listParams, { limit: pageSize, offset: 0 });
+      setUsers(page.items);
+      setTotal(page.total);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { load(); }, []);
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const page = await api.getUsersPage(listParams, { limit: pageSize, offset: users.length });
+      setUsers((prev) => [...prev, ...page.items]);
+      setTotal(page.total);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // Запрос уходит на сервер, поэтому ждём паузу в наборе.
+  useEffect(() => {
+    const id = setTimeout(() => setQuery(search.trim()), 300);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  useEffect(() => { load(); }, [query, pageSize]);
 
   const handleSave = async (action, form) => {
     if (action === 'create') {
@@ -214,7 +250,7 @@ export default function Users() {
   };
 
   return (
-    <div className="page-enter">
+    <div className="page-enter directory-page">
       <div className="page-header">
         <div>
           <h2 className="page-title">Сотрудники</h2>
@@ -226,11 +262,22 @@ export default function Users() {
         </div>
       </div>
 
-      <div className="card animate-slide-up">
+      <div className="directory-search">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Поиск: ФИО, email, телефон, табельный"
+          aria-label="Поиск сотрудников"
+        />
+        {!loading && <span className="directory-search-count">{total}</span>}
+      </div>
+
+      <div className="card animate-slide-up directory-list-card">
         {loading ? (
           <p className="empty-state">Загрузка...</p>
         ) : users.length === 0 ? (
-          <p className="empty-state">Нет сотрудников</p>
+          <p className="empty-state">{query ? 'Ничего не найдено' : 'Нет сотрудников'}</p>
         ) : (
           <EntityFieldTable
             entity="users"
@@ -240,7 +287,16 @@ export default function Users() {
             tableClass="directory-table"
             renderCell={renderUserCell}
             emptyMessage="Нет сотрудников"
+            cards={isMobile}
           />
+        )}
+
+        {!loading && hasMore && (
+          <div className="list-load-more">
+            <button type="button" className="btn-secondary" onClick={loadMore} disabled={loadingMore}>
+              {loadingMore ? 'Загрузка…' : `Показать ещё (${total - users.length})`}
+            </button>
+          </div>
         )}
       </div>
 
