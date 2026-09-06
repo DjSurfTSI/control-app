@@ -8,3 +8,4 @@ uploads/
 .cache/
 .DS_Store
 .gigaide/
+.idea/
