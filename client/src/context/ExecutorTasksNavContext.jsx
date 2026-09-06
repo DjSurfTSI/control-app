@@ -4,6 +4,8 @@ export const EXECUTOR_NAV_DEFAULT = {
   enabled: false,
   activeTab: 'new',
   tasks: [],
+  /** Счётчики по статусам с сервера; null — считать по загруженным заявкам. */
+  counts: null,
   onTabChange: null,
 };
 

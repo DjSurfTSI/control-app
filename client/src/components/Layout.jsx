@@ -101,6 +101,7 @@ function LayoutShell() {
           <ExecutorStatusNav
             activeTab={executorNav.activeTab}
             tasks={executorNav.tasks}
+            counts={executorNav.counts}
             onTabChange={executorNav.onTabChange}
           />
         ) : (

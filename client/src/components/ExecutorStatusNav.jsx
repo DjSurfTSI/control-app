@@ -1,10 +1,12 @@
 import { EXECUTOR_MOBILE_TABS, countTasksForExecutorTab } from '../utils';
 
-export default function ExecutorStatusNav({ activeTab, tasks, onTabChange }) {
+export default function ExecutorStatusNav({ activeTab, tasks, counts, onTabChange }) {
   return (
     <>
       {EXECUTOR_MOBILE_TABS.map((tab) => {
-        const count = countTasksForExecutorTab(tasks, tab);
+        // Заявки грузятся постранично, поэтому счётчики приходят с сервера;
+        // офлайн их нет — считаем по тому, что есть в кэше.
+        const count = counts ? (counts[tab.id] ?? 0) : countTasksForExecutorTab(tasks, tab);
         const active = activeTab === tab.id;
         const hasItems = count > 0;
         return (

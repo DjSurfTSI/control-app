@@ -193,6 +193,48 @@ export const api = {
     }
   },
 
+  /**
+   * Страница заявок. Офлайн отдаёт весь кэш одним куском: постранично
+   * его не нарезать, а показать что-то важнее, чем соблюсти пагинацию.
+   */
+  getTasksPage: async (params = {}, { limit = 20, offset = 0 } = {}) => {
+    const baseKey = new URLSearchParams(params).toString() || '_all';
+
+    if (isEffectiveOffline()) {
+      const cached = await getCachedTasks(baseKey);
+      if (cached) return { items: cached, total: cached.length, complete: true };
+      throw new Error('Нет кэшированных заявок. Отключите офлайн-режим или подключите сеть.');
+    }
+
+    const q = new URLSearchParams({ ...params, limit, offset }).toString();
+    try {
+      const data = await request(`/tasks?${q}`);
+      // Кэшируем только первую страницу — офлайну нужен свежий срез, а не всё.
+      if (offset === 0) void cacheTasks(baseKey, data.items).catch(() => {});
+      return { items: data.items, total: data.total, complete: false };
+    } catch (err) {
+      if (offset === 0) {
+        try {
+          const cached = await getCachedTasks(baseKey);
+          if (cached) return { items: cached, total: cached.length, complete: true };
+        } catch {
+          /* ignore IDB errors */
+        }
+      }
+      throw err;
+    }
+  },
+
+  getTaskStatusCounts: async (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    try {
+      return await request(`/tasks/status-counts${q ? `?${q}` : ''}`);
+    } catch (err) {
+      if (isEffectiveOffline() || isNetworkError(err)) return null;
+      throw err;
+    }
+  },
+
   getStats: async () => {
     try {
       return await request('/tasks/stats');

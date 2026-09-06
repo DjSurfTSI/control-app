@@ -19,6 +19,10 @@ import ImportTasksModal from '../components/ImportTasksModal';
 import DateInput from '../components/DateInput';
 import DateRangeInput from '../components/DateRangeInput';
 
+/** Размер страницы: на мобильных экран узкий, грузить больше незачем. */
+const PAGE_SIZE_MOBILE = 20;
+const PAGE_SIZE_DESKTOP = 50;
+
 const EMPTY_FILTERS = {
   task_id: '', serial_number: '', status: '', accessibility_type: '', territorial_bank: '', gosb: '',
   address: '', installation_name: '',
@@ -310,13 +314,21 @@ export default function Tasks() {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [bulkExecutor, setBulkExecutor] = useState('');
   const [bulkAssigning, setBulkAssigning] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [listComplete, setListComplete] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [statusCounts, setStatusCounts] = useState(null);
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
   const showExecutorMobileTabs = executor && isMobile;
   const showBulkSelect = (manager || executor) && activeFilterCount > 0;
-  const mobileFilteredTasks = showExecutorMobileTabs
+  const pageSize = isMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE_DESKTOP;
+  // Сервер уже отфильтровал страницу по активной вкладке; клиентский фильтр
+  // нужен только офлайн, когда кэш отдаётся целиком.
+  const mobileFilteredTasks = showExecutorMobileTabs && listComplete
     ? filterTasksByExecutorTab(tasks, executorMobileTab)
     : tasks;
+  const hasMore = !listComplete && tasks.length < total;
   const bulkListTasks = showExecutorMobileTabs ? mobileFilteredTasks : tasks;
   const canSelectTask = (task) => (manager ? canBulkAssignTask(task) : canBulkAssignSelfTask(task));
   const selectableTasks = bulkListTasks.filter(canSelectTask);
@@ -333,22 +345,25 @@ export default function Tasks() {
         enabled: true,
         activeTab: executorMobileTab,
         tasks,
+        counts: statusCounts,
         onTabChange: handleExecutorTabChange,
       });
     } else {
       setExecutorNav(EXECUTOR_NAV_DEFAULT);
     }
     return () => setExecutorNav(EXECUTOR_NAV_DEFAULT);
-  }, [showExecutorMobileTabs, executorMobileTab, tasks, handleExecutorTabChange, setExecutorNav]);
+  }, [showExecutorMobileTabs, executorMobileTab, tasks, statusCounts, handleExecutorTabChange, setExecutorNav]);
 
   const setFilter = (key, val) => setFilters((f) => ({ ...f, [key]: val }));
 
   const buildParams = () => {
     const params = {};
-    const skipStatus = executor && isMobile;
     Object.entries(filters).forEach(([k, v]) => {
-      if (v && !(skipStatus && k === 'status')) params[k] = v;
+      if (v && !(showExecutorMobileTabs && k === 'status')) params[k] = v;
     });
+    // Вкладка исполнителя — это и есть фильтр по статусу. Раньше он применялся
+    // на клиенте, но с постраничной загрузкой вкладка была бы неполной.
+    if (showExecutorMobileTabs) params.status = executorMobileTab;
     return params;
   };
 
@@ -357,16 +372,38 @@ export default function Tasks() {
     setLoading(true);
     setLoadError('');
     try {
-      setTasks(await api.getTasks(buildParams()));
+      const page = await api.getTasksPage(buildParams(), { limit: pageSize, offset: 0 });
+      setTasks(page.items);
+      setTotal(page.total);
+      setListComplete(page.complete);
     } catch (e) {
       setLoadError(e.message || 'Не удалось загрузить заявки');
     } finally {
       setLoading(false);
     }
+    if (showExecutorMobileTabs) {
+      const countParams = buildParams();
+      delete countParams.status;
+      setStatusCounts(await api.getTaskStatusCounts(countParams));
+    }
     if (manager) {
       const [atmsResult, execResult] = await Promise.allSettled([api.getAtms(), api.getUsers('executor')]);
       if (atmsResult.status === 'fulfilled') setAtms(atmsResult.value);
       if (execResult.status === 'fulfilled') setExecutors(execResult.value);
+    }
+  };
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    setLoadError('');
+    try {
+      const page = await api.getTasksPage(buildParams(), { limit: pageSize, offset: tasks.length });
+      setTasks((prev) => [...prev, ...page.items]);
+      setTotal(page.total);
+    } catch (e) {
+      setLoadError(e.message || 'Не удалось загрузить ещё заявки');
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -376,7 +413,9 @@ export default function Tasks() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  useEffect(() => { load(); }, [user, JSON.stringify(filters), manager, executor, isMobile]);
+  useEffect(() => {
+    load();
+  }, [user, JSON.stringify(filters), manager, executor, isMobile, executorMobileTab]);
 
   useEffect(() => {
     if (!executor || !isMobile) return;
@@ -569,7 +608,7 @@ export default function Tasks() {
   };
 
   return (
-    <div className="page-enter">
+    <div className="page-enter tasks-page">
       <div className="page-header">
         <div>
           {showExecutorMobileTabs && (
@@ -702,7 +741,7 @@ export default function Tasks() {
         </div>
       )}
 
-      <div className="card animate-slide-up">
+      <div className="card animate-slide-up tasks-list-card">
         {loadError && <div className="error-msg">{loadError}</div>}
         {loading ? (
           <div className="loading-state"><div className="loading-spinner" /><span>Загрузка...</span></div>
@@ -795,6 +834,14 @@ export default function Tasks() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {!loading && hasMore && (
+          <div className="tasks-load-more">
+            <button type="button" className="btn-secondary" onClick={loadMore} disabled={loadingMore}>
+              {loadingMore ? 'Загрузка…' : `Показать ещё (${total - tasks.length})`}
+            </button>
           </div>
         )}
       </div>

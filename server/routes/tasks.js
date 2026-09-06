@@ -46,6 +46,15 @@ const TASK_SELECT = `
   LEFT JOIN users u ON u.id = t.assigned_to
 `;
 
+/** Те же соединения, что и в TASK_SELECT — для COUNT и группировок без тяжёлых подзапросов. */
+const TASK_FROM = `
+  FROM cleaning_tasks t
+  JOIN atms a ON a.id = t.atm_id
+  LEFT JOIN users u ON u.id = t.assigned_to
+`;
+
+const TASKS_PAGE_LIMIT_MAX = 200;
+
 const PRIORITY_MAP = {
   'низкий': 'low', 'low': 'low',
   'обычный': 'normal', 'normal': 'normal',
@@ -135,20 +144,64 @@ function mapTaskRow(row) {
   return attachCustomFields(row);
 }
 
+/** Область видимости заявок для роли: исполнитель видит свои и нераспределённые новые. */
+function taskScopeFor(user) {
+  if (!isExecutor(user)) return { sql: '', params: [] };
+  return {
+    sql: " AND (t.assigned_to = ? OR (t.assigned_to IS NULL AND t.status = 'new'))",
+    params: [user.id],
+  };
+}
+
 router.get('/', (req, res) => {
   markOverdue();
 
-  let sql = TASK_SELECT + ' WHERE 1=1';
-  const params = [];
+  const scope = taskScopeFor(req.user);
+  const built = applyTaskFilters(req.query, `${TASK_SELECT} WHERE 1=1${scope.sql}`, [...scope.params], req.user);
+  const sql = `${built.sql} ORDER BY t.scheduled_date DESC, t.id DESC`;
 
-  if (isExecutor(req.user)) {
-    sql += " AND (t.assigned_to = ? OR (t.assigned_to IS NULL AND t.status = 'new'))";
-    params.push(req.user.id);
+  // Без limit отдаём массив, как раньше: на этот формат опираются дашборд,
+  // экспорт и офлайн-кэш.
+  if (req.query.limit === undefined) {
+    return res.json(db.prepare(sql).all(...built.params).map(mapTaskRow));
   }
 
-  const built = applyTaskFilters(req.query, sql, params, req.user);
-  built.sql += ' ORDER BY t.scheduled_date DESC, t.id DESC';
-  res.json(db.prepare(built.sql).all(...built.params).map(mapTaskRow));
+  const limit = Math.min(TASKS_PAGE_LIMIT_MAX, Math.max(1, parseInt(req.query.limit, 10) || 20));
+  const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+
+  const counted = applyTaskFilters(
+    req.query,
+    `SELECT COUNT(*) AS n ${TASK_FROM} WHERE 1=1${scope.sql}`,
+    [...scope.params],
+    req.user,
+  );
+  const total = db.prepare(counted.sql).get(...counted.params).n;
+  const items = db.prepare(`${sql} LIMIT ? OFFSET ?`).all(...built.params, limit, offset).map(mapTaskRow);
+
+  res.json({ items, total, limit, offset });
+});
+
+/**
+ * Количество заявок по статусам с учётом текущих фильтров и роли.
+ * Нужно вкладкам исполнителя: сами заявки грузятся постранично,
+ * поэтому посчитать их на клиенте больше нельзя.
+ */
+router.get('/status-counts', (req, res) => {
+  markOverdue();
+
+  const scope = taskScopeFor(req.user);
+  const query = { ...req.query };
+  delete query.status;
+
+  const built = applyTaskFilters(
+    query,
+    `SELECT t.status AS status, COUNT(*) AS n ${TASK_FROM} WHERE 1=1${scope.sql}`,
+    [...scope.params],
+    req.user,
+  );
+
+  const rows = db.prepare(`${built.sql} GROUP BY t.status`).all(...built.params);
+  res.json(Object.fromEntries(rows.map((r) => [r.status, r.n])));
 });
 
 router.get('/stats', requireRole('admin', 'supervisor'), (req, res) => {
